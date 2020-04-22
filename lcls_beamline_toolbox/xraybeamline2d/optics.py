@@ -17,6 +17,7 @@ PPM: power profile monitor, for viewing beam intensity
 """
 import numpy as np
 import matplotlib.pyplot as plt
+from .pitch import TalbotLineout
 import scipy.interpolate as interpolation
 import scipy.ndimage as ndimage
 import scipy.optimize as optimize
@@ -1933,6 +1934,8 @@ class CRL:
         beam.zx = 1 / (1 / beam.zx + p2 * beam.lambda0 / np.pi)
         beam.zy = 1 / (1 / beam.zy + p2 * beam.lambda0 / np.pi)
 
+        print('focal length: %.2f' % (-1/(p2*beam.lambda0/np.pi)))
+
         beam.ax += p1_x * beam.lambda0 / 2 / np.pi
         beam.ay += p1_y * beam.lambda0 / 2 / np.pi
 
@@ -2022,7 +2025,7 @@ class PPM:
         """
 
         # set some attributes
-        self.n = N
+        self.N = N
         dx = FOV / N
         self.dx = dx
         self.fov = FOV
@@ -2045,6 +2048,7 @@ class PPM:
         self.cy = 0
         self.wx = 0
         self.wy = 0
+        self.lambda0 = 0.0
 
     def beam_analysis(self, line_x, line_y):
         """
@@ -2169,6 +2173,9 @@ class PPM:
         # calculate vertical lineout
         self.y_lineout = np.sum(self.profile, axis=1)
 
+        # get beam wavelength
+        self.lambda0 = beam.lambda0
+
         # calculate centroids and beam widths
         self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
 
@@ -2180,6 +2187,116 @@ class PPM:
         :return: None
         """
         self.calc_profile(beam)
+
+    def retrieve_wavefront(self, wfs):
+        """
+        Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
+        :param wfs: WFS object
+            Grating structure that generates Talbot interferometry patterns. Passed to this method to gain access
+            to its attributes.
+        :return wfs_data: dict
+            Includes the following entries
+            x_prime: (M,) ndarray
+                Horizontal coordinates for retrieved high-order phase
+            y_prime: (N,) ndarray
+                Vertical coordinates for retrieved high-order phase
+            x_res: (M,) ndarray
+                Horizontal residual phase (>2nd order) at points in x_prime
+            y_res: (N,) ndarray
+                Vertical residual phase (>2nd order) at points in y_prime
+            coeff_x: (k,) ndarray
+                Legendre coefficients for horizontal phase lineout
+            coeff_y: (k,) ndarray
+                Legendre coefficients for vertical phase lineout
+            z2x: float
+                Distance to horizontal focus
+            z2y: float
+                Distance to vertical focus
+        """
+
+        print('retrieving wavefront')
+
+        # get Talbot fraction that we're using (fractional Talbot effect)
+        fraction = wfs.fraction
+
+        # Distance from wavefront sensor to PPM
+        zT = self.z - wfs.z
+
+        # magnification of Talbot pattern
+        mag = (zT + wfs.f0) / wfs.f0
+
+        # number of pixels to sum across to get lineout
+        lineout_width = int(wfs.pitch / self.dx * 5 * mag)
+
+        # lineout boundaries in pixels (distance from center)
+        x_lim = int(self.wx/self.dx)
+        y_lim = int(self.wy/self.dx)
+
+        # calculated beam center in pixels
+        x_center = int(self.cx/self.dx) + self.N/2
+        y_center = int(self.cy/self.dx) + self.N/2
+
+        # get lineouts from 2d profile
+        lineout_x = np.sum(self.profile[int(y_center - lineout_width / 2):int(y_center + lineout_width / 2),
+                           int(x_center - x_lim):int(x_center+x_lim)], axis=0)
+        lineout_y = np.sum(self.profile[int(y_center-y_lim):int(y_center+y_lim),
+                           int(x_center - lineout_width / 2):int(x_center + lineout_width / 2)], axis=1)
+
+        # expected spatial frequency of Talbot pattern (1/m)
+        peak = 1. / mag / wfs.pitch * fraction
+
+        # spatial frequency now in units of (1/pixels)
+        fc = peak * self.dx
+
+        # calculate pitch from lineouts. See pitch module.
+        print('getting lineouts')
+        self.xline = TalbotLineout(lineout_x, fc, fraction)
+        self.yline = TalbotLineout(lineout_y, fc, fraction)
+
+        # parameters for calculating Legendre coefficients
+        param = {
+                "dg": wfs.pitch,  # wavefront sensor pitch (m)
+                "fraction": fraction,  # wavefront sensor fraction
+                "dx": self.dx,  # PPM pixel size
+                "zT": zT,  # distance between WFS and PPM
+                "lambda0": self.lambda0  # beam wavelength
+                }
+
+        # calculate Legendre coefficients
+        print('getting Legendre coefficients')
+        z_x, coeff_x, x_prime, x_res = self.xline.get_legendre(param)
+        z_y, coeff_y, y_prime, y_res = self.yline.get_legendre(param)
+        print('found Legendre coefficients')
+
+        # pixel size for retrieved wavefront
+        dx_prime = x_prime[1] - x_prime[0]
+        dy_prime = y_prime[1] - y_prime[0]
+
+        # re-center residual phase coordinates on beam center
+        x_prime += (x_center-self.N/2) * dx_prime
+        y_prime += (y_center-self.N/2) * dy_prime
+
+        # convert coordinates to microns
+        x_prime = x_prime * 1e6
+        y_prime = y_prime * 1e6
+
+        # print calculated distance to focus
+        print('Distance to source: '+str(z_x))
+        print('Distance to source: '+str(z_y))
+
+        # output. See method docstring for descriptions.
+        wfs_data = {
+                'x_res': x_res,
+                'x_prime': x_prime,
+                'y_res': y_res,
+                'y_prime': y_prime,
+                'coeff_x': coeff_x,
+                'coeff_y': coeff_y,
+                'z2x': z_x,
+                'z2y': z_y
+                }
+
+        return wfs_data
 
     def view_beam(self):
         """
@@ -2241,3 +2358,124 @@ class PPM:
         axes_handles = [ax_profile, ax_x, ax_y]
 
         return axes_handles
+
+
+class WFS:
+    """
+    Class to represent Talbot wavefront sensor gratings/pinhole arrays.
+
+    Attributes
+    ----------
+
+    """
+
+    def __init__(self, name, pitch=None, duty_cycle=0.1, z=None, f0=100, phase=False, enabled=True, fraction=1):
+        """
+        Method to initialize a wavefront sensor.
+        :param name: str
+            name of the device (e.g. PF1K4)
+        :param pitch: float
+            Period of the grating
+        :param duty_cycle: float
+            Duty cycle of the grating. Defaults to 0.1 (10%)
+        :param z: float
+            z-location along the beamline
+        :param f0: float
+            Nominal distance to focus
+        :param phase: bool
+            If True, make a phase grating instead of an amplitude grating.
+        :param enabled: bool
+            If True, wavefront sensor influences the beam, otherwise it is effectively "moved out" of the beam.
+        :param fraction: int
+            Set to 1, 2, or 3 based on which Talbot fractional plane is being used.
+        """
+
+        # set attributes
+        self.name = name
+        self.pitch = pitch
+        self.duty_cycle = duty_cycle
+        self.f0 = f0
+        self.z = z
+        self.phase = phase
+        self.enabled = enabled
+        self.fraction = fraction
+        # initialize some calculated attributes
+        self.x_pitch = 0.
+        self.y_pitch = 0.
+        self.grating = np.zeros(0)
+
+    def propagate(self,beam):
+        """
+        Method to send the beam through
+        :param beam: Beam
+            Beam to propagate through the device
+        :return: None
+        """
+        # Only do something if enabled.
+        if self.enabled:
+            self.multiply(beam)
+        else:
+            pass
+
+    def disable(self):
+        """
+        Method to disable the wavefront sensor
+        :return: None
+        """
+        # disable
+        self.enabled = False
+
+    def enable(self):
+        """
+        Method to enable the wavefront sensor
+        :return: None
+        """
+        # enable
+        self.enabled = True
+
+    def multiply(self,beam):
+        """
+        Method to multiply a Beam by the wavefront sensor array
+        :param beam: Beam
+            Beam to propagate through the device
+        :return: None
+        """
+
+        # get array sizes
+        N, M = np.shape(beam.x)
+
+        # Number of pixels per grating period
+        self.x_pitch = np.round(self.pitch/beam.dx)
+        self.y_pitch = np.round(self.pitch/beam.dy)
+        print('actual pitch: %.2f microns' % (self.x_pitch*beam.dx*1e6))
+
+        print(self.pitch/beam.dx)
+        print(self.pitch/beam.dy)
+
+        # re-initialize 1D gratings
+        self.grating = np.zeros((N, M))
+
+        # calculate number of periods in the grating
+        Mg = np.floor(M / self.x_pitch)
+        Ng = np.floor(N / self.y_pitch)
+
+        # width of feature based on duty cycle
+        x_width = int(self.x_pitch/2*self.duty_cycle)
+        y_width = int(self.y_pitch/2*self.duty_cycle)
+
+        # loop through periods in the grating
+        for i in range(int(Mg)):
+            for j in range(int(Ng)):
+                minY = int(self.y_pitch) * (j+1) - y_width
+                maxY = int(self.y_pitch) * (j + 1) + y_width
+                minX = int(self.x_pitch) * (i + 1) - x_width
+                maxX = int(self.x_pitch) * (i + 1) + x_width
+                self.grating[minY:maxY, minX:maxX] = (1 + (-1)**(i+j) / 2)
+
+        # convert to checkerboard pi phase grating if desired
+        if self.phase:
+
+            self.grating = np.exp(1j*np.pi*self.grating)
+
+        # multiply beam by grating
+        beam.wave *= self.grating

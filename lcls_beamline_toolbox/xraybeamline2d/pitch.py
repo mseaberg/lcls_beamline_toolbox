@@ -409,6 +409,8 @@ class TalbotLineout:
         # period is 1/peak in Fourier domain (pixels)
         x_pitch = 1./x_centroid
 
+        print(x_pitch)
+
         # set some attributes
         self.x_pitch = x_pitch
         self.residual = residual
