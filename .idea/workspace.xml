@@ -2,9 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="267a0811-667b-480c-b7eb-1cbfdadcd3f7" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/beamline1d_normal.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/optics.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/optics.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/pitch.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/pitch.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/beam1d_normal.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/beam1d_normal.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/beamline1d.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/beamline1d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/optics1d.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/optics1d.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/optics1d_normal.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/optics1d_normal.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,6 +33,12 @@
   </component>
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d" />
+    </key>
   </component>
   <component name="SvnConfiguration">
     <configuration />
