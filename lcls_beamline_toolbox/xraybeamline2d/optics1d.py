@@ -1456,10 +1456,10 @@ class Grating(Mirror):
         y_mask = (np.abs(yi - self.dy) < self.width / 2).astype(float)
 
         # 2D mirror aperture (1's and 0's)
-        mirror = z_mask * y_mask
+        # mirror = z_mask * y_mask
 
         # multiply beam by aperture and phase
-        beam.wave *= mirror * np.exp(1j * high_order)
+        # beam.wave *= mirror * np.exp(1j * high_order)
 
         # handle beam re-pointing depending on the orientation
         if self.orientation == 0:
@@ -2063,6 +2063,8 @@ class PPM:
             print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
             print('Least squares minimization failed. Using second moment for width.')
+        except TypeError:
+            print('Some problem with input')
 
         try:
             # only fit in the region where we have signal
@@ -2075,12 +2077,25 @@ class PPM:
             print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
             print('Least squares minimization failed. Using second moment for width.')
+        except TypeError:
+            print('Some problem with input')
 
         # conversion factor from sigma to FWHM. Also convert back to meters.
         fwhm_x = sx * 2.355 / 1e6
         fwhm_y = sy * 2.355 / 1e6
 
         return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
+
+    def add_profile(self, profile):
+        self.profile += profile
+        # calculate horizontal lineout
+        self.x_lineout = np.sum(self.profile, axis=0)
+        # calculate vertical lineout
+        self.y_lineout = np.sum(self.profile, axis=1)
+
+        # calculate centroids and beam widths
+        self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
+
 
     def calc_profile(self, beam):
         """

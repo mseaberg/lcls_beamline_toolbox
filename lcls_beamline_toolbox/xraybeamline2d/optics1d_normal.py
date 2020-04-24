@@ -1323,6 +1323,9 @@ class Grating(Mirror):
         yi_1d = np.zeros(0)
         cz = 0
         cy = 0
+        beamz = 0
+
+        params = beam.beam_parameters()
 
         if self.orientation == 0:
             k_ix = -np.sin(self.alpha - beam.ax)
@@ -1334,12 +1337,13 @@ class Grating(Mirror):
             zi_1d = zi
             yi = beam.y
             yi_1d = yi
+            beamz = params['zx']
 
             cz = beam.cx / np.sin(total_alpha)
             cy = beam.cy
 
             alphaBeam = (-beam.ax -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
+                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / params['zx']))
 
         elif self.orientation == 1:
             k_ix = -np.sin(self.alpha - beam.ay)
@@ -1351,12 +1355,13 @@ class Grating(Mirror):
             zi_1d = zi
             yi = -beam.x
             yi_1d = yi
+            beamz = params['zy']
 
             cz = beam.cy / np.sin(total_alpha)
             cy = -beam.cx
 
             alphaBeam = (-beam.ay -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
+                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / params['zy']))
 
         elif self.orientation == 2:
             k_ix = -np.sin(self.alpha + beam.ax)
@@ -1368,12 +1373,13 @@ class Grating(Mirror):
             zi_1d = zi
             yi = -beam.y
             yi_1d = yi
+            beamz = params['zx']
 
             cz = -beam.cx / np.sin(total_alpha)
             cy = -beam.cy
 
             alphaBeam = (beam.ax -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
+                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / params['zx']))
 
         elif self.orientation == 3:
             k_ix = -np.sin(self.alpha + beam.ay)
@@ -1385,12 +1391,13 @@ class Grating(Mirror):
             zi_1d = zi
             yi = beam.x
             yi_1d = yi
+            beamz = params['zy']
 
             cz = -beam.cy / np.sin(total_alpha)
             cy = beam.cx
 
             alphaBeam = (beam.ay -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
+                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / params['zy']))
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k = self.rotation_grating(k_i, beam.lambda0)
@@ -1469,6 +1476,15 @@ class Grating(Mirror):
         high_order = (2 * np.pi / beam.lambda0 * Util.polyval_2nd(p_recentered, zi - cz) *
                       np.sin(self.beta0 - self.delta))
 
+        scale = np.sin(self.alpha + self.delta)
+
+        # subtract old 2nd order phase
+        print('beam z: %.2f' % beamz)
+        p2 = -1 / (2 * beamz)
+        p_sub = [p2, 0, 0]
+        # switch to grating coordinates
+        p_sub_scaled = Util.poly_change_coords(p_sub, 1/scale)
+
         # scaling between grating z-axis and new beam coordinates
         scale = np.sin(self.beta0 - self.delta)
 
@@ -1478,7 +1494,7 @@ class Grating(Mirror):
         # switch to grating coordinates
         p_normal_scaled = Util.poly_change_coords(p_normal, 1/scale)
 
-        phase = 2*np.pi/beam.lambda0 * Util.polyval_2nd(p_normal_scaled, zi - cz)
+        phase = 2*np.pi/beam.lambda0 * Util.polyval_2nd(p_normal_scaled + p_sub_scaled, zi - cz)
 
         # add phase to high_order
         high_order += phase
@@ -1515,9 +1531,6 @@ class Grating(Mirror):
         # add shape error contribution to phase error
         high_order += (-4 * np.pi / beam.lambda0 / np.sin(total_alpha) *
                        np.sin((total_alpha + self.beta0 - self.delta) / 2) ** 2 * shapeError2)
-
-        # multiply beam by aperture and phase
-        beam.wave *= mirror * np.exp(1j * high_order)
 
         # handle beam re-pointing depending on the orientation
         if self.orientation == 0:
@@ -1821,6 +1834,7 @@ class Drift:
         """
         # propagate the beam along the full length of the Drift.
         beam.beam_prop(self.dz)
+        print(self.name + ': '+str(self.dz))
 
 
 class CRL:

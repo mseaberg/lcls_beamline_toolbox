@@ -372,6 +372,93 @@ class Beam:
         self.fx = np.linspace(-fx_max, fx_max - dfx, self.M)
         self.fy = np.linspace(-fy_max, fy_max - dfy, self.N)
 
+    def beam_parameters(self):
+
+        cx,cy,wx,wy,wx1,wy1 = self.beam_analysis()
+
+        x1 = np.linspace(cx-wx/2,cx+wx/2,512)
+        y1 = np.linspace(cy-wy/2,cy+wy/2,512)
+
+        bx = np.interp(x1,self.x,np.unwrap(np.angle(self.wavex)))
+        by = np.interp(y1,self.y,np.unwrap(np.angle(self.wavey)))
+
+        px = np.polyfit(x1-np.mean(x1),bx,2)
+        py = np.polyfit(y1-np.mean(y1),by,2)
+
+        zx = np.pi/self.lambda0/px[0]
+        zy = np.pi/self.lambda0/py[0]
+
+        alpha_x = self.lambda0*px[1]/2/np.pi
+        alpha_y = self.lambda0*py[1]/2/np.pi
+
+        x0 = cx - alpha_x*zx
+        y0 = cy - alpha_y*zy
+
+        params = {}
+        params['zx'] = zx
+        params['zy'] = zy
+        params['cx'] = cx
+        params['cy'] = cy
+        params['ax'] = alpha_x
+        params['ay'] = alpha_y
+        params['x0'] = x0
+        params['y0'] = y0
+
+        return params
+
+    def beam_analysis(self):
+
+        line_x = np.abs(self.wavex)**2
+        line_y = np.abs(self.wavey)**2
+
+        line_x = line_x/np.max(line_x)
+        line_y = line_y/np.max(line_y)
+
+        thresh_x = np.max(line_x)*.2
+        thresh_y = np.max(line_y)*.2
+        norm_x = line_x-thresh_x
+        norm_x[norm_x<0] = 0
+        norm_x = norm_x/np.max(norm_x)
+
+        norm_y = line_y-thresh_y
+        norm_y[norm_y<0] = 0
+        norm_y = norm_y/np.max(norm_y)
+
+        cx = np.sum(norm_x*self.x)/np.sum(norm_x)
+        cy = np.sum(norm_y*self.y)/np.sum(norm_y)
+
+        sx = np.sqrt(np.sum(norm_x*(self.x-cx)**2)/np.sum(norm_x))*1e6
+        sy = np.sqrt(np.sum(norm_y * (self.y - cy) ** 2) / np.sum(norm_y))*1e6
+        fwx_guess = sx*2.355
+        fwy_guess = sy*2.355
+
+        guessx = [cx*1e6,sx]
+        guessy = [cy*1e6,sy]
+
+
+
+        try:
+            mask = line_x>.1
+            px, pcovx = optimize.curve_fit(Beam.fit_gaussian, self.x[mask]*1e6, line_x[mask],p0=guessx)
+                                        #bounds=([0.9*np.max(line_x),-np.inf,0],[1.1*np.max(line_x),np.inf,np.inf]))
+            sx = px[1]
+        except:
+            print('Fit failed. Using second moment for width.')
+        try:
+            mask = line_y>.1
+            py, pcovy = optimize.curve_fit(Beam.fit_gaussian, self.y[mask]*1e6, line_y[mask],p0=guessy)
+                                        #bounds=([0.9*np.max(line_y),-np.inf,0],[1.1*np.max(line_y),np.inf,np.inf]))
+            sy = py[1]
+        except:
+            print('Fit failed. Using second moment for width.')
+
+
+
+        fwhm_x = sx*2.355/1e6
+        fwhm_y = sy*2.355/1e6
+
+        return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
+
         
 class GaussianSource:
     """
@@ -461,6 +548,16 @@ class GaussianSource:
         else:
             self.dx = None
             self.dy = None
+        if 'rangeFactor' in beam_params.keys():
+            rangeFactor = beam_params['rangeFactor']
+        else:
+            rangeFactor = 10
+            beam_params['rangeFactor'] = rangeFactor
+        if 'scaleFactor' in beam_params.keys():
+            scale = beam_params['scaleFactor']
+        else:
+            scale = 10
+            beam_params['scaleFactor'] = scale
         
         # calculate wavelength (m)
         self.wavelength = 1239.8/self.photonEnergy*1e-9
@@ -483,9 +580,7 @@ class GaussianSource:
         print('FWHM Divergence (y): %.1f \u03BCrad' % (divergence_y * 1e6 * 1.18))
 
         # factor to multiply by Rayleigh range to check if the beam is inside the focal range
-        factor = beam_params['rangeFactor']*(2/1.18)**2
-
-        scale = beam_params['scaleFactor']
+        factor = rangeFactor * (2 / 1.18) ** 2
 
         # check if we're inside this range
         focused_x = -self.zRx*factor <= self.z0x < self.zRx*factor
