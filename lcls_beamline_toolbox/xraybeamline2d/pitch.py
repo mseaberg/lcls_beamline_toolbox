@@ -9,7 +9,7 @@ Currently implements the single class TalbotLineout.
 
 import numpy as np
 # from .legendre_1d import LegendreFit
-from polyprojection.legendre import LegendreFit1D
+from ..polyprojection.legendre import LegendreFit1D
 from .util import Util
 import matplotlib.pyplot as plt
 
