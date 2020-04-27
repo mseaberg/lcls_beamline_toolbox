@@ -278,6 +278,56 @@ class Beam:
         # Inverse Fourier transform to calculate beam at new plane
         self.wave = Util.infft(g)
 
+    def change_z(self, new_zx=None, new_zy=None):
+        """
+        Method that is called by focusing elements to check if the beam needs to be re-classified as unfocused.
+        Must be called before beam z is adjusted. Also changes z to new values.
+
+        Parameters
+        ----------
+        new_zx: float
+            new horizontal beam radius of curvature
+        new_zy: float
+            new vertical beam radius of curvature
+        """
+
+        if new_zx is None:
+            new_zx = self.zx
+        if new_zy is None:
+            new_zy = self.zy
+
+        # update Rayleigh range
+        self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
+                    self.rangeFactor)
+        self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
+                    self.rangeFactor)
+
+        # check if beam should change state. This only needs to happen if beam is already focused because if unfocused
+        # the beam_prop method will check anyway.
+        x_focused = -self.zRx <= new_zx < self.zRx
+        y_focused = -self.zRy <= new_zy < self.zRy
+
+        # check if transitioning to unfocused
+        if self.focused_x:
+            # if it stays focused, we need to modify the phase directly
+            if x_focused:
+                self.wave *= np.exp(1j * np.pi / self.lambda0 * (self.x - self.cx)**2 * (1/new_zx - 1/self.zx))
+            else:
+                print('x becomes unfocused')
+                self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx) ** 2)
+                self.focused_x = False
+        if self.focused_y:
+            if y_focused:
+                self.wave *= np.exp(1j * np.pi / self.lambda0 * (self.y - self.cy) ** 2 * (1 / new_zy - 1 / self.zy))
+            else:
+                print('y becomes unfocused')
+                self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy) ** 2)
+                self.focused_y = False
+
+        # update beam z
+        self.zx = new_zx
+        self.zy = new_zy
+
     def beam_prop(self, dz, dz_progress=0, index=0):
         """
         Method that handles beam propagation.

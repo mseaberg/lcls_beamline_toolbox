@@ -925,7 +925,8 @@ class CurvedMirror(Mirror):
             beam.ay += np.arcsin(delta_k[1])
 
             # adjust beam quadratic phase
-            beam.zx = 1 / (1 / beam.zx + quadratic)
+            new_zx = 1 / (1 / beam.zx + quadratic)
+            beam.change_z(new_zx=new_zx)
 
             # adjust beam position due to mirror de-centering
             delta_cx = 2 * self.dx * np.cos(self.total_alpha)
@@ -941,7 +942,8 @@ class CurvedMirror(Mirror):
             beam.ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
 
             # adjust beam quadratic phase
-            beam.zy = 1 / (1 / beam.zy + quadratic)
+            new_zy = 1 / (1 / beam.zy + quadratic)
+            beam.change_z(new_zy=new_zy)
 
             # adjust beam position due to mirror de-centering
             delta_cy = 2 * self.dx * np.cos(self.total_alpha)
@@ -957,7 +959,8 @@ class CurvedMirror(Mirror):
             beam.ay += -np.arcsin(delta_k[1])
 
             # adjust beam quadratic phase
-            beam.zx = 1 / (1 / beam.zx + quadratic)
+            new_zx = 1 / (1 / beam.zx + quadratic)
+            beam.change_z(new_zx=new_zx)
 
             # adjust beam position due to mirror de-centering
             delta_cx = -2 * self.dx * np.cos(self.total_alpha)
@@ -973,7 +976,8 @@ class CurvedMirror(Mirror):
             beam.ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
 
             # adjust beam quadratic phase
-            beam.zy = 1 / (1 / beam.zy + quadratic)
+            new_zy = 1 / (1 / beam.zy + quadratic)
+            beam.change_z(new_zy=new_zy)
 
             # adjust beam position due to mirror de-centering
             delta_cy = -2 * self.dx * np.cos(self.total_alpha)
@@ -1566,7 +1570,8 @@ class Grating(Mirror):
 
             # add quadratic phase
             # beam.zx = 1 / (1 / beam.zx + p2nd)
-            beam.zx = 1 / p2nd
+            new_zx = 1 / p2nd
+            beam.change_z(new_zx=new_zx)
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -1589,7 +1594,8 @@ class Grating(Mirror):
 
             # add quadratic phase
             # beam.zy = 1 / (1 / beam.zy + p2nd)
-            beam.zy = 1 / p2nd
+            new_zy = 1 / p2nd
+            beam.change_z(new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -1612,7 +1618,9 @@ class Grating(Mirror):
 
             # add quadratic phase
             # beam.zx = 1 / (1 / beam.zx + p2nd)
-            beam.zx = 1 / p2nd
+            new_zx = 1 / p2nd
+            beam.change_z(new_zx=new_zx)
+            
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -1635,7 +1643,8 @@ class Grating(Mirror):
 
             # add quadratic phase
             # beam.zy = 1 / (1 / beam.zy + p2nd)
-            beam.zy = 1 / p2nd
+            new_zy = 1 / p2nd
+            beam.change_z(new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -1831,7 +1840,7 @@ class Drift:
         """
         # propagate the beam along the full length of the Drift.
         beam.beam_prop(self.dz)
-        
+
 
 class Prism:
     """
@@ -2049,8 +2058,9 @@ class CRL:
         transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
 
         # adjust beam properties
-        beam.zx = 1 / (1 / beam.zx + p2 * beam.lambda0 / np.pi)
-        beam.zy = 1 / (1 / beam.zy + p2 * beam.lambda0 / np.pi)
+        new_zx = 1 / (1 / beam.zx + p2 * beam.lambda0 / np.pi)
+        new_zy = 1 / (1 / beam.zy + p2 * beam.lambda0 / np.pi)
+        beam.change_z(new_zx=new_zx, new_zy=new_zy)
 
         print('focal length: %.2f' % (-1/(p2*beam.lambda0/np.pi)))
 
