@@ -2040,8 +2040,12 @@ class PPM:
         self.x = np.linspace(-N / 2, N / 2 - 1, N) * dx
         self.y = np.copy(self.x)
 
+        # get 2D coordinate arrays
+        self.xx, self.yy = np.meshgrid(self.x, self.y)
+
         # initialize some attributes
         self.profile = np.zeros((N, N))
+        self.complex_profile = np.zeros((N, N), dtype=complex)
         self.x_lineout = np.zeros(N)
         self.y_lineout = np.zeros(N)
         self.cx = 0
@@ -2297,6 +2301,42 @@ class PPM:
                 }
 
         return wfs_data
+
+    def add_complex_profile(self, beam):
+
+        beam_amp = np.abs(beam.wave)
+        beam_phase = np.angle(beam.wave)
+
+        # get beam coordinates for interpolation
+        x = beam.x[0, :]
+        y = beam.y[:, 0]
+        # interpolating function from Scipy's interp2d. Extrapolation value is set to zero.
+        f_amp = interpolation.interp2d(x, y, beam_amp, fill_value=0)
+        f_phase = interpolation.interp2d(x, y, beam_phase, fill_value=0)
+
+        # do the interpolation to get the profile we'll see on the PPM
+        amp_interp = f_amp(self.x, self.y)
+        phase_interp = f_phase(self.x, self.y)
+
+        # add linear phase
+        phase_interp += 2*np.pi/beam.lambda0 * (beam.ax * self.xx + beam.ay * self.yy)
+
+        # figure out quadratic phase later
+        complex_profile_add = amp_interp * np.exp(1j*phase_interp)
+
+        # add to current complex profile
+        self.complex_profile += complex_profile_add
+
+        # update profile
+        self.profile = np.abs(self.complex_profile)**2
+
+        # calculate horizontal lineout
+        self.x_lineout = np.sum(self.profile, axis=0)
+        # calculate vertical lineout
+        self.y_lineout = np.sum(self.profile, axis=1)
+
+        # calculate centroids and beam widths
+        self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
 
     def add_profile(self, profile):
         self.profile += profile

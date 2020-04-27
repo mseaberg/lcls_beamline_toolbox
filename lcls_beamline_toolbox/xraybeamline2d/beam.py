@@ -309,8 +309,8 @@ class Beam:
                             self.rangeFactor)
 
             # print current focal ranges
-            # print('zRx: %.2f microns' % (self.zRx*1e6))
-            # print('zRy: %.2f microns' % (self.zRy*1e6))
+            print('zRx: %.2f microns' % (self.zRx*1e6))
+            print('zRy: %.2f microns' % (self.zRy*1e6))
 
             # calculate remaining distance and print it
             dz_remaining = dz - dz_progress
@@ -319,10 +319,10 @@ class Beam:
             # calculate what the radius of curvature will be when we're finished
             zx_goal = self.zx + dz_remaining
             zy_goal = self.zy + dz_remaining
-            # print('goal for zx: %.2f microns' % (zx_goal*1e6))
-            # print('current zx: %.2f microns' % (self.zx*1e6))
-            # print('goal for zy: %.2f microns' % (zy_goal*1e6))
-            # print('current zy: %.2f microns' % (self.zy*1e6))
+            print('goal for zx: %.2f microns' % (zx_goal*1e6))
+            print('current zx: %.2f microns' % (self.zx*1e6))
+            print('goal for zy: %.2f microns' % (zy_goal*1e6))
+            print('current zy: %.2f microns' % (self.zy*1e6))
 
             # check if we end up inside the focus range?
             x_focused = -self.zRx <= zx_goal < self.zRx
