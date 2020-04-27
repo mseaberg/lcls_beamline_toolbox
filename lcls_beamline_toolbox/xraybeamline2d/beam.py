@@ -195,8 +195,8 @@ class Beam:
         # check if we're inside this range and initialize focus attribute
         self.focused_x = -self.zRx <= self.zx < self.zRx
         self.focused_y = -self.zRy <= self.zy < self.zRy
-        print(self.zRx)
-        print(self.zRy)
+        # print(self.zRx)
+        # print(self.zRy)
 
         # if we're already inside the focal range, we need to multiply by quadratic phase in order for
         # propagation to work properly.
@@ -292,7 +292,7 @@ class Beam:
         """
 
         # print the index for how many times the method has been called during this propagation
-        print(index)
+        # print(index)
 
         # check if we've made it all the way and return the beam amplitude/phase if we're done
         if np.abs(dz_progress - dz) < 100 * self.lambda0:
@@ -309,8 +309,8 @@ class Beam:
                             self.rangeFactor)
 
             # print current focal ranges
-            print('zRx: %.2f microns' % (self.zRx*1e6))
-            print('zRy: %.2f microns' % (self.zRy*1e6))
+            # print('zRx: %.2f microns' % (self.zRx*1e6))
+            # print('zRy: %.2f microns' % (self.zRy*1e6))
 
             # calculate remaining distance and print it
             dz_remaining = dz - dz_progress
@@ -319,10 +319,10 @@ class Beam:
             # calculate what the radius of curvature will be when we're finished
             zx_goal = self.zx + dz_remaining
             zy_goal = self.zy + dz_remaining
-            print('goal for zx: %.2f microns' % (zx_goal*1e6))
-            print('current zx: %.2f microns' % (self.zx*1e6))
-            print('goal for zy: %.2f microns' % (zy_goal*1e6))
-            print('current zy: %.2f microns' % (self.zy*1e6))
+            # print('goal for zx: %.2f microns' % (zx_goal*1e6))
+            # print('current zx: %.2f microns' % (self.zx*1e6))
+            # print('goal for zy: %.2f microns' % (zy_goal*1e6))
+            # print('current zy: %.2f microns' % (self.zy*1e6))
 
             # check if we end up inside the focus range?
             x_focused = -self.zRx <= zx_goal < self.zRx
@@ -414,7 +414,7 @@ class Beam:
                 prop_step = np.min([x_prop_limit, y_prop_limit])
 
                 # print the current step size
-                print('current step size: %.2f microns' % (prop_step*1e6))
+                # print('current step size: %.2f microns' % (prop_step*1e6))
 
                 # radii of curvature at the end of this propagation step
                 zx_goal = self.zx + prop_step
@@ -742,8 +742,8 @@ class GaussianSource:
         # check if we're inside this range
         focused_x = -self.zRx*factor <= self.z0x < self.zRx*factor
         focused_y = -self.zRy*factor <= self.z0y < self.zRy*factor
-        print(self.zRx)
-        print(self.zRy)
+        # print(self.zRx)
+        # print(self.zRy)
 
         # need to modify this in the case where beam starts out "in focus"
         if self.dx is None:

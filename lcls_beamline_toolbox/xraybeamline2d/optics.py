@@ -711,7 +711,7 @@ class CurvedMirror(Mirror):
 
         # fit to a polynomial
         p_res = np.polyfit(z1 - np.mean(z1), height_error, 4)
-        print(p_res)
+        # print(p_res)
 
         return p_res
 
@@ -1308,10 +1308,10 @@ class Grating(Mirror):
 
         # component of k_f in direction of grating axis (mirror z-axis)
         k_f_g = cos_beta * grating_vector
-        print(np.dot(k_f_g, k_f_g))
+        # print(np.dot(k_f_g, k_f_g))
         # component of k_f in direction of mirror y-axis
         k_f_perp = k_i_y * mirror_y
-        print(np.dot(k_f_perp, k_f_perp))
+        # print(np.dot(k_f_perp, k_f_perp))
         # component of k_f in direction of mirror x-axis (by conservation of momentum
         k_f_x = np.sqrt(1 - np.dot(k_f_g, k_f_g) - np.dot(k_f_perp, k_f_perp)) * mirror_x
 
@@ -1321,9 +1321,9 @@ class Grating(Mirror):
         # calculate difference between outgoing k-vector and the k-vector in absence of grating rotations
         delta_k = k_f - k_f_normal
 
-        print(k_i)
-        print(k_f)
-        print(delta_k)
+        # print(k_i)
+        # print(k_f)
+        # print(delta_k)
 
         return delta_k
 
@@ -1535,12 +1535,12 @@ class Grating(Mirror):
 
         # 2nd order phase (factoring out pi/lambda)
         p2nd = 2 * p_centered[-3]
-        print('z: %.2f' % (1/p2nd))
+        # print('z: %.2f' % (1/p2nd))
 
         # 1st order phase (factoring out 2 pi/lambda)
         # (only add any 1st order phase due to de-centering since the rest is already accounted for in delta_k).
         p1st = p_centered[-2] - p_scaled[-2]
-        print(p1st)
+        # print(p1st)
 
         # figure out aperturing due to mirror's finite size
         z_mask = (np.abs(zi - self.dx / np.tan(total_alpha)) < self.length / 2).astype(float)
@@ -2298,6 +2298,16 @@ class PPM:
 
         return wfs_data
 
+    def add_profile(self, profile):
+        self.profile += profile
+        # calculate horizontal lineout
+        self.x_lineout = np.sum(self.profile, axis=0)
+        # calculate vertical lineout
+        self.y_lineout = np.sum(self.profile, axis=1)
+
+        # calculate centroids and beam widths
+        self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
+
     def view_beam(self):
         """
         Method to view beam after the fact. Will be zero intensity everywhere if calc_profile (or propagate)
@@ -2449,8 +2459,8 @@ class WFS:
         self.y_pitch = np.round(self.pitch/beam.dy)
         print('actual pitch: %.2f microns' % (self.x_pitch*beam.dx*1e6))
 
-        print(self.pitch/beam.dx)
-        print(self.pitch/beam.dy)
+        # print(self.pitch/beam.dx)
+        # print(self.pitch/beam.dy)
 
         # re-initialize 1D gratings
         self.grating = np.zeros((N, M))

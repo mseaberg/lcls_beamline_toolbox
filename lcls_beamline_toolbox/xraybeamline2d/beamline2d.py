@@ -141,9 +141,9 @@ class Beamline:
             # propagate through device. beam is modified directly.
             device.propagate(beam)
             # print some beam info
-            print('zy: %.2f' % beam.zy)
-            print('ay: %.2f microrad' % (beam.ay*1e6))
-            print('cy: %.2f microns' % (beam.cy*1e6))
+            # print('zy: %.2f' % beam.zy)
+            # print('ay: %.2f microrad' % (beam.ay*1e6))
+            # print('cy: %.2f microns' % (beam.cy*1e6))
 
         # return the output of the beamline
         return beam
