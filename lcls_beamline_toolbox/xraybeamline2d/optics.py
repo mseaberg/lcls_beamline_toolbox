@@ -2430,7 +2430,12 @@ class PPM:
 
         return wfs_data
 
-    def add_complex_profile(self, beam):
+    def add_complex_profile(self, beam, zx_ref=None, zy_ref=None):
+
+        if zx_ref is None:
+            zx_ref = np.inf
+        if zy_ref is None:
+            zy_ref = np.inf
 
         beam_amp = np.abs(beam.wave)
         beam_phase = np.angle(beam.wave)
@@ -2446,8 +2451,12 @@ class PPM:
         amp_interp = f_amp(self.x, self.y)
         phase_interp = f_phase(self.x, self.y)
 
-        # add linear phase
-        phase_interp += 2*np.pi/beam.lambda0 * (beam.ax * self.xx + beam.ay * self.yy)
+        # add linear phase (centered on beam)
+        phase_interp += 2*np.pi/beam.lambda0 * (beam.ax * (self.xx-beam.cx) + beam.ay * (self.yy-beam.cy))
+
+        # add quadratic phase (centered on beam)
+        phase_interp += np.pi/beam.lambda0 * ((self.xx-self.cx)**2*(1/beam.zx - 1/zx_ref)
+                                              + (self.yy-self.cy)**2 * (1/beam.zy - 1/zy_ref))
 
         # figure out quadratic phase later
         complex_profile_add = amp_interp * np.exp(1j*phase_interp)
