@@ -2452,11 +2452,11 @@ class PPM:
         phase_interp = f_phase(self.x, self.y)
 
         # add linear phase (centered on beam)
-        phase_interp += 2*np.pi/beam.lambda0 * (beam.ax * (self.xx-beam.cx) + beam.ay * (self.yy-beam.cy))
+        phase_interp += 2*np.pi/beam.lambda0 * (beam.ax * self.xx + beam.ay * self.yy)
 
         # add quadratic phase (centered on beam)
-        phase_interp += np.pi/beam.lambda0 * ((self.xx-self.cx)**2*(1/beam.zx - 1/zx_ref)
-                                              + (self.yy-self.cy)**2 * (1/beam.zy - 1/zy_ref))
+        phase_interp += np.pi/beam.lambda0 * (self.xx**2*(1/beam.zx - 1/zx_ref)
+                                              + self.yy**2 * (1/beam.zy - 1/zy_ref))
 
         # figure out quadratic phase later
         complex_profile_add = amp_interp * np.exp(1j*phase_interp)
