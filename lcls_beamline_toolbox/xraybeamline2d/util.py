@@ -186,9 +186,9 @@ class Util:
         # combined output
         coeff_out = coeff1 + coeff2
 
-        print('coeff1: ' + str(coeff1))
-        print('coeff2: ' + str(coeff2))
-        print('coeff_out: ' + str(coeff_out))
+        # print('coeff1: ' + str(coeff1))
+        # print('coeff2: ' + str(coeff2))
+        # print('coeff_out: ' + str(coeff_out))
 
         return coeff_out
 
@@ -207,7 +207,7 @@ class Util:
         # remove low orders
         p[-3:] = 0
 
-        print('high order polycoeff: ' + str(p))
+        # print('high order polycoeff: ' + str(p))
 
         # get polynomial order
         M = np.size(p) - 1
@@ -238,7 +238,7 @@ class Util:
         # remove low orders
         p[-2:] = 0
 
-        print('high order polycoeff: ' + str(p))
+        # print('high order polycoeff: ' + str(p))
 
         # get polynomial order
         M = np.size(p) - 1

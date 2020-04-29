@@ -215,8 +215,8 @@ class Beam:
         # check if we're inside this range and initialize focus attribute
         self.focused_x = -self.zRx <= self.zx < self.zRx
         self.focused_y = -self.zRy <= self.zy < self.zRy
-        print(self.zRx)
-        print(self.zRy)
+        # print(self.zRx)
+        # print(self.zRy)
 
         # if we're already inside the focal range, we need to multiply by quadratic phase in order for
         # propagation to work properly.
@@ -323,7 +323,7 @@ class Beam:
         """
 
         # print the index for how many times the method has been called during this propagation
-        print(index)
+        # print(index)
 
         # check if we've made it all the way and return the beam amplitude/phase if we're done
         if np.abs(dz_progress - dz) < 100 * self.lambda0:
@@ -336,29 +336,29 @@ class Beam:
                 xWidth = np.abs(self.x[0] - self.x[-1])
                 self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth/2) ** 2) *
                             self.rangeFactor)
-                print('FOVx: ' + str(np.max(self.x - self.cx)))
+                # print('FOVx: ' + str(np.max(self.x - self.cx)))
             # if we're not focused and this is the first step, calculate current Rayleigh length estimate
             if not self.focused_y and index == 0:
                 yWidth = np.abs(self.x[0] - self.x[-1])
                 self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth/2) ** 2) *
                             self.rangeFactor)
-                print('FOVy: ' + str(np.max(self.y - self.cy)))
+                # print('FOVy: ' + str(np.max(self.y - self.cy)))
 
             # print current focal ranges
-            print('zRx: %.2f microns' % (self.zRx*1e6))
-            print('zRy: %.2f microns' % (self.zRy*1e6))
+            # print('zRx: %.2f microns' % (self.zRx*1e6))
+            # print('zRy: %.2f microns' % (self.zRy*1e6))
 
             # calculate remaining distance and print it
             dz_remaining = dz - dz_progress
-            print('remaining distance: %.2f microns' % (dz_remaining*1e6))
+            # print('remaining distance: %.2f microns' % (dz_remaining*1e6))
 
             # calculate what the radius of curvature will be when we're finished
             zx_goal = self.zx + dz_remaining
             zy_goal = self.zy + dz_remaining
-            print('goal for zx: %.2f microns' % (zx_goal*1e6))
-            print('current zx: %.2f microns' % (self.zx*1e6))
-            print('goal for zy: %.2f microns' % (zy_goal*1e6))
-            print('current zy: %.2f microns' % (self.zy*1e6))
+            # print('goal for zx: %.2f microns' % (zx_goal*1e6))
+            # print('current zx: %.2f microns' % (self.zx*1e6))
+            # print('goal for zy: %.2f microns' % (zy_goal*1e6))
+            # print('current zy: %.2f microns' % (self.zy*1e6))
 
             # check if we end up inside the focus range?
             x_focused = -self.zRx <= zx_goal < self.zRx
@@ -450,7 +450,7 @@ class Beam:
                 prop_step = np.min([x_prop_limit, y_prop_limit])
 
                 # print the current step size
-                print('current step size: %.2f microns' % (prop_step*1e6))
+                # print('current step size: %.2f microns' % (prop_step*1e6))
 
                 # radii of curvature at the end of this propagation step
                 zx_goal = self.zx + prop_step
@@ -534,7 +534,7 @@ class Beam:
                         # no transition
                         print('y stays unfocused')
 
-                print('mag_y: ' + str(mag_y))
+                # print('mag_y: ' + str(mag_y))
 
                 # general propagation step, may or may not be Fresnel scaling
                 self.propagation(prop_step, z_eff_x, z_eff_y)
