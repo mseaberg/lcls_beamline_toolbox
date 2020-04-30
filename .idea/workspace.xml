@@ -3,12 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="267a0811-667b-480c-b7eb-1cbfdadcd3f7" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/beam1d.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/beam1d.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/beamline1d.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/beamline1d.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/optics1d.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/optics1d.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/util.py" beforeDir="false" afterPath="$PROJECT_DIR$/lcls_beamline_toolbox/xraybeamline2d/util.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/XPP_lens_and_prism.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/XPP_lens_and_prism.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/XPP_lens_array.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/XPP_lens_array.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -29,7 +23,6 @@
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
-    <option name="showExcludedFiles" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
