@@ -9,9 +9,10 @@ Currently implements the single class TalbotLineout.
 
 import numpy as np
 # from .legendre_1d import LegendreFit
-from ..polyprojection.legendre import LegendreFit1D
+from ..polyprojection.legendre import LegendreFit1D, LegendreFit2D
 from .util import Util
 import matplotlib.pyplot as plt
+from skimage.restoration import unwrap_phase
 
 
 class TalbotLineout:
@@ -494,3 +495,361 @@ class TalbotLineout:
         self.x_prime = x_prime
         self.x_vis = x_vis
         self.vis2 = vis2
+
+
+class TalbotImage:
+    """
+    Class for calculating 2D wavefronts from Talbot pattern lineouts.
+
+    Attributes
+    ----------
+    image: (N,M) ndarray
+        Image from wavefront measurement.
+    fc: float
+        estimated spatial frequency of Talbot pattern. Units of 1/pixel.
+    factor: int
+        Factor that reduces the selected width around the peak by an amount 1/factor.
+    x_pitch: float
+        Talbot pattern period (in pixels)
+    residual: (N,) ndarray
+        Residual phase of Talbot pattern, beyond linear.
+    x_prime: (N,) ndarray
+        coordinates of residual, units are pixels of lineout.
+    dx_prime: float
+        pixel size of x_prime (should be close to 1)
+    x_vis: float
+        estimate of the fringe visibility of the Talbot pattern
+    vis2: float
+        another estimate of the fringe visibility of the Talbot pattern
+    """
+
+    def __init__(self, image, fc, factor):
+        """
+        Initialize TalbotLineout
+        :param image: (N,M) ndarray
+            Image from the wavefront sensor measurement.
+        :param fc: float
+            estimated spatial frequency of Talbot pattern. Units of 1/pixel.
+        :param factor: int
+            Factor that reduces the selected width around the peak by an amount 1/factor.
+        """
+        self.image = image
+
+        self.N, self.M = np.shape(self.image)
+
+        # fc has units of 1/pixel
+        self.fc = fc
+        self.factor = factor
+
+        # initialize some calculated parameters
+        self.x_pitch = 0.
+        # self.residual = np.zeros_like(lineout)
+        # self.x_prime = np.zeros_like(lineout)
+        self.dx_prime = 0.
+        self.x_vis = 0.
+        self.vis2 = 0.
+
+    def calc_gradients(self, param):
+        """This function performs Fourier fringe analysis of the Talbot image,
+        and downsamples the gradient by selecting an ROI around the Fourier peak
+        Arguments:
+            image -- Talbot image (NxM)
+            dx -- pixel size in Talbot image (m)
+            dg -- grating period (m)
+            lambda0 -- wavelength (m)
+            mag -- Talbot magnification (approximate)
+            peak -- peak location in Fourier space for subtraction of linear phase
+            zT -- Talbot distance, distance between grating and detector (m)
+            downsample -- amount to downsample (power of 2) (default by factor of 8)
+        Returns:
+            h_grad -- downsampled gradient
+            v_grad -- downsampled gradient
+            zero_order -- downsampled zero order
+            x1, y1 -- downsampled coordinates
+            mid_peak -- average Fourier location of horizontal and vertical peaks
+            p0 -- base second order coefficient
+        """
+
+        # get WFS parameters
+        dg = param['dg']
+        fraction = param['fraction']
+        dx = param['dx']
+        zT = param['zT']
+        lambda0 = param['lambda0']
+        downsample = param['downsample']
+
+        # calculate second order coefficient corresponding to peak shift that will be applied
+        # R2 is the distance from focus to detector corresponding to this peak
+        R2 = zT / (1 - dg * self.fc / dx)
+        p0 = np.pi / lambda0 / R2
+
+        print(zT)
+
+        mag = R2 / (R2 - zT)
+
+        print('magnification: %.1f' % mag)
+
+        # get image dimensions
+        N, M = np.shape(self.image)
+
+        # fourier transform
+        fourier_plane = Util.nfft(self.image)
+        # plt.figure()
+        # plt.imshow(np.abs(fourier_plane))
+
+        # spatial frequencies
+        fxmax = 1.0 / (dx * 2)
+        dfx = 2. * fxmax / M
+        fx = np.linspace(-M / 2., M / 2. - 1, M) * dfx
+        dfy = 2. * fxmax / N
+        fy = np.linspace(-N / 2., N / 2. - 1, N) * dfy
+        fx, fy = np.meshgrid(fx, fy)
+
+        # spatial frequency of grating (m^-1)
+        fG = 1.0 / dg
+
+        # mask off first order peaks in fourier space
+        v_mask = fx ** 2 + (fy - fG / mag) ** 2 < (fG / mag / 4) ** 2
+
+        h_mask = (fx - fG / mag) ** 2 + fy ** 2 < (fG / mag / 4) ** 2
+
+        # mask off zero order peak in Fourier space
+        zero_mask = fx ** 2 + fy ** 2 < (fG / mag / 4) ** 2
+
+        # multiply fourier plane by mask
+        v_mask = fourier_plane * v_mask
+        h_mask = fourier_plane * h_mask
+
+        # plt.figure()
+        # plt.imshow(np.abs(v_mask))
+        # plt.figure()
+        # plt.imshow(np.abs(h_mask))
+        # plt.show()
+
+        # multiply fourier plane by zero order mask
+        zero_fourier = fourier_plane * zero_mask
+
+        # find peak location for both horizontal and vertical
+        # project along each dimension
+
+        # thresholding of masked Fourier peaks to calculate peak location
+        h_2 = Util.threshold_array(h_mask, .2)
+        v_2 = Util.threshold_array(v_mask, .2)
+
+        # set up coordinates (Talbot image plane)
+        xp = np.linspace(-M / 2, M / 2 - 1, M)
+        yp = np.linspace(-N / 2, N / 2 - 1, N)
+        xp, yp = np.meshgrid(xp, yp)
+        x1 = xp * dx
+        y1 = yp * dx
+
+        # find peaks in Fourier space
+        h_peak = np.sum(h_2 * fx) / np.sum(np.abs(h_2))
+        v_peak = np.sum(v_2 * fy) / np.sum(np.abs(v_2))
+
+        h_mask = (fx - h_peak) ** 2 + fy ** 2 < (fG / mag / 4) ** 2
+        v_mask = fx ** 2 + (fy - v_peak) ** 2 < (fG / mag / 4) ** 2
+
+        h_mask = fourier_plane * h_mask
+        v_mask = fourier_plane * v_mask
+        # thresholding of masked Fourier peaks to calculate peak location
+        h_2 = Util.threshold_array(h_mask, .2)
+        v_2 = Util.threshold_array(v_mask, .2)
+        # find peaks in Fourier space
+        h_peak = np.sum(h_2 * fx) / np.sum(np.abs(h_2))
+        v_peak = np.sum(v_2 * fy) / np.sum(np.abs(v_2))
+
+        # find peak widths in Fourier space
+        h_width = np.sqrt(np.sum(h_2 * (fx - h_peak) ** 2) / np.sum(np.abs(h_2)))
+        v_width = np.sqrt(np.sum(v_2 * (fy - v_peak) ** 2) / np.sum(np.abs(v_2)))
+
+        # calculate average position of horizontal/vertical peaks
+        mid_peak = (v_peak + h_peak) / 2.
+
+        peak = mid_peak
+
+        # R2x = zT / (1 - dg * h_peak)
+        # p0x = np.pi / lambda0 / R2x
+        # R2y = zT / (1 - dg * v_peak)
+        # p0y = np.pi / lambda0 / R2y
+
+        p0x = -np.pi / lambda0 / zT * dg * h_peak
+        p0y = -np.pi / lambda0 / zT * dg * v_peak
+
+        R2 = zT / (1 - dg * mid_peak)
+        p0 = np.pi / lambda0 / R2
+
+        # define linear phase related to approximate peak location
+        # h_grating = np.exp(-1j*2.*np.pi*h_peak*x1)
+        # v_grating = np.exp(-1j*2.*np.pi*v_peak*y1)
+        h_grating = np.exp(-1j * 2. * np.pi * h_peak * x1)
+        v_grating = np.exp(-1j * 2. * np.pi * v_peak * y1)
+
+        # Fourier transform back to real space, and multiply by linear phase
+        h_grad = np.conj(Util.infft(h_mask) * h_grating)
+        v_grad = np.conj(Util.infft(v_mask) * v_grating)
+
+        # back to Fourier space, now peaks have been shifted to zero
+        h_fourier = Util.nfft(h_grad)
+        v_fourier = Util.nfft(v_grad)
+
+        # crop out center of Fourier pattern to downsample
+        down = (2 ** downsample) * 2
+
+        v_fourier = v_fourier[N / 2 - N / down:N / 2 + N / down, M / 2 - M / down:M / 2 + M / down]
+        h_fourier = h_fourier[N / 2 - N / down:N / 2 + N / down, M / 2 - M / down:M / 2 + M / down]
+        zero_fourier = zero_fourier[N / 2 - N / down:N / 2 + N / down, M / 2 - M / down:M / 2 + M / down]
+
+        # downsampled array size
+        N2, M2 = np.shape(v_fourier)
+
+        # downsampled image coordinates
+        xp = np.linspace(-M2 / 2, M2 / 2 - 1, M2)
+        yp = np.linspace(-N2 / 2, N2 / 2 - 1, N2)
+        xp, yp = np.meshgrid(xp, yp)
+        x1 = xp * dx * M / M2
+        y1 = yp * dx * N / N2
+
+        # back to real space, now downsampled
+        h_grad = Util.infft(h_fourier)
+        v_grad = Util.infft(v_fourier)
+
+        # calculate zero order (downsampled)
+        zero_order = np.abs(Util.infft(zero_fourier))
+
+        params = {}
+        params['zero_order'] = zero_order
+        params['x1'] = x1
+        params['y1'] = y1
+        params['h_peak'] = h_peak
+        params['v_peak'] = v_peak
+        params['h_width'] = h_width
+        params['v_width'] = v_width
+        params['p0x'] = p0x
+        params['p0y'] = p0y
+        params['p0'] = p0
+        params['fourier'] = fourier_plane
+
+        # output
+        return h_grad, v_grad, params
+
+    def get_legendre(self, fit_object, param):
+
+        # get WFS parameters
+        dg = param['dg']
+        fraction = param['fraction']
+        dx = param['dx']
+        zT = param['zT']
+        zf = param['zf']
+        lambda0 = param['lambda0']
+        downsample = param['downsample']
+
+        # amount to downsample
+        Ndown = 2**downsample
+        # downsampled pixel size
+        dx2 = dx * Ndown
+
+        # calculate approximate magnification
+        mag = (zT + zf) / zf
+
+        # set lineout width (five periods)
+        lineout_width = int(dg / dx * 5 * mag)
+
+        lineout_x = np.sum(self.image[int(self.N / 2 - lineout_width / 2):int(self.N / 2 + lineout_width / 2), :], axis=0)
+        lineout_y = np.sum(self.image[:, int(self.M / 2 - lineout_width / 2):int(self.M / 2 + lineout_width / 2)], axis=1)
+
+        peak = 1. / mag / dg
+
+        fc = peak * dx
+
+        # calculate pitch from lineouts. See pitch module.
+        print('getting lineouts')
+        self.xline = TalbotLineout(lineout_x, fc, fraction)
+        self.yline = TalbotLineout(lineout_y, fc, fraction)
+
+        # calculate Legendre coefficients
+        print('getting Legendre coefficients')
+        z_x, coeff_x, x_prime, x_res = self.xline.get_legendre(param)
+        z_y, coeff_y, y_prime, y_res = self.yline.get_legendre(param)
+        print('found Legendre coefficients')
+
+        dx_prime = x_prime[1] - x_prime[0]
+        dy_prime = y_prime[1] - y_prime[0]
+
+        # calculate gradients
+        h_grad, v_grad, grad_param = self.calc_gradients(param)
+
+        # define "zero order" based on magnitude of gradients
+        zero_order = (np.abs(h_grad) + np.abs(v_grad)) / 2.0
+
+        zo = Util.threshold_array(zero_order, 0.04)
+
+        zo[zo > 0] = 1
+        Ni, Mi = np.shape(zo)
+
+        xp = grad_param['x1']
+        yp = grad_param['y1']
+
+        x_COM = np.sum(xp * zo) / np.sum(zo)
+        y_COM = np.sum(yp * zo) / np.sum(zo)
+
+        # threshold above noise
+        zeroMask = zero_order > (.01 * np.max(zero_order))
+        # zeroMask = np.logical_and(zeroMask, x2>-36)
+        # zeroMask = np.logical_and(zeroMask, x2<80/2)
+
+        # unwrap phase in 2D, multiply by shear factor
+        h_grad2 = unwrap_phase(np.angle(h_grad), seed=0) * dg / lambda0 / zT
+        v_grad2 = unwrap_phase(np.angle(v_grad), seed=0) * dg / lambda0 / zT
+
+        h_mean = np.mean(h_grad2[zeroMask])
+        v_mean = np.mean(v_grad2[zeroMask])
+
+        h_grad2 -= h_mean
+        v_grad2 -= v_mean
+
+        # fit gradient using Legendre polynomials (making sure there is intensity above the threshold)
+        if np.sum(zeroMask) > 0:
+            # fit Legendre coefficients by projecting gradients onto orthonormal basis
+            legendre_coeff = fit_object.z_coeff_grad(h_grad2, v_grad2, dx2, zeroMask).flatten()
+        else:
+            # just set everything to zero if intensity is too low
+            legendre_coeff = np.zeros(fit_object.P)
+
+        # reconstructed phase
+        wave = fit_object.wavefront_fit(legendre_coeff)
+
+        # recovered beam
+        recovered = np.exp(1j * wave) * np.sqrt(zero_order) * zeroMask
+
+        px = grad_param['p0x'] + np.pi / lambda0 / zT
+        py = grad_param['p0y'] + np.pi / lambda0 / zT
+
+        p0 = (px + py) / 2.
+
+        # correct defocus
+        defocus_phase = np.exp(1j * (xp ** 2 * (px - p0) + yp ** 2 * (py - p0)))
+
+        recovered *= defocus_phase
+
+        # distance to focal plane (may be offset from true focus if Fourier peak isn't centered)
+        f0 = np.pi / lambda0 / p0
+
+        # spatial frequencies
+        fxMax = 1.0 / (2.0 * dx2)
+        dfx = fxMax / (Ni)
+        fx = np.linspace(-fxMax, fxMax - dfx, Ni)
+        fx, fy = np.meshgrid(fx, fx)
+
+        # coordinates at focus
+        xf = fx * lambda0 * f0
+        yf = fy * lambda0 * f0
+
+        dxf = xf[0, 1] - xf[0, 0]
+        print('pixel size: ' + str(dxf))
+
+        # phase to multiply by at focus
+        phase2 = np.exp(-1j * np.pi / lambda0 / f0 * (xf ** 2 + yf ** 2))
+
+        # calculate beam at focus
+        focus = Util.infft(recovered) * phase2
