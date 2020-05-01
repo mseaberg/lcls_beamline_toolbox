@@ -2396,7 +2396,9 @@ class PPM:
 
         # calculate Legendre coefficients
         print('getting Legendre coefficients')
+        param['dg'] = wfs.x_pitch_sim
         z_x, coeff_x, x_prime, x_res = self.xline.get_legendre(param)
+        param['dg'] = wfs.y_pitch_sim
         z_y, coeff_y, y_prime, y_res = self.yline.get_legendre(param)
         print('found Legendre coefficients')
 
@@ -2589,6 +2591,8 @@ class WFS:
         # initialize some calculated attributes
         self.x_pitch = 0.
         self.y_pitch = 0.
+        self.x_pitch_sim = 0
+        self.y_pitch_sim = 0
         self.grating = np.zeros(0)
 
     def propagate(self,beam):
@@ -2633,7 +2637,13 @@ class WFS:
 
         # Number of pixels per grating period
         self.x_pitch = np.round(self.pitch/beam.dx)
+        if np.mod(self.x_pitch,2)!=0:
+                self.x_pitch += 1
+        self.x_pitch_sim = self.x_pitch*beam.dx
         self.y_pitch = np.round(self.pitch/beam.dy)
+        if np.mod(self.y_pitch,2)!=0:
+                self.y_pitch += 1
+        self.y_pitch_sim = self.y_pitch*beam.dy
         print('actual pitch: %.2f microns' % (self.x_pitch*beam.dx*1e6))
 
         # print(self.pitch/beam.dx)
