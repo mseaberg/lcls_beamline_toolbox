@@ -696,9 +696,9 @@ class TalbotImage:
         # crop out center of Fourier pattern to downsample
         down = (2 ** downsample) * 2
 
-        v_fourier = v_fourier[N / 2 - N / down:N / 2 + N / down, M / 2 - M / down:M / 2 + M / down]
-        h_fourier = h_fourier[N / 2 - N / down:N / 2 + N / down, M / 2 - M / down:M / 2 + M / down]
-        zero_fourier = zero_fourier[N / 2 - N / down:N / 2 + N / down, M / 2 - M / down:M / 2 + M / down]
+        v_fourier = v_fourier[int(N / 2 - N / down):int(N / 2 + N / down), int(M / 2 - M / down):int(M / 2 + M / down)]
+        h_fourier = h_fourier[int(N / 2 - N / down):int(N / 2 + N / down), int(M / 2 - M / down):int(M / 2 + M / down)]
+        zero_fourier = zero_fourier[int(N / 2 - N / down):int(N / 2 + N / down), int(M / 2 - M / down):int(M / 2 + M / down)]
 
         # downsampled array size
         N2, M2 = np.shape(v_fourier)
@@ -811,7 +811,7 @@ class TalbotImage:
         # fit gradient using Legendre polynomials (making sure there is intensity above the threshold)
         if np.sum(zeroMask) > 0:
             # fit Legendre coefficients by projecting gradients onto orthonormal basis
-            legendre_coeff = fit_object.z_coeff_grad(h_grad2, v_grad2, dx2, zeroMask).flatten()
+            legendre_coeff = fit_object.coeff_from_grad(h_grad2, v_grad2, dx2, zeroMask).flatten()
         else:
             # just set everything to zero if intensity is too low
             legendre_coeff = np.zeros(fit_object.P)
@@ -853,3 +853,18 @@ class TalbotImage:
 
         # calculate beam at focus
         focus = Util.infft(recovered) * phase2
+
+
+
+        param = {
+            'x': xp,
+            'y': yp,
+            'px': px,
+            'py': py,
+            'focus': focus,
+            'coeff': legendre_coeff,
+            'xf': xf,
+            'yf': yf
+        }
+
+        return recovered, focus, param
