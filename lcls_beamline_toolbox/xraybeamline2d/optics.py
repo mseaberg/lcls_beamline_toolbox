@@ -2466,7 +2466,7 @@ class PPM:
         # Distance from wavefront sensor to PPM
         zT = self.z - wfs.z
 
-        # magnification of Talbot pattern
+        # estimated magnification of Talbot pattern
         mag = (zT + wfs.f0) / wfs.f0
 
         # number of pixels to sum across to get lineout
@@ -2477,14 +2477,14 @@ class PPM:
         y_lim = int(self.wy/self.dx)
 
         # calculated beam center in pixels
-        x_center = int(self.cx/self.dx) + self.N/2
-        y_center = int(self.cy/self.dx) + self.N/2
+        x_center = Util.coordinate_to_pixel(self.cx, self.dx, self.N)
+        y_center = Util.coordinate_to_pixel(self.cy, self.dx, self.N)
 
         # get lineouts from 2d profile
-        lineout_x = np.sum(self.profile[int(y_center - lineout_width / 2):int(y_center + lineout_width / 2),
-                           int(x_center - x_lim):int(x_center+x_lim)], axis=0)
-        lineout_y = np.sum(self.profile[int(y_center-y_lim):int(y_center+y_lim),
-                           int(x_center - lineout_width / 2):int(x_center + lineout_width / 2)], axis=1)
+        lineout_x = Util.get_horizontal_lineout(self.profile, x_center=x_center, y_center=y_center,
+                                                half_length=x_lim, half_width=lineout_width/2)
+        lineout_y = Util.get_vertical_lineout(self.profile, x_center=x_center, y_center=y_center,
+                                              half_length=y_lim, half_width=lineout_width/2)
 
         # expected spatial frequency of Talbot pattern (1/m)
         peak = 1. / mag / wfs.pitch * fraction

@@ -304,3 +304,108 @@ class Util:
         array_out[array_out < 0] = 0
 
         return array_out
+
+    @staticmethod
+    def coordinate_to_pixel(coord, dx, N):
+        """
+        Method to convert coordinate to pixel. Assumes zero is at the center of the array.
+        Parameters
+        ----------
+        coord: float
+            coordinate position with physical units
+        dx: float
+            pixel size in physical units
+        N: int
+            number of pixels in the array.
+
+        Returns
+        -------
+        index: int
+            index of pixel in the array corresponding to coord.
+        """
+        index = int(coord / dx) + N / 2
+        return index
+
+    @staticmethod
+    def get_horizontal_lineout(array_in, x_center=0, y_center=0, half_length=None, half_width=None):
+        """
+        Method to get a horizontal lineout from a 2D array
+        Parameters
+        ----------
+        array_in: (N, M) ndarray
+            array to take lineout from
+        x_center: int
+            index of horizontal center position for the lineout
+        y_center: int
+            index of vertical center position for the lineout
+        half_length: int
+            distance from center (in pixels) to use along the lineout direction
+        half_width: int
+            distance from center (in pixels) to sum across for the lineout.
+
+        Returns
+        -------
+        lineout: (2*half_length) ndarray
+            Summed lineout from array_in (projected on horizontal axis)
+        """
+        N, M = np.shape(array_in)
+
+        if half_length is None:
+            x_start = 0
+            x_end = M
+        else:
+            x_start = int(x_center - half_length)
+            x_end = int(x_center + half_length)
+
+        if half_width is None:
+            y_start = 0
+            y_end = N
+        else:
+            y_start = int(y_center - half_width)
+            y_end = int(y_center + half_width)
+
+        lineout = np.sum(array_in[y_start:y_end, x_start:x_end], axis=0)
+
+        return lineout
+
+    @staticmethod
+    def get_vertical_lineout(array_in, x_center=0, y_center=0, half_length=None, half_width=None):
+        """
+        Method to get a horizontal lineout from a 2D array
+        Parameters
+        ----------
+        array_in: (N, M) ndarray
+            array to take lineout from
+        x_center: int
+            index of horizontal center position for the lineout
+        y_center: int
+            index of vertical center position for the lineout
+        half_length: int
+            distance from center (in pixels) to use along the lineout direction
+        half_width: int
+            distance from center (in pixels) to sum across for the lineout.
+
+        Returns
+        -------
+        lineout: (2*half_length) ndarray
+            Summed lineout from array_in (projected on horizontal axis)
+        """
+        N, M = np.shape(array_in)
+
+        if half_width is None:
+            x_start = 0
+            x_end = M
+        else:
+            x_start = int(x_center - half_width)
+            x_end = int(x_center + half_width)
+
+        if half_length is None:
+            y_start = 0
+            y_end = N
+        else:
+            y_start = int(y_center - half_length)
+            y_end = int(y_center + half_length)
+
+        lineout = np.sum(array_in[y_start:y_end, x_start:x_end], axis=1)
+
+        return lineout
