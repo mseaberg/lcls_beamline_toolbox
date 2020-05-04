@@ -17,12 +17,13 @@ PPM: power profile monitor, for viewing beam intensity
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from .pitch import TalbotLineout
+from .pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolation
 import scipy.ndimage as ndimage
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
 import os
+import pickle
 from .util import Util
 
 
@@ -2432,7 +2433,7 @@ class PPM:
 
         return wfs_data
 
-    def retrieve_wavefront2D(self, wfs):
+    def retrieve_wavefront2D(self, basis_file, wfs):
         """
         Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
         :param wfs: WFS object
@@ -2497,49 +2498,67 @@ class PPM:
         self.xline = TalbotLineout(lineout_x, fc, fraction)
         self.yline = TalbotLineout(lineout_y, fc, fraction)
 
+        # Talbot image processing
+        # load basis
+        with open(basis_file, 'rb') as f:
+            fit_object = pickle.load(f)
+
+        image_calc = TalbotImage(self.profile, fc, fraction)
+
         # parameters for calculating Legendre coefficients
         param = {
                 "dg": wfs.pitch,  # wavefront sensor pitch (m)
                 "fraction": fraction,  # wavefront sensor fraction
                 "dx": self.dx,  # PPM pixel size
                 "zT": zT,  # distance between WFS and PPM
-                "lambda0": self.lambda0  # beam wavelength
+                "lambda0": self.lambda0,  # beam wavelength
+                "zf": wfs.f0,
+                "downsample": 3
                 }
 
-        # calculate Legendre coefficients
-        print('getting Legendre coefficients')
+        # calculate 2D Legendre coefficients
+        print('getting 2D Legendre coefficients')
         param['dg'] = wfs.x_pitch_sim
-        z_x, coeff_x, x_prime, x_res = self.xline.get_legendre(param)
-        param['dg'] = wfs.y_pitch_sim
-        z_y, coeff_y, y_prime, y_res = self.yline.get_legendre(param)
-        print('found Legendre coefficients')
+
+        recovered, focus, fit_params = image_calc.get_legendre(fit_object, param)
+
+        # calculate Legendre coefficients
+        # print('getting Legendre coefficients')
+        # param['dg'] = wfs.x_pitch_sim
+        # z_x, coeff_x, x_prime, x_res = self.xline.get_legendre(param)
+        # param['dg'] = wfs.y_pitch_sim
+        # z_y, coeff_y, y_prime, y_res = self.yline.get_legendre(param)
+        # print('found Legendre coefficients')
 
         # pixel size for retrieved wavefront
-        dx_prime = x_prime[1] - x_prime[0]
-        dy_prime = y_prime[1] - y_prime[0]
-
-        # re-center residual phase coordinates on beam center
-        x_prime += (x_center-self.N/2) * dx_prime
-        y_prime += (y_center-self.N/2) * dy_prime
-
-        # convert coordinates to microns
-        x_prime = x_prime * 1e6
-        y_prime = y_prime * 1e6
-
-        # print calculated distance to focus
-        print('Distance to source: '+str(z_x))
-        print('Distance to source: '+str(z_y))
+        # dx_prime = x_prime[1] - x_prime[0]
+        # dy_prime = y_prime[1] - y_prime[0]
+        #
+        # # re-center residual phase coordinates on beam center
+        # x_prime += (x_center-self.N/2) * dx_prime
+        # y_prime += (y_center-self.N/2) * dy_prime
+        #
+        # # convert coordinates to microns
+        # x_prime = x_prime * 1e6
+        # y_prime = y_prime * 1e6
+        #
+        # # print calculated distance to focus
+        # print('Distance to source: '+str(z_x))
+        # print('Distance to source: '+str(z_y))
 
         # output. See method docstring for descriptions.
         wfs_data = {
-                'x_res': x_res,
-                'x_prime': x_prime,
-                'y_res': y_res,
-                'y_prime': y_prime,
-                'coeff_x': coeff_x,
-                'coeff_y': coeff_y,
-                'z2x': z_x,
-                'z2y': z_y
+                'recovered': recovered,
+                'focus': focus,
+                'fit_params': fit_params
+                # 'x_res': x_res,
+                # 'x_prime': x_prime,
+                # 'y_res': y_res,
+                # 'y_prime': y_prime,
+                # 'coeff_x': coeff_x,
+                # 'coeff_y': coeff_y,
+                # 'z2x': z_x,
+                # 'z2y': z_y
                 }
 
         return wfs_data
