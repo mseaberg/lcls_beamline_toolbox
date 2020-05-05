@@ -8,10 +8,9 @@ Currently implements the single class TalbotLineout.
 """
 
 import numpy as np
-# from .legendre_1d import LegendreFit
-from ..polyprojection.legendre import LegendreFit1D, LegendreFit2D
+from ..polyprojection.legendre import LegendreFit1D
 from .util import Util
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from skimage.restoration import unwrap_phase
 
 
@@ -198,7 +197,7 @@ class TalbotLineout:
             h_width: float
                 Width of peak in Fourier space (1/pixels)
             p0x: float
-                2nd order phase coefficient
+                2nd order phase coefficient, calculated a different way
             p0: float
                 2nd order phase coefficient
             fourier: (N,) ndarray
@@ -228,9 +227,6 @@ class TalbotLineout:
 
         # FT with everything but the peak masked out
         x_fft = fourier_plane * mask0
-
-        # find peak in Fourier domain
-        x_peak = np.argmax(np.abs(x_fft) * mask0)
 
         # mask for zero order peak in Fourier space
         zero_mask = fx**2 < (self.fc / 2 / fraction)**2
@@ -332,13 +328,13 @@ class TalbotLineout:
         # Fourier mask to mask out peak
         mask0 = (fx-self.fc)**2 < (self.fc/2/self.factor)**2
 
-        filter = np.cos((fx-self.fc)*np.pi/2/(self.fc/2/self.factor))
+        cosine_filter = np.cos((fx-self.fc)*np.pi/2/(self.fc/2/self.factor))
 
         # fourier domain of lineout
         F1 = np.fft.fft(self.lineout)
 
         # fourier domain with everything but peak masked out
-        x_fft = F1*mask0*filter
+        x_fft = F1*mask0*cosine_filter
 
         # plt.figure()
         # plt.plot(np.abs(x_fft)/np.max(np.abs(x_fft)))
@@ -511,10 +507,6 @@ class TalbotImage:
         Factor that reduces the selected width around the peak by an amount 1/factor.
     x_pitch: float
         Talbot pattern period (in pixels)
-    residual: (N,) ndarray
-        Residual phase of Talbot pattern, beyond linear.
-    x_prime: (N,) ndarray
-        coordinates of residual, units are pixels of lineout.
     dx_prime: float
         pixel size of x_prime (should be close to 1)
     x_vis: float
@@ -715,7 +707,6 @@ class TalbotImage:
         zo = Util.threshold_array(zero_order, 0.04)
 
         zo[zo > 0] = 1
-        Ni, Mi = np.shape(zo)
 
         xp = grad_param['x1']
         yp = grad_param['y1']
