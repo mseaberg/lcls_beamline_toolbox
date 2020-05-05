@@ -743,6 +743,7 @@ class TalbotImage:
         px = grad_param['p0x'] + np.pi / lambda0 / zT
         py = grad_param['p0y'] + np.pi / lambda0 / zT
 
+        # average radius of curvature
         p0 = (px + py) / 2.
 
         # correct defocus
@@ -772,6 +773,7 @@ class TalbotImage:
         param = {
             'x': xp,
             'y': yp,
+            'p0': p0,
             'px': px,
             'py': py,
             'focus': focus,

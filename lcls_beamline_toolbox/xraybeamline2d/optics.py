@@ -2487,12 +2487,24 @@ class PPM:
         print('getting 2D Legendre coefficients')
         recovered, focus, fit_params = image_calc.get_legendre(fit_object, wfs_param)
 
+        # get complete wavefront with defocus
+        x = fit_params['x']
+        y = fit_params['y']
+        px = fit_params['px']
+        py = fit_params['py']
+        coeff = fit_params['coeff']
+
+        # add defocus to wavefront fit
+        full_wave = fit_object.wavefront_fit(coeff) + px * x**2 + py * y**2
+
         # output. See method docstring for descriptions.
         wfs_data2D = {
                 'recovered': recovered,
                 'focus': focus,
-                'fit_params': fit_params
+                'wave': full_wave
                 }
+
+        wfs_data.update(fit_params)
 
         wfs_data.update(wfs_data2D)
 
