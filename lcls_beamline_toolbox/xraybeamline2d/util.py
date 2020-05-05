@@ -327,7 +327,7 @@ class Util:
         return index
 
     @staticmethod
-    def get_horizontal_lineout(array_in, x_center=0, y_center=0, half_length=None, half_width=None):
+    def get_horizontal_lineout(array_in, x_center=None, y_center=None, half_length=None, half_width=None):
         """
         Method to get a horizontal lineout from a 2D array
         Parameters
@@ -349,6 +349,11 @@ class Util:
             Summed lineout from array_in (projected on horizontal axis)
         """
         N, M = np.shape(array_in)
+
+        if x_center is None:
+            x_center = int(M/2)
+        if y_center is None:
+            y_center = int(N/2)
 
         if half_length is None:
             x_start = 0
@@ -369,7 +374,7 @@ class Util:
         return lineout
 
     @staticmethod
-    def get_vertical_lineout(array_in, x_center=0, y_center=0, half_length=None, half_width=None):
+    def get_vertical_lineout(array_in, x_center=None, y_center=None, half_length=None, half_width=None):
         """
         Method to get a horizontal lineout from a 2D array
         Parameters
@@ -392,6 +397,11 @@ class Util:
         """
         N, M = np.shape(array_in)
 
+        if x_center is None:
+            x_center = int(M/2)
+        if y_center is None:
+            y_center = int(N/2)
+
         if half_width is None:
             x_start = 0
             x_end = M
@@ -409,3 +419,192 @@ class Util:
         lineout = np.sum(array_in[y_start:y_end, x_start:x_end], axis=1)
 
         return lineout
+
+    @staticmethod
+    def get_coordinates(array_in, dx):
+        """
+        Method to get coordinates for a 1D or 2D array
+        Parameters
+        ----------
+        array_in: ndarray
+            array that we want coordinates for.
+        dx: float
+            pixel size
+
+        Returns
+        -------
+        tuple of coordinate arrays with same shape as array_in
+        """
+        array_shape = np.shape(array_in)
+
+        coord_list = []
+
+        for dimension in array_shape:
+            c = np.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * dx
+            coord_list.append(c)
+
+        # make grid of spatial frequencies
+        coord_tuple = np.meshgrid(*coord_list)
+
+        return coord_tuple
+
+    @staticmethod
+    def get_spatial_frequencies(array_in, dx):
+        """
+        Method to calculate spatial frequencies from array size and pixel size
+        Parameters
+        ----------
+        array_in: ndarray
+            array that we want spatial frequency coordinates for
+        dx: float
+            pixel size. Assume this is the same in all dimensions
+
+        Returns
+        -------
+        tuple of spatial frequency arrays. Length of tuple depends is the same as length of shape.
+        """
+
+        array_shape = np.shape(array_in)
+
+        # maximum spatial frequency
+        fx_max = 1.0 / (dx * 2)
+
+        # frequency list
+        f_list = []
+
+        for dimension in array_shape:
+            df = 2 * fx_max / dimension
+            f = np.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * df
+            f_list.append(f)
+
+        # make grid of spatial frequencies
+        fx_tuple = np.meshgrid(*f_list)
+
+        return fx_tuple
+
+    @staticmethod
+    def fourier_mask(frequencies, coordinates, radii, cosine_mask=False):
+        """
+        Method to create a mask in Fourier space, centered at coordinates
+        Parameters
+        ----------
+        frequencies: tuple of arrays, or array
+            tuple of spatial frequency arrays. All arrays must be the same shape.
+        coordinates: tuple of floats, or float
+            tuple of coordinates in spatial frequency. Same units as frequencies. Must be same length as frequencies.
+        radii: tuple of floats, or float
+            If this has length greater than 1, the mask is elliptical. If length is 1, then the mask is circular.
+        cosine_mask: bool
+            Whether or not to multiply mask by cosine filter
+
+        Returns
+        -------
+        array of same shape as any of the arrays in frequencies.
+        """
+
+        # check if frequencies is a tuple
+        if type(frequencies) is tuple:
+            array_size = np.shape(frequencies[0])
+            num_arrays = len(frequencies)
+        else:
+            array_size = np.shape(frequencies)
+            num_arrays = 1
+
+        # check size of locations tuple
+        if type(coordinates) is tuple:
+            num_coords = len(coordinates)
+        else:
+            num_coords = 1
+
+        # enforce that there are at least as many locations
+        if num_coords < num_arrays:
+            raise ValueError('Number of locations does not match number of frequency arrays.')
+        elif num_coords > num_arrays:
+            # if there are more coordinates than arrays just take the same number as the arrays
+            coordinates = coordinates[0:num_arrays]
+            num_coords = num_arrays
+
+        # check size of widths
+        if type(radii) is tuple:
+            first_width = radii[0]
+            num_widths = len(radii)
+        else:
+            first_width = radii
+            num_widths = 1
+
+        # if number of widths doesn't match number of coordinates, just take the first width and copy it
+        if num_widths != num_coords:
+            radii = [first_width] * num_coords
+
+        # initialize left hand side of inequality
+        lhs = np.zeros(array_size)
+
+        # loop through coordinates
+        for f, c, r in zip(frequencies, coordinates, radii):
+            lhs += ((f - c)/r)**2
+
+        # define mask
+        mask = (lhs < 1).astype(float)
+
+        # add cosine filter if desired
+        if cosine_mask:
+            for f, c, r in zip(frequencies, coordinates, radii):
+                mask *= np.cos(np.pi/2*(f-c)/r)
+
+        return mask
+
+    @staticmethod
+    def fourier_downsampling(array_in, downsampling):
+        """
+        Method to perform fourier transform-based downsampling
+        Parameters
+        ----------
+        array_in: (N,M) ndarray
+            array to be downsampled
+        downsampling: int
+            amount to downsample
+
+        Returns
+        -------
+        (N/downsampling,M/downsampling) ndarray
+        """
+
+        # get array shape
+        N, M = np.shape(array_in)
+
+        # fourier transform
+        fourier_plane = Util.nfft(array_in)
+        # crop fourier array
+
+        cropped_array = Util.crop_center(fourier_plane, M/downsampling, N/downsampling)
+
+        # ifft back to real space
+        array_out = Util.infft(cropped_array)
+
+        return array_out
+
+    @staticmethod
+    def crop_center(array_in, x_width, y_width):
+        """
+        Method to crop out the center of an array
+        Parameters
+        ----------
+        array_in: (N,M) ndarray
+            array to be cropped
+        x_width: int
+            resulting horizontal size of output
+        y_width: int
+            resulting vertical size of output
+
+        Returns
+        -------
+        (y_width,x_width) ndarray
+        """
+
+        N, M = np.shape(array_in)
+
+        cropped_array = array_in[int(N / 2 - y_width/2):int(N / 2 + y_width/2),
+                                 int(M / 2 - x_width/2):int(M / 2 + x_width/2)]
+
+        return cropped_array
+
