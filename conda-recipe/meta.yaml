@@ -7,15 +7,15 @@ source:
 
 requirements:
   build:
-    - python >= 3.6
+    - python
     - setuptools
 
   run:
-    - python >= 3.6
+    - python
     - scipy
     - numpy
     - matplotlib
-    - scikit-image>=0.16.2
+    - scikit-image >=0.16.2
 
 test:
   imports:
