@@ -337,9 +337,10 @@ class TalbotLineout:
         # residual phase gradient
         grad = -self.residual * dg / fraction / lambda0 / zT
 
-        
-
         wave = np.cumsum(grad) * dx2
+
+        px = np.polyfit(xcoord, wave, 2)
+        wave = wave - px[0] * xcoord ** 2 - px[1] * xcoord - px[2]
 
         return zf, xcoord, wave
 
