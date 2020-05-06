@@ -830,7 +830,6 @@ class TalbotImage:
             'p0': p0,
             'px': px,
             'py': py,
-            'focus': focus,
             'coeff': legendre_coeff,
             'xf': xf,
             'yf': yf
