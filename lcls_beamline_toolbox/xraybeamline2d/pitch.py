@@ -340,7 +340,7 @@ class TalbotLineout:
         wave = np.cumsum(grad) * dx2
 
         px = np.polyfit(xcoord, wave, 2)
-        px_total = px + np.pi/lambda0/zf0
+        px_total = px[0] + np.pi/lambda0/zf0
         zf = np.pi/lambda0/px_total
 
         wave = wave - px[0] * xcoord ** 2 - px[1] * xcoord - px[2]
