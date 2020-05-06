@@ -333,8 +333,19 @@ class TalbotLineout:
         # fourier domain of lineout
         F1 = np.fft.fft(self.lineout)
 
+        # define mask for zero order in Fourier domain
+        zeromask = fx < self.fc / 2
+        zeromask = np.logical_or(zeromask, fx > 1 - self.fc / 2)
+
+        # mask out zero order
+        zero_order = F1 * zeromask
+
         # fourier domain with everything but peak masked out
         x_fft = F1*mask0*cosine_filter
+
+        # calculate visibility in two ways
+        x_vis = np.max(np.abs(x_fft)) / np.max(np.abs(zero_order)) * 2
+        vis2 = (np.max(self.lineout) - np.min(self.lineout)) / (np.max(self.lineout) + np.min(self.lineout))
 
         # plt.figure()
         # plt.plot(np.abs(x_fft)/np.max(np.abs(x_fft)))
@@ -413,6 +424,8 @@ class TalbotLineout:
         self.residual = residual
         self.x_prime = x_prime
         self.dx_prime = dx_prime
+        self.x_vis = x_vis
+        self.vis2 = vis2
 
     def calc_pitch_vis(self):
         """
