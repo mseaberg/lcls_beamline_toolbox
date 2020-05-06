@@ -366,10 +366,11 @@ class TalbotLineout:
         pad_width = int(N / 2 - crop_width)
 
         # crop out peak and pad with zeros
-        x_pad = np.pad(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)], pad_width, 'constant')
+        # x_pad = np.pad(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)], pad_width, 'constant')
 
         # shift peak to zero
-        x_shift = np.fft.fftshift(x_pad)
+        # x_shift = np.fft.fftshift(x_pad)
+        x_shift = x_fft[int(x_peak - crop_width):int(x_peak + crop_width)]
 
         # Nx1 = np.size(x_fft)
         #
@@ -394,8 +395,8 @@ class TalbotLineout:
         x_filt = np.fft.ifft(x_shift)
 
         # remove edges just in case there's an issue there
-        x_filt = x_filt[int(N/16):-int(N/16)]
-        x_prime = x_prime[int(N/16):-int(N/16)]
+        x_filt = x_filt[int(Nx/16):-int(Nx/16)]
+        x_prime = x_prime[int(Nx/16):-int(Nx/16)]
         # x_filt = x_filt[2:-2]
         # x_prime = x_prime[2:-2]
 
