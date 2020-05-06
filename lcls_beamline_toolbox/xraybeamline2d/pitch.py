@@ -330,9 +330,9 @@ class TalbotLineout:
         mag_x = self.x_pitch * dx / (dg / fraction)
 
         # position of focus (positive means upstream of device)
-        zf = zT * mag_x / (mag_x - 1.)
+        zf0 = zT * mag_x / (mag_x - 1.)
 
-        print('zf: ' + str(zf))
+        print('zf: ' + str(zf0))
 
         # residual phase gradient
         grad = -self.residual * dg / fraction / lambda0 / zT
@@ -340,6 +340,9 @@ class TalbotLineout:
         wave = np.cumsum(grad) * dx2
 
         px = np.polyfit(xcoord, wave, 2)
+        px_total = px + np.pi/lambda0/zf0
+        zf = np.pi/lambda0/px_total
+
         wave = wave - px[0] * xcoord ** 2 - px[1] * xcoord - px[2]
 
         return zf, xcoord, wave
