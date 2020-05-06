@@ -67,7 +67,7 @@ class TalbotLineout:
         # calculate pitch
         self.calc_pitch()
 
-    def get_legendre(self, param):
+    def get_legendre(self, param, fit_object=None):
         """
         Method to calculate Legendre coefficients of wavefront based on lineout.
         :param param: dict
@@ -115,10 +115,11 @@ class TalbotLineout:
         # residual phase gradient
         grad = -self.residual * dg / fraction / lambda0 / zT
 
-        # generate the Legendre polynomial basis
-        print('generating basis')
-        fit_object = LegendreFit1D(np.size(grad), 16)
-        print('basis generated')
+        if fit_object is None:
+            # generate the Legendre polynomial basis
+            print('generating basis')
+            fit_object = LegendreFit1D(np.size(grad), 16)
+            print('basis generated')
 
         # get Legendre coefficients. Nothing is masked out for now.
         W = fit_object.coeff_from_grad(grad, dx2, np.ones(np.size(grad), dtype=bool)).flatten()
@@ -148,7 +149,7 @@ class TalbotLineout:
         wave = fit_object.wavefront_fit(W)
 
         # return
-        return z_x, W, xcoord, wave
+        return z_x, W, xcoord, wave, fit_object
 
     def get_pitch(self):
         """
