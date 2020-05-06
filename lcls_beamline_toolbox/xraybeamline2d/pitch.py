@@ -365,7 +365,7 @@ class TalbotLineout:
         pad_width = int(N / 2 - crop_width)
 
         # crop out peak and pad with zeros
-        x_pad = np.pad(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)], pad_width)
+        x_pad = np.pad(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)], pad_width, 'constant')
 
         # shift peak to zero
         x_shift = np.fft.fftshift(x_pad)
