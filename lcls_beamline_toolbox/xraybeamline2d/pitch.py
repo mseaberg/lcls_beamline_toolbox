@@ -312,6 +312,35 @@ class TalbotLineout:
         # output
         return h_grad, params
 
+    def normal_integration(self, param):
+        # get WFS parameters
+        dg = param['dg']
+        fraction = param['fraction']
+        dx = param['dx']
+        zT = param['zT']
+        lambda0 = param['lambda0']
+
+        # actual x coordinates (in meters)
+        xcoord = self.x_prime * dx
+
+        # pixel size for coordinates
+        dx2 = xcoord[1] - xcoord[0]
+
+        # magnification of Talbot pattern. Grating pitch is scaled by 1/fraction.
+        mag_x = self.x_pitch * dx / (dg / fraction)
+
+        # position of focus (positive means upstream of device)
+        zf = zT * mag_x / (mag_x - 1.)
+
+        print('zf: ' + str(zf))
+
+        # residual phase gradient
+        grad = -self.residual * dg / fraction / lambda0 / zT
+
+        wave = np.cumsum(grad) * dx2
+
+        return zf, xcoord, wave
+
     def calc_pitch(self):
         """
         Method to calculate lineout pitch
@@ -366,11 +395,11 @@ class TalbotLineout:
         pad_width = int(N / 2 - crop_width)
 
         # crop out peak and pad with zeros
-        # x_pad = np.pad(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)], pad_width, 'constant')
+        x_pad = np.pad(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)], pad_width, 'constant')
 
         # shift peak to zero
-        # x_shift = np.fft.fftshift(x_pad)
-        x_shift = x_fft[int(x_peak - crop_width):int(x_peak + crop_width)]
+        x_shift = np.fft.fftshift(x_pad)
+        # x_shift = x_fft[int(x_peak - crop_width):int(x_peak + crop_width)]
 
         # Nx1 = np.size(x_fft)
         #
