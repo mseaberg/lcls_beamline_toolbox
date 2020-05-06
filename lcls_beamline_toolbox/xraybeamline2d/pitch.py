@@ -337,6 +337,8 @@ class TalbotLineout:
         # residual phase gradient
         grad = -self.residual * dg / fraction / lambda0 / zT
 
+        
+
         wave = np.cumsum(grad) * dx2
 
         return zf, xcoord, wave
@@ -399,7 +401,7 @@ class TalbotLineout:
 
         # shift peak to zero
         # x_shift = np.fft.fftshift(x_pad)
-        x_shift = x_fft[int(x_peak - crop_width):int(x_peak + crop_width)]
+        x_shift = np.fft.fftshift(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)])
 
         # Nx1 = np.size(x_fft)
         #
