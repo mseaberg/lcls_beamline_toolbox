@@ -38,9 +38,11 @@ class TalbotLineout:
         estimate of the fringe visibility of the Talbot pattern
     vis2: float
         another estimate of the fringe visibility of the Talbot pattern
+    pad: bool
+        Whether to pad in the fourier domain when calculating pitch
     """
 
-    def __init__(self, lineout, fc, factor):
+    def __init__(self, lineout, fc, factor, pad=False):
         """
         Initialize TalbotLineout
         :param lineout: (N,) ndarray
@@ -49,6 +51,8 @@ class TalbotLineout:
             estimated spatial frequency of Talbot pattern. Units of 1/pixel.
         :param factor: int
             Factor that reduces the selected width around the peak by an amount 1/factor.
+        :param pad: bool
+            Whether to pad in the fourier domain when calculating pitch
         """
         self.lineout = lineout
 
@@ -63,6 +67,7 @@ class TalbotLineout:
         self.dx_prime = 0.
         self.x_vis = 0.
         self.vis2 = 0.
+        self.pad = pad
 
         # calculate pitch
         self.calc_pitch()
@@ -397,21 +402,18 @@ class TalbotLineout:
         # crop width in Fourier domain
         crop_width = int(x_peak / 2 / self.factor)
 
-        # pad width to make cropped peak the same size as x_fft
-        pad_width = int(N / 2 - crop_width)
+        if self.pad:
+            # pad width to make cropped peak the same size as x_fft
+            pad_width = int(N / 2 - crop_width)
 
-        # crop out peak and pad with zeros
-        # x_pad = np.pad(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)], pad_width, 'constant')
+            # crop out peak and pad with zeros
+            x_pad = np.pad(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)], pad_width, 'constant')
 
-        # shift peak to zero
-        # x_shift = np.fft.fftshift(x_pad)
-        x_shift = np.fft.fftshift(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)])
-
-        # Nx1 = np.size(x_fft)
-        #
-        # x_shift = np.fft.fftshift(
-        #     np.pad(x_fft[int(x_peak - int(x_peak / 2 / self.factor)):int(x_peak + int(x_peak / 2 / self.factor))],
-        #            int(Nx1 / 2), 'constant'))
+            # shift peak to zero
+            x_shift = np.fft.fftshift(x_pad)
+        else:
+            # otherwise just take the area around the peak
+            x_shift = np.fft.fftshift(x_fft[int(x_peak - crop_width):int(x_peak + crop_width)])
 
         # get size of x_shift just in case it's off by 2 or something from x_fft
         Nx = np.size(x_shift)
