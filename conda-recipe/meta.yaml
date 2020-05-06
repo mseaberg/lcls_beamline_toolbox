@@ -1,0 +1,25 @@
+package:
+  name: lcls_beamline_toolbox
+  version: 0.0.1
+
+source:
+  path: ..
+
+requirements:
+  build:
+    - python >= 3.6
+    - setuptools
+
+  run:
+    - python >= 3.6
+    - scipy
+    - numpy
+    - matplotlib
+    - scikit-image>=0.16.2
+
+test:
+  imports:
+    - lcls_beamline_toolbox
+
+about:
+  home: https://github.com/mseaberg/lcls_beamline_toolbox
