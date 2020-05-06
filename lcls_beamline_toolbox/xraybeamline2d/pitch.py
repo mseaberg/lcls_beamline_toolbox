@@ -393,10 +393,10 @@ class TalbotLineout:
         x_filt = np.fft.ifft(x_shift)
 
         # remove edges just in case there's an issue there
-        # x_filt = x_filt[int(N/8):-int(N/8)]
-        # x_prime = x_prime[int(N/8):-int(N/8)]
-        x_filt = x_filt[2:-2]
-        x_prime = x_prime[2:-2]
+        x_filt = x_filt[int(N/16):-int(N/16)]
+        x_prime = x_prime[int(N/16):-int(N/16)]
+        # x_filt = x_filt[2:-2]
+        # x_prime = x_prime[2:-2]
 
         # polynomial fit for residual unwrapped phase
         px = np.polyfit(x_prime, np.unwrap(np.angle(x_filt)), 1)
