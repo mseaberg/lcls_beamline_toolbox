@@ -2399,9 +2399,9 @@ class PPM:
         # calculate Legendre coefficients
         print('getting Legendre coefficients')
         wfs_param['dg'] = wfs.x_pitch_sim
-        z_x, coeff_x, x_prime, x_res = self.xline.get_legendre(wfs_param)
+        z_x, coeff_x, x_prime, x_res, fit_object = self.xline.get_legendre(wfs_param)
         wfs_param['dg'] = wfs.y_pitch_sim
-        z_y, coeff_y, y_prime, y_res = self.yline.get_legendre(wfs_param)
+        z_y, coeff_y, y_prime, y_res, fit_object = self.yline.get_legendre(wfs_param)
         print('found Legendre coefficients')
 
         # pixel size for retrieved wavefront
@@ -2485,7 +2485,7 @@ class PPM:
 
         # calculate 2D legendre coefficients
         print('getting 2D Legendre coefficients')
-        recovered, focus, fit_params = image_calc.get_legendre(fit_object, wfs_param)
+        recovered_beam, fit_params = image_calc.get_legendre(fit_object, wfs_param)
 
         # get complete wavefront with defocus
         x = fit_params['x']
@@ -2499,8 +2499,7 @@ class PPM:
 
         # output. See method docstring for descriptions.
         wfs_data2D = {
-                'recovered': recovered,
-                'focus': focus,
+                'recovered': recovered_beam,
                 'wave': full_wave
                 }
 

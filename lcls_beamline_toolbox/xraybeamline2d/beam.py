@@ -127,7 +127,7 @@ class Beam:
             beam_params['rangeFactor'] = self.rangeFactor
 
         # take in manual input of initial wavefront/amplitude
-        if initial_beam:
+        if initial_beam is not None:
             # initialize wave with initial_beam array
             self.wave = np.copy(initial_beam).astype(complex)
             # set pixel size

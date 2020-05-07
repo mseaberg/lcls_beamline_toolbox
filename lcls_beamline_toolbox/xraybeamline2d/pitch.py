@@ -9,6 +9,7 @@ Currently implements the single class TalbotLineout.
 
 import numpy as np
 from ..polyprojection.legendre import LegendreFit1D
+from .beam import Beam
 from .util import Util
 # import matplotlib.pyplot as plt
 from skimage.restoration import unwrap_phase
@@ -800,29 +801,39 @@ class TalbotImage:
         # average radius of curvature
         p0 = (px + py) / 2.
 
+        beam_parameters = {
+            'dx': dx2,
+            'z0x': np.pi/lambda0/px,
+            'z0y': np.pi/lambda0/py,
+            'photonEnergy': 1239.8/(lambda0*1e9)
+        }
+
+        recovered_beam = Beam(initial_beam=recovered, beam_params=beam_parameters)
+
         # correct defocus
-        defocus_phase = np.exp(1j * (xp ** 2 * (px - p0) + yp ** 2 * (py - p0)))
-        recovered *= defocus_phase
-
-        # distance to focal plane (may be offset from true focus if Fourier peak isn't centered)
-        f0 = np.pi / lambda0 / p0
-
-        # spatial frequencies
-        fx, fy = Util.get_spatial_frequencies(recovered, dx2)
-
-        # coordinates at focus
-        xf = fx * lambda0 * f0
-        yf = fy * lambda0 * f0
-
-        # calculate pixel size at focus
-        dxf = xf[0, 1] - xf[0, 0]
-        print('pixel size: ' + str(dxf))
-
-        # phase to multiply by at focus
-        phase2 = np.exp(-1j * np.pi / lambda0 / f0 * (xf ** 2 + yf ** 2))
+        # defocus_phase = np.exp(1j * (xp ** 2 * (px - p0) + yp ** 2 * (py - p0)))
+        # recovered *= defocus_phase
+        #
+        # # distance to focal plane (may be offset from true focus if Fourier peak isn't centered)
+        # f0 = np.pi / lambda0 / p0
+        #
+        # # spatial frequencies
+        # fx, fy = Util.get_spatial_frequencies(recovered, dx2)
+        #
+        # # coordinates at focus
+        # xf = fx * lambda0 * f0
+        # yf = fy * lambda0 * f0
+        #
+        # # calculate pixel size at focus
+        # dxf = xf[0, 1] - xf[0, 0]
+        # print('pixel size: ' + str(dxf))
+        #
+        # # phase to multiply by at focus
+        # phase2 = np.exp(-1j * np.pi / lambda0 / f0 * (xf ** 2 + yf ** 2))
 
         # calculate beam at focus
-        focus = Util.infft(recovered) * phase2
+        # focus = Util.infft(recovered) * phase2
+        # focus = recovered_beam.beam_prop()
 
         param = {
             'x': xp,
@@ -830,9 +841,9 @@ class TalbotImage:
             'p0': p0,
             'px': px,
             'py': py,
-            'coeff': legendre_coeff,
-            'xf': xf,
-            'yf': yf
+            'coeff': legendre_coeff
+            # 'xf': xf,
+            # 'yf': yf
         }
 
-        return recovered, focus, param
+        return recovered_beam, param
