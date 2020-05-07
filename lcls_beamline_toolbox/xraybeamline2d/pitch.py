@@ -742,7 +742,7 @@ class TalbotImage:
         # output
         return h_grad, v_grad, params
 
-    def get_legendre(self, fit_object, param):
+    def get_legendre(self, fit_object, param, threshold=.01):
 
         # get WFS parameters
         dg = param['dg']
@@ -758,15 +758,15 @@ class TalbotImage:
         # define "zero order" based on magnitude of gradients
         zero_order = (np.abs(h_grad) + np.abs(v_grad)) / 2.0
 
-        zo = Util.threshold_array(zero_order, 0.04)
-
-        zo[zo > 0] = 1
+        # zo = Util.threshold_array(zero_order, 0.04)
+        #
+        # zo[zo > 0] = 1
 
         xp = grad_param['x1']
         yp = grad_param['y1']
 
         # threshold above noise
-        zeroMask = zero_order > (.01 * np.max(zero_order))
+        zeroMask = zero_order > (threshold * np.max(zero_order))
 
         # unwrap phase in 2D, multiply by shear factor
         h_grad2 = unwrap_phase(np.angle(h_grad), seed=0) * dg / lambda0 / zT
