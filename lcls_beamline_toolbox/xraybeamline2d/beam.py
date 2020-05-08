@@ -574,7 +574,7 @@ class Beam:
                     self.focused_y = False
 
                 # recursively call this method until we've reached the original goal (dz)
-                self.beam_prop(dz, dz_progress=(dz_progress + prop_step), index=(index + 1))
+                return self.beam_prop(dz, dz_progress=(dz_progress + prop_step), index=(index + 1))
 
     def rescale_x(self, factor):
         """

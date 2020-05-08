@@ -808,7 +808,7 @@ class TalbotImage:
             'photonEnergy': 1239.8/(lambda0*1e9)
         }
 
-        recovered_beam = Beam(initial_beam=recovered, beam_params=beam_parameters)
+        # recovered_beam = Beam(initial_beam=recovered, beam_params=beam_parameters)
 
         # correct defocus
         # defocus_phase = np.exp(1j * (xp ** 2 * (px - p0) + yp ** 2 * (py - p0)))
@@ -846,4 +846,4 @@ class TalbotImage:
             # 'yf': yf
         }
 
-        return recovered_beam, param
+        return recovered, param
