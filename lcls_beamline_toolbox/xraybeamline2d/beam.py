@@ -664,6 +664,7 @@ class Pulse:
             number of independent photon energies to propagate
         """
         # set some attributes
+        self.beam_params = beam_params
         self.N = N
         self.bandwidth = bandwidth
         self.E0 = beam_params['photonEnergy']
@@ -674,6 +675,13 @@ class Pulse:
         self.envelope = np.exp(-(self.energy-self.E0)**2/(2 * sigma**2))
 
     def propagate(self, beamline=None, screens=None):
+
+        # initialize output
+        
+
+        # loop through beams in the pulse
+
+
         pass
 
         

@@ -14,7 +14,7 @@ All distances/lengths are in meters, spatial frequencies in 1/meters, angles in 
 unless otherwise indicated.
 """
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from .util import Util
 
 
@@ -459,7 +459,81 @@ class Beam:
 
         return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
 
-        
+
+class Pulse:
+    """
+    Class to represent a collection of beams within a pulse structure.
+    """
+
+    def __init__(self, beam_params=None, bandwidth=None, N=10):
+        """
+        Create a Pulse object
+        :param beam_params: same parameters as given for Beam
+        :param bandwidth: float
+            pulse bandwidth in eV (FWHM)
+        :param N: int
+            number of independent photon energies to propagate
+        """
+        # set some attributes
+        self.beam_params = beam_params
+        self.N = N
+        self.bandwidth = bandwidth
+        self.E0 = beam_params['photonEnergy']
+        sigma = self.bandwidth / 2.355
+
+        # define pulse envelope (twice the FWHM)
+        self.energy = np.linspace(-self.bandwidth, self.bandwidth, N)
+        self.envelope = np.exp(-(self.energy) ** 2 / (2 * sigma ** 2)).astype(complex)
+
+        # total energy range
+        E_range = np.max(self.energy) - np.min(self.energy)
+
+        # total frequency range (energy divided by Planck's constant (in eV * s))
+        f_range = E_range / 4.136e-15
+
+        # time resolution corresponding to full energy range (in fs)
+        self.deltaT = 1 / f_range * 1e15
+        # time axis in fs
+        self.t_axis = np.linspace(-N/2, N/2-1, N) * self.deltaT
+
+    def propagate(self, beamline=None, screen_names=None):
+        # initialize output
+        energy_output = {}
+        x = {}
+        y = {}
+        for screen in screen_names:
+            screen_obj = getattr(beamline, screen)
+            Ns = screen_obj.N
+            x[screen] = screen_obj.x
+            y[screen] = screen_obj.y
+            energy_output[screen] = np.zeros((Ns, Ns, self.N), dtype=complex)
+
+        # loop through beams in the pulse
+        for num, energy in enumerate(self.energy):
+            # define beam for current energy
+            self.beam_params['photonEnergy'] = self.E0 + energy
+            b1 = Beam(beam_params=self.beam_params)
+            beamline.propagate_beamline(b1)
+
+            for screen in screen_names:
+                # put current photon energy into output, multiply by spectral envelope
+                screen_obj = getattr(beamline, screen)
+                energy_output[screen][:, :, num] = screen_obj.complex_beam() * self.envelope[num]
+
+        temporal_output = {}
+        for screen in screen_names:
+            temporal_output[screen] = Pulse.energy_to_time(energy_output[screen])
+
+        return energy_output, temporal_output, x, y
+
+    @staticmethod
+    def energy_to_time(energy_stack):
+
+        # calculate time domain of pulse from energy domain
+        time_domain = np.fft.fftshift(np.fft.fft(np.fft.fftshift(energy_stack, axes=2), axis=2), axes=2)
+        return time_domain
+
+
 class GaussianSource:
     """
     Class for representing generating a monochromatic Gaussian beam.

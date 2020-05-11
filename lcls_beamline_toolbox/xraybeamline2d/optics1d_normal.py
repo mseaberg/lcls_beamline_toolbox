@@ -2072,6 +2072,8 @@ class PPM:
 
         # initialize some attributes
         self.profile = np.zeros((N, N))
+        self.x_phase = np.zeros(N)
+        self.y_phase = np.zeros(N)
         self.x_lineout = np.zeros(N)
         self.y_lineout = np.zeros(N)
         self.xline = None
@@ -2200,6 +2202,17 @@ class PPM:
         # interpolating function from np.interp (allowing for flipped coordinates)
         profilex_interp = Util.interp_flip(self.x, x * scaling_x, profilex)
         profiley_interp = Util.interp_flip(self.y, y * scaling_y, profiley)
+
+        x_phase = np.unwrap(np.angle(beam.wavex))
+        y_phase = np.unwrap(np.angle(beam.wavey))
+
+        # get beam coordinates
+        x = beam.x
+        y = beam.y
+
+        # interpolating function from np.interp (allowing for flipped coordinates)
+        self.x_phase = Util.interp_flip(self.x, x * scaling_x, x_phase)
+        self.y_phase = Util.interp_flip(self.y, y * scaling_y, y_phase)
 
         # multiply two dimensions together to get the 2d profile
         self.profile = np.reshape(profiley_interp, (self.N, 1)) * np.reshape(profilex_interp, (1, self.N))
@@ -2501,6 +2514,16 @@ class PPM:
                 }
 
         return wfs_data
+
+    def complex_beam(self):
+
+        # multiply two dimensions together to get the 2d profile
+        phase_2D = np.reshape(self.y_phase, (self.N, 1)) * np.reshape(self.x_phase, (1, self.N))
+
+        # reshape into 2 dimensional representation
+        complex_beam = np.sqrt(self.profile) * np.exp(1j*phase_2D)
+
+        return complex_beam
 
 
 class WFS:
