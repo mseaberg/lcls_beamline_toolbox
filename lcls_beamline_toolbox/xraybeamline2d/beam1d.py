@@ -11,7 +11,7 @@ All distances/lengths are in meters, spatial frequencies in 1/meters, angles in 
 unless otherwise indicated.
 """
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from .util import Util
 
 
@@ -307,6 +307,56 @@ class Beam:
         # Inverse Fourier transform to calculate beam at new plane
         self.wavey = Util.infft1(gy)
 
+    def change_z(self, new_zx=None, new_zy=None):
+        """
+        Method that is called by focusing elements to check if the beam needs to be re-classified as unfocused.
+        Must be called before beam z is adjusted. Also changes z to new values.
+
+        Parameters
+        ----------
+        new_zx: float
+            new horizontal beam radius of curvature
+        new_zy: float
+            new vertical beam radius of curvature
+        """
+
+        if new_zx is None:
+            new_zx = self.zx
+        if new_zy is None:
+            new_zy = self.zy
+
+        # update Rayleigh range
+        self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
+                    self.rangeFactor)
+        self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
+                    self.rangeFactor)
+
+        # check if beam should change state. This only needs to happen if beam is already focused because if unfocused
+        # the beam_prop method will check anyway.
+        x_focused = -self.zRx <= new_zx < self.zRx
+        y_focused = -self.zRy <= new_zy < self.zRy
+
+        # check if transitioning to unfocused
+        if self.focused_x:
+            # if it stays focused, we need to modify the phase directly
+            if x_focused:
+                self.wavex *= np.exp(1j * np.pi / self.lambda0 * (self.x - self.cx)**2 * (1/new_zx - 1/self.zx))
+            else:
+                print('x becomes unfocused')
+                self.wavex *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx) ** 2)
+                self.focused_x = False
+        if self.focused_y:
+            if y_focused:
+                self.wavey *= np.exp(1j * np.pi / self.lambda0 * (self.y - self.cy) ** 2 * (1 / new_zy - 1 / self.zy))
+            else:
+                print('y becomes unfocused')
+                self.wavey *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy) ** 2)
+                self.focused_y = False
+
+        # update beam z
+        self.zx = new_zx
+        self.zy = new_zy
+
     def beam_prop(self, dz, dz_progress=0, index=0):
         """
         Method that handles beam propagation.
@@ -562,7 +612,7 @@ class Beam:
                     self.focused_y = False
 
                 # recursively call this method until we've reached the original goal (dz)
-                self.beam_prop(dz, dz_progress=(dz_progress + prop_step), index=(index + 1))
+                return self.beam_prop(dz, dz_progress=(dz_progress + prop_step), index=(index + 1))
 
     def rescale_x(self, factor):
         """
@@ -633,6 +683,526 @@ class Beam:
         # spatial frequency coordinates
         self.fx = np.linspace(-fx_max, fx_max - dfx, self.M)
         self.fy = np.linspace(-fy_max, fy_max - dfy, self.N)
+
+
+class Pulse:
+    """
+    Class to represent a collection of beams within a pulse structure.
+    """
+
+    def __init__(self, beam_params=None, tau=None, time_window=None):
+        """
+        Create a Pulse object
+        :param beam_params: same parameters as given for Beam
+        :param tau: float
+            pulse width (fs)
+        :param time_window: float
+            full width of time window in fs (related to energy sampling)
+        """
+        # set some attributes
+        self.beam_params = beam_params
+        self.tau = tau
+        self.time_window = time_window
+        self.E0 = beam_params['photonEnergy']
+
+        # ----- energy range
+        # 1/e^2 in intensity bandwidth (radius) for transform-limited pulse
+        # hbar in eV*fs
+        hbar = 0.6582
+        self.bandwidth = 2 * np.sqrt(2) * hbar * np.sqrt(np.log(2)) / self.tau
+
+        # define energy range 6 times the bandwidth
+        E_range = 6 * self.bandwidth
+
+        # total frequency range in petaHz (energy divided by Planck's constant (in eV * fs))
+        f_range = E_range / 4.136
+
+        # time resolution corresponding to full energy range (in fs)
+        self.deltaT = 1 / f_range
+
+        # calculate number of samples needed
+        self.N = int(self.time_window / self.deltaT)
+
+        # define pulse energies and envelope
+        self.energy = np.linspace(-3*self.bandwidth, 3*self.bandwidth, self.N) + self.E0
+        self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
+
+        # calculate wavelengths
+        self.wavelength = 1239.8/self.energy*1e-9
+
+        # total energy range
+        E_range = np.max(self.energy) - np.min(self.energy)
+        self.dE = E_range / self.N
+
+        # time axis in fs
+        self.t_axis = np.linspace(-self.N/2, self.N/2-1, self.N) * self.deltaT
+
+        # initialize energy stacks with dictionary. Keys are profile monitor names
+        self.energy_stacks = {}
+
+        # initialize time stacks with dictionary. Keys are profile monitor names
+        self.time_stacks = {}
+
+        # initialize coordinates for profile monitors
+        self.x = {}
+        self.y = {}
+
+        # initialize 2D coordinates for profile monitors
+        self.xx = {}
+        self.yy = {}
+
+        # initialize quadratic phase
+        self.qx = {}
+        self.qy = {}
+
+        # initialize beam center
+        self.cx = {}
+        self.cy = {}
+
+    def propagate(self, beamline=None, screen_names=None):
+        """
+        Method for propagating a pulse through a beamline
+        Parameters
+        ----------
+        beamline: Beamline
+            Collection of beamline devices to propagate through
+        screen_names: list of strings
+            Locations to evaluate pulse. Must correspond to profile monitor names in the beamline
+        Returns
+        -------
+        None
+        """
+
+        # add screens to energy stacks
+        for screen in screen_names:
+            screen_obj = getattr(beamline, screen)
+            Ns = screen_obj.N
+            self.x[screen] = screen_obj.x
+            self.y[screen] = screen_obj.y
+            self.xx[screen], self.yy[screen] = np.meshgrid(self.x[screen], self.y[screen])
+            self.energy_stacks[screen] = np.zeros((Ns, Ns, self.N), dtype=complex)
+            self.qx[screen] = np.zeros(self.N)
+            self.qy[screen] = np.zeros(self.N)
+            self.cx[screen] = np.zeros(self.N)
+            self.cy[screen] = np.zeros(self.N)
+
+        # loop through beams in the pulse
+        for num, energy in enumerate(self.energy):
+            # define beam for current energy
+            self.beam_params['photonEnergy'] = energy
+            b1 = Beam(beam_params=self.beam_params)
+            beamline.propagate_beamline(b1)
+
+            for screen in screen_names:
+                # put current photon energy into energy stack, multiply by spectral envelope
+                screen_obj = getattr(beamline, screen)
+                energy_slice, zx, zy, cx, cy = screen_obj.complex_beam()
+                self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
+                if zx != 0:
+                    self.qx[screen][num] = 1/zx
+                if zy != 0:
+                    self.qy[screen][num] = 1/zy
+                self.cx[screen][num] = cx
+                self.cy[screen][num] = cy
+                # self.energy_stacks[screen][:, :, num] = screen_obj.complex_beam() * self.envelope[num]
+
+        # convert to time domain
+        for screen in screen_names:
+            # deal with quadratic phase
+            # subtract mean
+            qx_mean = np.mean(self.qx[screen])
+            qy_mean = np.mean(self.qy[screen])
+
+            for num in range(self.N):
+                qx = self.qx[screen][num]
+                qy = self.qy[screen][num]
+                cx = self.cx[screen][num]
+                cy = self.cy[screen][num]
+                # subtract off mean quadratic phase
+                # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
+                # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
+                x_phase = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
+                x_phase -= np.pi / self.wavelength[num] * qx_mean * self.xx[screen]**2
+                y_phase = np.pi/self.wavelength[num]*(qy)*(self.yy[screen]-cy)**2
+                y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
+                self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
+
+            self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
+
+    @staticmethod
+    def energy_to_time(energy_stack):
+        """
+        Method to convert from energy to time domain
+        Parameters
+        ----------
+        energy_stack: (N,M,P) complex-valued ndarray
+            electric field in the photon energy domain
+        Returns
+        -------
+        time_stack: (N,M,P) complex-valued ndarray
+            electric field in the time domain
+        """
+
+        # calculate time domain of pulse from energy domain (Fourier transform along the energy axis)
+        time_stack = np.fft.fftshift(np.fft.fft(np.fft.fftshift(energy_stack, axes=2), axis=2), axes=2)
+
+        return time_stack
+
+    def imshow_projection(self, image_name):
+        """
+        Method to show an image of the total integrated intensity
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+
+        Returns
+        -------
+
+        """
+
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # generate the figure
+        plt.figure(figsize=(8, 8))
+
+        # generate the axes, in a grid
+        ax_profile = plt.subplot2grid((4, 4), (0, 0), colspan=3, rowspan=3)
+        ax_y = plt.subplot2grid((4, 4), (0, 3), rowspan=3)
+        ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
+
+        # calculate the profile
+        profile = np.sum(np.abs(self.energy_stacks[image_name]), axis=2) ** 2
+        x_lineout = np.sum(profile, axis=0)
+        y_lineout = np.sum(profile, axis=1)
+
+        # show the 2D profile
+        ax_profile.imshow(np.flipud(profile),
+                          extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
+        # label coordinates
+        ax_profile.set_xlabel('X coordinates (microns)')
+        ax_profile.set_ylabel('Y coordinates (microns)')
+        ax_profile.set_title('%s Spatial Projection' % image_name)
+        # show the horizontal lineout (distance in microns)
+        ax_x.plot(self.x[image_name] * 1e6, x_lineout / np.max(x_lineout))
+        # show the vertical lineout (distance in microns)
+        ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
+
+    def imshow_energy_slice(self, image_name, dim='x', slice_pos=0):
+        """
+        Method to show a slice along space and energy
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        dim: str
+            spatial dimension for the slice ('x' or 'y')
+        slice_pos: float
+            spatial slice location (in y if dim='x' and vice versa). Units are microns.
+
+        Returns
+        -------
+
+        """
+
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+        min_E = np.min(self.energy)
+        max_E = np.max(self.energy)
+
+        # generate the figure
+        plt.figure(figsize=(6,6))
+
+        # generate the axes, in a grid
+        ax_profile = plt.subplot2grid((1,1),(0,0))
+
+        # horizontal slice
+        if dim == 'x':
+            # slice index
+            N = self.x[image_name].size
+            dx = (maxx - minx) / N
+            index = int((slice_pos - minx) / dx)
+            profile = np.abs(self.energy_stacks[image_name][index, :, :]) ** 2
+            extent = (min_E, max_E, minx, maxx)
+            ylabel = 'X coordinates (microns)'
+            aspect_ratio = (max_E - min_E) / (maxx - minx)
+            title = u'%s Energy Slice: Y = %d \u03BCm' % (image_name, slice_pos)
+        # vertical slice
+        elif dim == 'y':
+            # slice index
+            N = self.y[image_name].size
+            dx = (maxy-miny)/N
+            index = int((slice_pos-miny)/dx)
+            profile = np.abs(self.energy_stacks[image_name][:, index, :])**2
+            extent = (min_E, max_E, miny, maxy)
+            ylabel = 'Y coordinates (microns)'
+            aspect_ratio = (max_E-min_E)/(maxy-miny)
+            title = u'%s Energy Slice: X = %d \u03BCm' % (image_name, slice_pos)
+        else:
+            profile = np.zeros((256,256))
+            extent = (0, 0, 0, 0)
+            ylabel = ''
+            aspect_ratio = 1
+            title = ''
+
+        # show the 2D profile
+        ax_profile.imshow(np.flipud(profile), aspect=aspect_ratio,
+                          extent=extent, cmap=plt.get_cmap('gnuplot'))
+        # label coordinates
+        ax_profile.set_xlabel('Energy (eV)')
+        ax_profile.set_ylabel(ylabel)
+        # ax_profile.set_title('%s Energy Slice' % image_name)
+        ax_profile.set_title(title)
+
+    def imshow_time_slice(self, image_name, dim='x', slice_pos=0):
+        """
+        Method to show a slice along space and time
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        dim: str
+            spatial dimension for the slice ('x' or 'y')
+        slice_pos: float
+            spatial slice location (in y if dim='x' and vice versa). Units are microns.
+
+        Returns
+        -------
+
+        """
+
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+        min_t = np.min(self.t_axis)
+        max_t = np.max(self.t_axis)
+
+        # generate the figure
+        plt.figure(figsize=(6, 6))
+
+        # generate the axes, in a grid
+        ax_profile = plt.subplot2grid((1, 1), (0, 0))
+
+        # horizontal slice
+        if dim == 'x':
+            # slice index
+            N = self.x[image_name].size
+            dx = (maxx - minx) / N
+            index = int((slice_pos - minx) / dx)
+            print(index)
+            profile = np.abs(self.time_stacks[image_name][index, :, :]) ** 2
+            extent = (min_t, max_t, minx, maxx)
+            ylabel = 'X coordinates (microns)'
+            aspect_ratio = (max_t - min_t) / (maxx - minx)
+            title = u'%s Time Slice: Y = %d \u03BCm' % (image_name, slice_pos)
+        # vertical slice
+        elif dim == 'y':
+            # slice index
+            N = self.y[image_name].size
+            dx = (maxy - miny) / N
+            index = int((slice_pos - miny) / dx)
+            print(index)
+            profile = np.abs(self.time_stacks[image_name][:, index, :]) ** 2
+            extent = (min_t, max_t, miny, maxy)
+            ylabel = 'Y coordinates (microns)'
+            aspect_ratio = (max_t - min_t) / (maxy - miny)
+            title = u'%s Time Slice: X = %d \u03BCm' % (image_name, slice_pos)
+        else:
+            profile = np.zeros((256, 256))
+            extent = (0, 0, 0, 0)
+            ylabel = ''
+            aspect_ratio = 1
+
+        # show the 2D profile
+        ax_profile.imshow(np.flipud(profile), aspect=aspect_ratio,
+                          extent=extent, cmap=plt.get_cmap('gnuplot'))
+        # label coordinates
+        ax_profile.set_xlabel('Time (fs)')
+        ax_profile.set_ylabel(ylabel)
+        ax_profile.set_title(title)
+
+    def imshow_spatial_slice(self, image_name, slice_type='energy', slice_pos=None):
+        """
+        Method to show a spatial slice at a given energy or time.
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        slice_type: str
+            'energy' or 'time'
+        slice_pos: float
+            time or energy to take the slice from (units are eV if energy or fs if time)
+
+        Returns
+        -------
+
+        """
+
+        if slice_type == 'time':
+            if slice_pos is None:
+                index = int(self.N/2)
+            else:
+                index = int((slice_pos - np.min(self.t_axis)) / self.deltaT)
+            profile = np.abs(self.time_stacks[image_name][:, :, index])**2
+            title = u'%s Spatial Slice: T = %d fs' % (image_name, slice_pos)
+        else:
+            if slice_pos is None:
+                index = int(self.N/2)
+            else:
+                index = int((slice_pos - np.min(self.energy)) / self.dE)
+            profile = np.abs(self.energy_stacks[image_name][:, :, index])**2
+            title = u'%s Spatial Slice: E = %.2f eV' % (image_name, slice_pos)
+
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # lineouts
+        x_lineout = np.sum(profile, axis=0)
+        y_lineout = np.sum(profile, axis=1)
+
+        # generate the figure
+        plt.figure(figsize=(8, 8))
+
+        # generate the axes, in a grid
+        ax_profile = plt.subplot2grid((4, 4), (0, 0), colspan=3, rowspan=3)
+        ax_y = plt.subplot2grid((4, 4), (0, 3), rowspan=3)
+        ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
+
+        extent = (minx, maxx, miny, maxy)
+        aspect_ratio = (maxx - minx) / (maxy - miny)
+
+        # show the 2D profile
+        ax_profile.imshow(np.flipud(profile), aspect=aspect_ratio,
+                          extent=extent, cmap=plt.get_cmap('gnuplot'))
+        # label coordinates
+        ax_profile.set_xlabel(u'X coordinates (\u03BCm)')
+        ax_profile.set_ylabel(u'Y coordinates (\u03BCm)')
+        ax_profile.set_title(title)
+        # show the horizontal lineout (distance in microns)
+        ax_x.plot(self.x[image_name] * 1e6, x_lineout / np.max(x_lineout))
+        # show the vertical lineout (distance in microns)
+        ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
+
+    def plot_spectrum(self, image_name, x_pos=0, y_pos=0):
+        """
+        Method to plot the spectrum at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+
+        Returns
+        -------
+
+        """
+        # get boundaries
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # get number of pixels
+        M = self.x[image_name].size
+        N = self.y[image_name].size
+
+        # calculate pixel sizes (microns)
+        dx = (maxx - minx) / M
+        dy = (maxy - miny) / N
+
+        # calculate indices for the desired location
+        x_index = int((x_pos - minx) / dx)
+        y_index = int((y_pos - miny) / dy)
+
+        # calculate spectral intensity
+        y_data = np.abs(self.energy_stacks[image_name][y_index,x_index,:])**2
+
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.energy, y_data)
+        fwhm = sx * 2.355
+
+        # gaussian fit to plot
+        gauss_plot = Util.fit_gaussian(self.energy, centroid, sx)
+
+        # plotting
+        plt.figure()
+        plt.plot(self.energy, y_data/np.max(y_data), label='Simulated')
+        plt.plot(self.energy, gauss_plot, label=u'Gaussian Fit: %.2f eV FWHM' % fwhm)
+        plt.xlabel('Energy (eV)')
+        plt.ylabel('Intensity (normalized)')
+        plt.title(u'%s Spectrum at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
+        plt.legend()
+        plt.grid()
+
+    def plot_pulse(self, image_name, x_pos=0, y_pos=0):
+        """
+        Method to plot the temporal pulse structure at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+
+        Returns
+        -------
+
+        """
+
+        # get boundaries
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # get number of pixels
+        M = self.x[image_name].size
+        N = self.y[image_name].size
+
+        # calculate pixel sizes (microns)
+        dx = (maxx - minx) / M
+        dy = (maxy - miny) / N
+
+        # calculate indices for the desired location
+        x_index = int((x_pos - minx) / dx)
+        y_index = int((y_pos - miny) / dy)
+
+        # calculate temporal intensity
+        y_data = np.abs(self.time_stacks[image_name][y_index, x_index, :]) ** 2
+
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
+        fwhm = int(sx * 2.355)
+
+        # gaussian fit to plot
+        gauss_plot = Util.fit_gaussian(self.t_axis, centroid, sx)
+
+        # plotting
+        plt.figure()
+        plt.plot(self.t_axis, y_data / np.max(y_data), label='Simulated')
+        plt.plot(self.t_axis, gauss_plot, label=u'Gaussian Fit: %d fs FWHM' % fwhm)
+        plt.xlabel('Time (fs)')
+        plt.ylabel('Intensity (normalized)')
+        plt.title(u'%s Pulse at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
+        plt.legend()
+        plt.grid()
 
         
 class GaussianSource:

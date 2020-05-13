@@ -4,6 +4,7 @@ util module for xraybeamline2d package
 import numpy as np
 import numpy.fft as fft
 import scipy.special
+import scipy.optimize as optimize
 
 
 class Util:
@@ -608,3 +609,35 @@ class Util:
 
         return cropped_array
 
+    @staticmethod
+    def normalize_trace(y_data):
+
+        norm_data = (y_data - np.min(y_data))/(np.max(y_data) - np.min(y_data))
+
+        return norm_data
+
+    @staticmethod
+    def gaussian_stats(x_data, y_data):
+
+        # normalize input (and subtract any offset)
+        y_norm = Util.normalize_trace(y_data)
+        # threshold input
+        y_data_thresh = Util.threshold_array(y_norm, 0.1)
+
+        # calculate centroid
+        cx = np.sum(y_data_thresh * x_data) / np.sum(y_data_thresh)
+
+        # calculate second moment
+        sx = np.sqrt(np.sum(y_data_thresh * (x_data - cx) ** 2) / np.sum(y_data_thresh))
+        fwx_guess = sx * 2.355
+
+        guess = [cx, sx]
+
+        try:
+            mask = y_data_thresh > 0
+            px, pcovx = optimize.curve_fit(Util.fit_gaussian, x_data[mask], y_norm[mask],p0=guess)
+            sx = px[1]
+        except:
+            print('Fit failed. Using second moment for width.')
+
+        return cx, sx

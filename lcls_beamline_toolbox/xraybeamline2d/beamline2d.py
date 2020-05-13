@@ -9,7 +9,7 @@ Currently implements the following classes:
 Beamline: stores list of optics devices, and interfaces with Beam to propagate through beamline sections.
 """
 
-from .optics import Drift
+from .optics import Drift, Mono
 # import matplotlib.pyplot as plt
 import copy
 import numpy as np
@@ -68,6 +68,8 @@ class Beamline:
             if i > 0:
                 # set drift name
                 name = 'drift%d' % i
+                if isinstance(prev_device, Mono):
+                    prev_device = prev_device.grating
                 drift_list.append(Drift(name, upstream_component=prev_device,
                                         downstream_component=device))
             # update previous device

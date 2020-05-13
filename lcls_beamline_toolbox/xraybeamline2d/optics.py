@@ -22,6 +22,7 @@ import scipy.interpolate as interpolation
 import scipy.ndimage as ndimage
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
+from skimage.restoration import unwrap_phase
 import os
 import pickle
 from .util import Util
@@ -1501,8 +1502,8 @@ class Grating(Mirror):
         # calculate slope error
         slope_error = beta - np.arctan(m)
 
-        plt.figure()
-        plt.plot(z_g,slope_error)
+        # plt.figure()
+        # plt.plot(z_g,slope_error)
 
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
@@ -2129,7 +2130,7 @@ class PPM:
     """
 
     def __init__(self, name, FOV=10e-3, z=None, N=2048, blur=False,
-                 view_angle_x=90, view_angle_y=90, resolution=5e-6):
+                 view_angle_x=90, view_angle_y=90, resolution=5e-6, calc_phase=False):
         """
         Method to initialize a PPM.
         :param name: str
@@ -2151,6 +2152,8 @@ class PPM:
             Defined as angle from glancing incidence, normal incidence is 90 degrees.
         :param resolution: float
             PPM optical resolution. Used if blur is True.
+        :param calc_phase: bool
+            whether to calculate/interpolate the phase profile at the PPM. Used with Pulse class.
         """
 
         # set some attributes
@@ -2164,6 +2167,7 @@ class PPM:
         self.view_angle_x = view_angle_x
         self.view_angle_y = view_angle_y
         self.resolution = resolution
+        self.calc_phase = calc_phase
 
         # calculate PPM coordinates
         self.x = np.linspace(-N / 2, N / 2 - 1, N) * dx
@@ -2174,7 +2178,11 @@ class PPM:
 
         # initialize some attributes
         self.profile = np.zeros((N, N))
-        self.complex_profile = np.zeros((N, N), dtype=complex)
+        self.phase = np.zeros((N, N), dtype=complex)
+        self.zx = 0
+        self.zy = 0
+        self.cx_beam = 0
+        self.cy_beam = 0
         self.x_lineout = np.zeros(N)
         self.y_lineout = np.zeros(N)
         self.cx = 0
@@ -2297,9 +2305,24 @@ class PPM:
         y = beam.y[:, 0]
         # interpolating function from Scipy's interp2d. Extrapolation value is set to zero.
         f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
-
         # do the interpolation to get the profile we'll see on the PPM
         self.profile = f(self.x, self.y)
+
+        if self.calc_phase:
+            phase = unwrap_phase(np.angle(beam.wave))
+            f_phase = interpolation.interp2d(x * scaling_x, y * scaling_y, phase, fill_value=0)
+            self.phase = f_phase(self.x, self.y)
+
+            if not beam.focused_x:
+                # self.phase += np.pi / beam.lambda0 / beam.zx * (self.xx - beam.cx)**2
+                self.zx = beam.zx
+                self.cx_beam = beam.cx
+            if not beam.focused_y:
+                # self.phase += np.pi / beam.lambda0 / beam.zy * (self.yy - beam.cy)**2
+                self.zy = beam.zy
+                self.cy_beam = beam.cy
+            self.phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.xx - beam.cx)
+            self.phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.yy - beam.cy)
 
         # calculate horizontal lineout
         self.x_lineout = np.sum(self.profile, axis=0)
@@ -2624,6 +2647,14 @@ class PPM:
         axes_handles = [ax_profile, ax_x, ax_y]
 
         return axes_handles
+
+    def complex_beam(self):
+        if self.calc_phase:
+            # reshape into 2 dimensional representation
+            complex_beam = np.sqrt(self.profile) * np.exp(1j*self.phase)
+        else:
+            complex_beam = np.sqrt(self.profile)
+        return complex_beam, self.zx, self.zy, self.cx_beam, self.cy_beam
 
 
 class WFS:

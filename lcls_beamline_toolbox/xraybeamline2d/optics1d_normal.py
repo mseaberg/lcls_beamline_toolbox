@@ -2214,6 +2214,10 @@ class PPM:
         self.x_phase = Util.interp_flip(self.x, x * scaling_x, x_phase)
         self.y_phase = Util.interp_flip(self.y, y * scaling_y, y_phase)
 
+        # add linear phase (centered on beam)
+        self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
+        self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y - beam.cy)
+
         # multiply two dimensions together to get the 2d profile
         self.profile = np.reshape(profiley_interp, (self.N, 1)) * np.reshape(profilex_interp, (1, self.N))
 
@@ -2518,10 +2522,10 @@ class PPM:
     def complex_beam(self):
 
         # multiply two dimensions together to get the 2d profile
-        phase_2D = np.reshape(self.y_phase, (self.N, 1)) * np.reshape(self.x_phase, (1, self.N))
+        phase_2D = np.reshape(np.exp(1j*self.y_phase), (self.N, 1)) * np.reshape(np.exp(1j*self.x_phase), (1, self.N))
 
         # reshape into 2 dimensional representation
-        complex_beam = np.sqrt(self.profile) * np.exp(1j*phase_2D)
+        complex_beam = np.sqrt(self.profile) * phase_2D
 
         return complex_beam
 

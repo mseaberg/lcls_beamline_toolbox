@@ -859,7 +859,9 @@ class CurvedMirror(Mirror):
             beam.ay += np.arcsin(delta_k[1])
 
             # adjust beam quadratic phase
-            beam.zx = 1 / (1 / beam.zx + quadratic)
+            # beam.zx = 1 / (1 / beam.zx + quadratic)
+            new_zx = 1 / (1 / beam.zx + quadratic)
+            beam.change_z(new_zx=new_zx)
 
             # adjust beam position due to mirror de-centering
             delta_cx = 2 * self.dx * np.cos(self.total_alpha)
@@ -879,7 +881,9 @@ class CurvedMirror(Mirror):
             beam.ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
 
             # adjust beam quadratic phase
-            beam.zy = 1 / (1 / beam.zy + quadratic)
+            # beam.zy = 1 / (1 / beam.zy + quadratic)
+            new_zy = 1 / (1 / beam.zy + quadratic)
+            beam.change_z(new_zy=new_zy)
 
             # adjust beam position due to mirror de-centering
             delta_cy = 2 * self.dx * np.cos(self.total_alpha)
@@ -899,7 +903,9 @@ class CurvedMirror(Mirror):
             beam.ay += -np.arcsin(delta_k[1])
 
             # adjust beam quadratic phase
-            beam.zx = 1 / (1 / beam.zx + quadratic)
+            # beam.zx = 1 / (1 / beam.zx + quadratic)
+            new_zx = 1 / (1 / beam.zx + quadratic)
+            beam.change_z(new_zx=new_zx)
 
             # adjust beam position due to mirror de-centering
             delta_cx = -2 * self.dx * np.cos(self.total_alpha)
@@ -919,7 +925,9 @@ class CurvedMirror(Mirror):
             beam.ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
 
             # adjust beam quadratic phase
-            beam.zy = 1 / (1 / beam.zy + quadratic)
+            # beam.zy = 1 / (1 / beam.zy + quadratic)
+            new_zy = 1 / (1 / beam.zy + quadratic)
+            beam.change_z(new_zy=new_zy)
 
             # adjust beam position due to mirror de-centering
             delta_cy = -2 * self.dx * np.cos(self.total_alpha)
@@ -1475,7 +1483,9 @@ class Grating(Mirror):
 
             # add quadratic phase
             # beam.zx = 1 / (1 / beam.zx + p2nd)
-            beam.zx = 1 / p2nd
+            # beam.zx = 1 / p2nd
+            new_zx = 1 / p2nd
+            beam.change_z(new_zx=new_zx)
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -1502,7 +1512,9 @@ class Grating(Mirror):
 
             # add quadratic phase
             # beam.zy = 1 / (1 / beam.zy + p2nd)
-            beam.zy = 1 / p2nd
+            # beam.zy = 1 / p2nd
+            new_zy = 1 / p2nd
+            beam.change_z(new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -1529,7 +1541,9 @@ class Grating(Mirror):
 
             # add quadratic phase
             # beam.zx = 1 / (1 / beam.zx + p2nd)
-            beam.zx = 1 / p2nd
+            # beam.zx = 1 / p2nd
+            new_zx = 1 / p2nd
+            beam.change_z(new_zx=new_zx)
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -1556,7 +1570,9 @@ class Grating(Mirror):
 
             # add quadratic phase
             # beam.zy = 1 / (1 / beam.zy + p2nd)
-            beam.zy = 1 / p2nd
+            # beam.zy = 1 / p2nd
+            new_zy = 1 / p2nd
+            beam.change_z(new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -1986,6 +2002,12 @@ class PPM:
 
         # initialize some attributes
         self.profile = np.zeros((N, N))
+        self.x_phase = np.zeros(N)
+        self.y_phase = np.zeros(N)
+        self.zx = 0
+        self.zy = 0
+        self.cx_beam = 0
+        self.cy_beam = 0
         self.x_lineout = np.zeros(N)
         self.y_lineout = np.zeros(N)
         self.xline = None
@@ -2143,8 +2165,28 @@ class PPM:
         profilex_interp = Util.interp_flip(self.x, x * scaling_x, profilex)
         profiley_interp = Util.interp_flip(self.y, y * scaling_y, profiley)
 
+        # beam phase
+        x_phase = np.unwrap(np.angle(beam.wavex))
+        y_phase = np.unwrap(np.angle(beam.wavey))
+
+        # interpolating function from np.interp (allowing for flipped coordinates)
+        self.x_phase = Util.interp_flip(self.x, x * scaling_x, x_phase)
+        self.y_phase = Util.interp_flip(self.y, y * scaling_y, y_phase)
+
+        # add linear phase (centered on beam)
+        self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
+        self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y - beam.cy)
+
         # multiply two dimensions together to get the 2d profile
         self.profile = np.reshape(profiley_interp, (self.N, 1)) * np.reshape(profilex_interp, (1, self.N))
+
+        # if beam is not focused get quadratic phase information
+        if not beam.focused_x:
+            self.zx = beam.zx
+            self.cx_beam = beam.cx
+        if not beam.focused_y:
+            self.zy = beam.zy
+            self.cy_beam = beam.cy
 
         # calculate horizontal lineout
         self.x_lineout = np.sum(self.profile, axis=0)
@@ -2433,6 +2475,16 @@ class PPM:
                 }
 
         return wfs_data
+
+    def complex_beam(self):
+        # multiply two dimensions together to get the 2d profile
+        phase_2D = np.reshape(np.exp(1j * self.y_phase), (self.N, 1)) * np.reshape(np.exp(1j * self.x_phase),
+                                                                                   (1, self.N))
+
+        # reshape into 2 dimensional representation
+        complex_beam = np.sqrt(self.profile) * phase_2D
+
+        return complex_beam, self.zx, self.zy, self.cx_beam, self.cy_beam
 
 
 class WFS:
