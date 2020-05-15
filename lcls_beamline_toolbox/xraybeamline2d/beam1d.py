@@ -13,6 +13,7 @@ unless otherwise indicated.
 import numpy as np
 import matplotlib.pyplot as plt
 from .util import Util
+from skimage.restoration import unwrap_phase
 
 
 class Beam:
@@ -892,7 +893,7 @@ class Pulse:
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
 
-    def imshow_energy_slice(self, image_name, dim='x', slice_pos=0):
+    def imshow_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
         """
         Method to show a slice along space and energy
         Parameters
@@ -921,7 +922,9 @@ class Pulse:
         plt.figure(figsize=(6,6))
 
         # generate the axes, in a grid
-        ax_profile = plt.subplot2grid((1,1),(0,0))
+        ax_profile = plt.subplot2grid((5,8),(0,0),colspan=7,rowspan=5)
+        ax_colorbar = plt.subplot2grid((5,8),(1,7),colspan=1,rowspan=3)
+
 
         # horizontal slice
         if dim == 'x':
@@ -929,7 +932,17 @@ class Pulse:
             N = self.x[image_name].size
             dx = (maxx - minx) / N
             index = int((slice_pos - minx) / dx)
+
             profile = np.abs(self.energy_stacks[image_name][index, :, :]) ** 2
+            profile = profile / np.max(profile)
+            if image_type == 'phase':
+                mask = (profile > 0.01 * np.max(profile)).astype(float)
+                profile = unwrap_phase(np.angle(self.energy_stacks[image_name][index, :, :])) * mask
+                cmap = plt.get_cmap('jet')
+                cbar_label = 'Phase (rad)'
+            else:
+                cmap = plt.get_cmap('gnuplot')
+                cbar_label = 'Intensity (normalized)'
             extent = (min_E, max_E, minx, maxx)
             ylabel = 'X coordinates (microns)'
             aspect_ratio = (max_E - min_E) / (maxx - minx)
@@ -940,7 +953,17 @@ class Pulse:
             N = self.y[image_name].size
             dx = (maxy-miny)/N
             index = int((slice_pos-miny)/dx)
-            profile = np.abs(self.energy_stacks[image_name][:, index, :])**2
+
+            profile = np.abs(self.energy_stacks[image_name][:, index, :]) ** 2
+            profile = profile / np.max(profile)
+            if image_type == 'phase':
+                mask = (profile > 0.01 * np.max(profile)).astype(float)
+                profile = unwrap_phase(np.angle(self.energy_stacks[image_name][:, index, :])) * mask
+                cmap = plt.get_cmap('jet')
+                cbar_label = 'Phase (rad)'
+            else:
+                cmap = plt.get_cmap('gnuplot')
+                cbar_label = 'Intensity (normalized)'
             extent = (min_E, max_E, miny, maxy)
             ylabel = 'Y coordinates (microns)'
             aspect_ratio = (max_E-min_E)/(maxy-miny)
@@ -953,8 +976,9 @@ class Pulse:
             title = ''
 
         # show the 2D profile
-        ax_profile.imshow(np.flipud(profile), aspect=aspect_ratio,
-                          extent=extent, cmap=plt.get_cmap('gnuplot'))
+        im_profile = ax_profile.imshow(np.flipud(profile), aspect=aspect_ratio,
+                          extent=extent, cmap=cmap)
+        plt.colorbar(im_profile, cax=ax_colorbar, label=cbar_label)
         # label coordinates
         ax_profile.set_xlabel('Energy (eV)')
         ax_profile.set_ylabel(ylabel)

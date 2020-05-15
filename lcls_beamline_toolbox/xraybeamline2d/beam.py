@@ -13,6 +13,7 @@ unless otherwise indicated.
 import numpy as np
 import matplotlib.pyplot as plt
 from .util import Util
+from skimage.restoration import unwrap_phase
 
 
 class Beam:
@@ -858,7 +859,7 @@ class Pulse:
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
 
-    def imshow_energy_slice(self, image_name, dim='x', slice_pos=0):
+    def imshow_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
         """
         Method to show a slice along space and energy
         Parameters
@@ -869,6 +870,8 @@ class Pulse:
             spatial dimension for the slice ('x' or 'y')
         slice_pos: float
             spatial slice location (in y if dim='x' and vice versa). Units are microns.
+        image_type: str
+            either 'intensity' or 'phase'
 
         Returns
         -------
@@ -895,7 +898,10 @@ class Pulse:
             N = self.x[image_name].size
             dx = (maxx - minx) / N
             index = int((slice_pos - minx) / dx)
-            profile = np.abs(self.energy_stacks[image_name][index, :, :]) ** 2
+            if image_type == 'intensity':
+                profile = np.abs(self.energy_stacks[image_name][index, :, :]) ** 2
+            elif image_type == 'phase':
+                profile = unwrap_phase(np.angle(self.energy_stacks[image_name][index, :, :]))
             extent = (min_E, max_E, minx, maxx)
             ylabel = 'X coordinates (microns)'
             aspect_ratio = (max_E - min_E) / (maxx - minx)
@@ -906,7 +912,10 @@ class Pulse:
             N = self.y[image_name].size
             dx = (maxy-miny)/N
             index = int((slice_pos-miny)/dx)
-            profile = np.abs(self.energy_stacks[image_name][:, index, :])**2
+            if image_type == 'intensity':
+                profile = np.abs(self.energy_stacks[image_name][:, index, :])**2
+            elif image_type == 'phase':
+                profile = unwrap_phase(np.angle(self.energy_stacks[image_name][:, index, :]))
             extent = (min_E, max_E, miny, maxy)
             ylabel = 'Y coordinates (microns)'
             aspect_ratio = (max_E-min_E)/(maxy-miny)
@@ -1155,7 +1164,7 @@ class Pulse:
 
         # get gaussian stats
         centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
-        fwhm = int(sx * 2.355)
+        fwhm = sx * 2.355
 
         # gaussian fit to plot
         gauss_plot = Util.fit_gaussian(self.t_axis, centroid, sx)
@@ -1163,7 +1172,7 @@ class Pulse:
         # plotting
         plt.figure()
         plt.plot(self.t_axis, y_data / np.max(y_data), label='Simulated')
-        plt.plot(self.t_axis, gauss_plot, label=u'Gaussian Fit: %d fs FWHM' % fwhm)
+        plt.plot(self.t_axis, gauss_plot, label=u'Gaussian Fit: %.2f fs FWHM' % fwhm)
         plt.xlabel('Time (fs)')
         plt.ylabel('Intensity (normalized)')
         plt.title(u'%s Pulse at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))

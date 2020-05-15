@@ -489,6 +489,27 @@ class Mirror(Device):
         super().__init__(**kwargs)
 
 
+class Crystal(Device):
+
+    def __init__(self, hkl=None, alpha=0, asymmetry_type='incidence', **kwargs):
+        """
+        Initiailize a Crystal. Only supports hard x-rays for now.
+        Parameters
+        ----------
+        hkl: Miller indices
+        alpha
+        asymmetry_type
+        kwargs
+        """
+        super().__init__(**kwargs)
+
+        self.hkl = hkl
+        self.alpha = alpha
+        self.asymmetry_type=asymmetry_type
+
+
+
+
 class DeviceCollection:
 
     def __init__(self, *devices, **mono):
