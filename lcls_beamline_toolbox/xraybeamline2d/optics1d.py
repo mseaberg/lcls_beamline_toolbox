@@ -1691,6 +1691,8 @@ class Crystal(Mirror):
             self.alpha = self.bragg + self.alphaAsym
             self.beta0 = self.bragg - self.alphaAsym
 
+        self.b = (np.sin(self.alpha)/np.sin(self.beta0))
+
         # set some more attributes
         self.order = order
         # self.beta0 = beta0
@@ -1757,17 +1759,22 @@ class Crystal(Mirror):
 
         # ---- "normal case" when crystal is aligned perfectly to beamline
         # component of k_i in crystal q direction
-        k_i_q = np.dot(k_i, q_vector0) * q_vector0
+        k_i_q = np.dot(k_i, q_vector0) * q_vector0 # k_x (should be negative)
         # component of k_i in crystal "z" direction
-        k_i_c = np.dot(k_i, crystal_vector0) * crystal_vector0
+        k_i_c = np.dot(k_i, crystal_vector0) * crystal_vector0 # k_z (should be positive)
         # component of k_i along crystal y direction
-        k_i_y = np.dot(k_i, mirror_y0) * mirror_y0
+        k_i_y = np.dot(k_i, mirror_y0) * mirror_y0 # k_y (should be zero)
+
+        k_i = k_i_q + k_i_c + k_i_y
 
         # figure out k_f in "normal case"
-        k_f_y = k_i_y
-        k_f_q = k_i_q + self.lambda0 / 2 / self.d * q_vector0
-        k_f_c = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_q, k_f_q))
-        k_f_normal = k_f_y + k_f_q + k_f_c
+        k_f_y = k_i_y # should be 0
+        k_f_q = k_i_q + self.lambda0 / self.d * q_vector0 # should just flip sign
+        k_f_c = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_q, k_f_q)) * crystal_vector0 # should not change
+        k_f_normal = k_f_y + k_f_q + k_f_c # should be same as k_i except x component changed sign
+
+        # print('k_i ' + str(k_i))
+        # print('k_f ' + str(k_f_normal))
 
         # ---- now figure out case when crystal is misaligned
         k_i_q = np.dot(k_i, q_vector) * q_vector
@@ -1776,8 +1783,8 @@ class Crystal(Mirror):
 
         # figure out k_f
         k_f_y = k_i_y
-        k_f_q = k_i_q + lambda1 / 2 / self.d * q_vector
-        k_f_c = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_q, k_f_q))
+        k_f_q = k_i_q + lambda1 / self.d * q_vector
+        k_f_c = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_q, k_f_q)) * crystal_vector
         k_f = k_f_y + k_f_q + k_f_c
 
         # calculate difference between outgoing k-vector and the k-vector in absence of grating rotations
@@ -1843,7 +1850,8 @@ class Crystal(Mirror):
             alphaBeam = (-beam.ax -
                          np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
 
-            self.f = -beam.zx * np.abs(np.sin(self.beta0)/np.sin(self.alpha))**2
+            self.f = -beam.zx * (np.abs(np.sin(self.beta0)/np.sin(self.alpha))**2)
+            # self.f = -beam.zx
 
         elif self.orientation == 1:
             k_ix = -np.sin(self.alpha - beam.ay)
@@ -1862,7 +1870,8 @@ class Crystal(Mirror):
             alphaBeam = (-beam.ay -
                          np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
 
-            self.f = -beam.zy * np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2
+            self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
+            # self.f = -beam.zy
 
         elif self.orientation == 2:
             k_ix = -np.sin(self.alpha + beam.ax)
@@ -1881,7 +1890,8 @@ class Crystal(Mirror):
             alphaBeam = (beam.ax -
                          np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
 
-            self.f = -beam.zx * np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2
+            self.f = -beam.zx * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
+            # self.f = -beam.zx
 
         elif self.orientation == 3:
             k_ix = -np.sin(self.alpha + beam.ay)
@@ -1900,7 +1910,8 @@ class Crystal(Mirror):
             alphaBeam = (beam.ay -
                          np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
 
-            self.f = -beam.zy * np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2
+            self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
+            # self.f = -beam.zy
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
@@ -1952,6 +1963,8 @@ class Crystal(Mirror):
         x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
         z1 = self.f * np.cos(self.beta0 - self.delta)
 
+        # print('f: %.2f' % self.f)
+
         # take into account angular grating change, and dx
         x0 = 0.0
 
@@ -1959,7 +1972,11 @@ class Crystal(Mirror):
         m = (x1 - x0) / (z1 - z_g)
 
         # calculate slope error
-        slope_error = np.tan(beta) - m
+        # slope_error = np.tan(beta) - m
+        slope_error = np.tan(beta-self.beta0)
+        # slope_error = np.tan(beta - self.beta0)
+        # plt.figure()
+        # plt.plot(z_g, slope_error)
 
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
@@ -1987,7 +2004,7 @@ class Crystal(Mirror):
         p_scaled = Util.poly_change_coords(p_int, scale) * np.sin(self.beta0 - self.delta)
 
         # Add 2nd order phase to p_scaled
-        p_scaled[-3] += -1 / (2 * self.f)
+        # p_scaled[-3] += -1 / (2 * self.f)
 
         # scale the offset
         offset_scaled = offset * scale
@@ -2024,6 +2041,7 @@ class Crystal(Mirror):
 
         # add correction to account for asymmetric geometry
         alpha_crystal += angle_correction
+        beta_crystal = beta - self.delta 
 
         # complex reflectivity. Not sure if I should be defining beamOutDotNormal but this is probably a small effect
         C1, C2 = np.array(self.crystal.get_amplitude(beam.photonEnergy, np.cos(np.pi / 2 - alpha_crystal)))
@@ -2041,7 +2059,7 @@ class Crystal(Mirror):
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
-            beam.rescale_x(self.beta0 / self.alpha)
+            beam.rescale_x(np.sin(self.beta0) / np.sin(self.alpha))
             beam.cx *= self.beta0 / self.alpha
             beam.x += beam.cx
 
@@ -2070,7 +2088,7 @@ class Crystal(Mirror):
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
-            beam.rescale_y(self.beta0 / self.alpha)
+            beam.rescale_y(np.sin(self.beta0) / np.sin(self.alpha))
             beam.cy *= self.beta0 / self.alpha
             beam.y += beam.cy
 
@@ -2099,7 +2117,7 @@ class Crystal(Mirror):
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
-            beam.rescale_x(self.beta0 / self.alpha)
+            beam.rescale_x(np.sin(self.beta0) / np.sin(self.alpha))
             beam.cx *= self.beta0 / self.alpha
             beam.x += beam.cx
 
@@ -2128,7 +2146,7 @@ class Crystal(Mirror):
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
-            beam.rescale_y(self.beta0 / self.alpha)
+            beam.rescale_y(np.sin(self.beta0) / np.sin(self.alpha))
             beam.cy *= self.beta0 / self.alpha
             beam.y += beam.cy
 
@@ -2345,124 +2363,125 @@ class Drift:
         beam.beam_prop(self.dz)
 
 
-class CRL:
-    """
-    Class to represent parabolic compound refractive lenses (CRLs).
-
-    Attributes
-    ----------
-    name: str
-        Name of the device (e.g. CRL1)
-    diameter: float
-        Diameter beyond which the lenses absorb all photons. (meters)
-    roc: float
-        Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
-    material: str
-        Lens material. Currently only Be is implemented but may add CVD diamond in the future.
-        Looks up downloaded data from CXRO.
-    dx: float
-        Lens de-centering along beam's x-axis.
-    dy: float
-        Lens de-centering along beam's y-axis.
-    z: float
-        z location of lenses along beamline.
-    energy: (N,) ndarray
-        List of photon energies from CXRO file (eV).
-    delta: (N,) ndarray
-        Real part of index of refraction. n = 1 - delta + 1j * beta
-    beta: (N,) ndarray
-        Imaginary part of index of refraction. n = 1 - delta + 1j * beta
-    """
-
-    def __init__(self, name, diameter=300e-6, roc=50e-6, material='Be', z=0, dx=0, dy=0):
-        """
-        Method to create a CRL object.
-        :param name: str
-            Name of the device (e.g. CRL1)
-        :param diameter: float
-            Diameter beyond which the lenses absorb all photons. (meters)
-        :param roc: float
-            Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
-        :param material: str
-            Lens material. Currently only Be is implemented but may add CVD diamond in the future.
-        Looks up downloaded data from CXRO.
-        :param z: float
-            z location of lenses along beamline.
-        :param dx: float
-            Lens de-centering along beam's x-axis.
-        :param dy: float
-            Lens de-centering along beam's y-axis.
-        """
-
-        # set some attributes
-        self.name = name
-        self.diameter = diameter
-        self.roc = roc
-        self.material = material
-        self.dx = dx
-        self.dy = dy
-        self.z = z
-
-        # get file name of CXRO data
-        filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
-
-        # load in CXRO data
-        cxro_data = np.genfromtxt(filename, delimiter=',')
-        self.energy = cxro_data[:, 0]
-        self.delta = cxro_data[:, 1]
-        self.beta = cxro_data[:, 2]
-
-    def multiply(self, beam):
-        """
-        Method to propagate beam through CRL
-        :param beam: Beam
-            Beam object to propagate through CRL. Beam is modified by this method.
-        :return: None
-        """
-
-        # interpolate to find index of refraction at beam's energy
-        # delta = np.interp(beam.photonEnergy, self.energy, self.delta)
-        # beta = np.interp(beam.photonEnergy, self.energy, self.beta)
-        #
-        # # CRL thickness (for now assuming perfect lenses but might add aberrations later)
-        # thickness = 2 * self.roc * (1 / 2 * ((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) / self.roc ** 2)
-        #
-        # # lens aperture
-        # mask = (((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
-        #
-        # # subtract 2nd order and linear terms
-        # phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((beam.x - self.dx) ** 2 +
-        # (beam.y - self.dy) ** 2))
-        #
-        # # 2nd order
-        # p2 = -beam.k0 * delta * 2 / 2 / self.roc
-        # # 1st order
-        # p1_x = p2 * 2 * (beam.cx - self.dx)
-        # p1_y = p2 * 2 * (beam.cy - self.dy)
-        #
-        # # lens transmission based on beta and thickness profile
-        # transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
-        #
-        # # adjust beam properties
-        # beam.zx = 1 / (1 / beam.zx + p2 * beam.lambda0 / np.pi)
-        # beam.zy = 1 / (1 / beam.zy + p2 * beam.lambda0 / np.pi)
-        #
-        # beam.ax += p1_x * beam.lambda0 / 2 / np.pi
-        # beam.ay += p1_y * beam.lambda0 / 2 / np.pi
-        #
-        # # multiply beam by CRL transmission function and any high order phase
-        # beam.wave *= transmission * np.exp(1j * phase)
-
-        print("CRLs not implemented in 1D")
-
-    def propagate(self, beam):
-        """
-        Method to propagate beam through CRL. Calls multiply.
-        :param beam: Beam
-            Beam object to propagate through CRL. Beam is modified by this method.
-        :return: None
-        """
-        self.multiply(beam)
+# class CRL:
+#     """
+#     Class to represent parabolic compound refractive lenses (CRLs). This is a 1D implementation meaning the CRLs are
+#     square.
+#
+#     Attributes
+#     ----------
+#     name: str
+#         Name of the device (e.g. CRL1)
+#     diameter: float
+#         Diameter beyond which the lenses absorb all photons. (meters)
+#     roc: float
+#         Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+#     material: str
+#         Lens material. Currently only Be is implemented but may add CVD diamond in the future.
+#         Looks up downloaded data from CXRO.
+#     dx: float
+#         Lens de-centering along beam's x-axis.
+#     dy: float
+#         Lens de-centering along beam's y-axis.
+#     z: float
+#         z location of lenses along beamline.
+#     energy: (N,) ndarray
+#         List of photon energies from CXRO file (eV).
+#     delta: (N,) ndarray
+#         Real part of index of refraction. n = 1 - delta + 1j * beta
+#     beta: (N,) ndarray
+#         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
+#     """
+#
+#     def __init__(self, name, diameter=300e-6, roc=50e-6, material='Be', z=0, dx=0, dy=0):
+#         """
+#         Method to create a CRL object.
+#         :param name: str
+#             Name of the device (e.g. CRL1)
+#         :param diameter: float
+#             Diameter beyond which the lenses absorb all photons. (meters)
+#         :param roc: float
+#             Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+#         :param material: str
+#             Lens material. Currently only Be is implemented but may add CVD diamond in the future.
+#         Looks up downloaded data from CXRO.
+#         :param z: float
+#             z location of lenses along beamline.
+#         :param dx: float
+#             Lens de-centering along beam's x-axis.
+#         :param dy: float
+#             Lens de-centering along beam's y-axis.
+#         """
+#
+#         # set some attributes
+#         self.name = name
+#         self.diameter = diameter
+#         self.roc = roc
+#         self.material = material
+#         self.dx = dx
+#         self.dy = dy
+#         self.z = z
+#
+#         # get file name of CXRO data
+#         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
+#
+#         # load in CXRO data
+#         cxro_data = np.genfromtxt(filename, delimiter=',')
+#         self.energy = cxro_data[:, 0]
+#         self.delta = cxro_data[:, 1]
+#         self.beta = cxro_data[:, 2]
+#
+#     def multiply(self, beam):
+#         """
+#         Method to propagate beam through CRL
+#         :param beam: Beam
+#             Beam object to propagate through CRL. Beam is modified by this method.
+#         :return: None
+#         """
+#
+#         # interpolate to find index of refraction at beam's energy
+#         # delta = np.interp(beam.photonEnergy, self.energy, self.delta)
+#         # beta = np.interp(beam.photonEnergy, self.energy, self.beta)
+#         #
+#         # # CRL thickness (for now assuming perfect lenses but might add aberrations later)
+#         # thickness = 2 * self.roc * (1 / 2 * ((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) / self.roc ** 2)
+#         #
+#         # # lens aperture
+#         # mask = (((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
+#         #
+#         # # subtract 2nd order and linear terms
+#         # phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((beam.x - self.dx) ** 2 +
+#         # (beam.y - self.dy) ** 2))
+#         #
+#         # # 2nd order
+#         # p2 = -beam.k0 * delta * 2 / 2 / self.roc
+#         # # 1st order
+#         # p1_x = p2 * 2 * (beam.cx - self.dx)
+#         # p1_y = p2 * 2 * (beam.cy - self.dy)
+#         #
+#         # # lens transmission based on beta and thickness profile
+#         # transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
+#         #
+#         # # adjust beam properties
+#         # beam.zx = 1 / (1 / beam.zx + p2 * beam.lambda0 / np.pi)
+#         # beam.zy = 1 / (1 / beam.zy + p2 * beam.lambda0 / np.pi)
+#         #
+#         # beam.ax += p1_x * beam.lambda0 / 2 / np.pi
+#         # beam.ay += p1_y * beam.lambda0 / 2 / np.pi
+#         #
+#         # # multiply beam by CRL transmission function and any high order phase
+#         # beam.wave *= transmission * np.exp(1j * phase)
+#
+#         print("CRLs not implemented in 1D")
+#
+#     def propagate(self, beam):
+#         """
+#         Method to propagate beam through CRL. Calls multiply.
+#         :param beam: Beam
+#             Beam object to propagate through CRL. Beam is modified by this method.
+#         :return: None
+#         """
+#         self.multiply(beam)
 
 
 class PPM:
@@ -3049,6 +3068,138 @@ class PPM:
         complex_beam = np.sqrt(self.profile) * phase_2D
 
         return complex_beam, self.zx, self.zy, self.cx_beam, self.cy_beam
+
+
+class CRL:
+    """
+    Class to represent parabolic compound refractive lenses (CRLs). This is a 1D implementation so the CRLs are square.
+
+    Attributes
+    ----------
+    name: str
+        Name of the device (e.g. CRL1)
+    diameter: float
+        Diameter beyond which the lenses absorb all photons. (meters)
+    roc: float
+        Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+    material: str
+        Lens material. Currently only Be is implemented but may add CVD diamond in the future.
+        Looks up downloaded data from CXRO.
+    dx: float
+        Lens de-centering along beam's x-axis.
+    dy: float
+        Lens de-centering along beam's y-axis.
+    z: float
+        z location of lenses along beamline.
+    energy: (N,) ndarray
+        List of photon energies from CXRO file (eV).
+    delta: (N,) ndarray
+        Real part of index of refraction. n = 1 - delta + 1j * beta
+    beta: (N,) ndarray
+        Imaginary part of index of refraction. n = 1 - delta + 1j * beta
+    """
+
+    def __init__(self, name, diameter=300e-6, roc=50e-6, material='Be', z=0, dx=0, orientation=0):
+        """
+        Method to create a CRL object.
+        :param name: str
+            Name of the device (e.g. CRL1)
+        :param diameter: float
+            Diameter beyond which the lenses absorb all photons. (meters)
+        :param roc: float
+            Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+        :param material: str
+            Lens material. Currently only Be is implemented but may add CVD diamond in the future.
+        Looks up downloaded data from CXRO.
+        :param z: float
+            z location of lenses along beamline.
+        :param dx: float
+            Lens de-centering along beam's x-axis.
+        :param orientation: int
+            Whether or not this is a horizontal or vertical lens (0 for horizontal, 1 for vertical).
+        """
+
+        # set some attributes
+        self.name = name
+        self.diameter = diameter
+        self.roc = roc
+        self.material = material
+        self.dx = dx
+        self.z = z
+        self.orientation = orientation
+
+        # get file name of CXRO data
+        filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
+
+        # load in CXRO data
+        cxro_data = np.genfromtxt(filename, delimiter=',')
+        self.energy = cxro_data[:, 0]
+        self.delta = cxro_data[:, 1]
+        self.beta = cxro_data[:, 2]
+
+    def multiply(self, beam):
+        """
+        Method to propagate beam through CRL
+        :param beam: Beam
+            Beam object to propagate through CRL. Beam is modified by this method.
+        :return: None
+        """
+
+        if self.orientation == 0:
+            beamx = beam.x
+            beamz = beam.zx
+            beamc = beam.cx
+        else:
+            beamx = beam.y
+            beamz = beam.zy
+            beamc = beam.cy
+
+        # interpolate to find index of refraction at beam's energy
+        delta = np.interp(beam.photonEnergy, self.energy, self.delta)
+        beta = np.interp(beam.photonEnergy, self.energy, self.beta)
+
+        # CRL thickness (for now assuming perfect lenses but might add aberrations later)
+        # thickness = 2 * self.roc * (1 / 2 * ((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) / self.roc ** 2)
+        thickness = 2 * self.roc * (1 / 2 * ((beamx - self.dx) ** 2) / self.roc ** 2)
+
+        # lens aperture
+        mask = (((beamx - self.dx) ** 2) < (self.diameter / 2) ** 2).astype(float)
+
+        # subtract 2nd order and linear terms
+        phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((beamx - self.dx) ** 2))
+
+        # 2nd order
+        p2 = -beam.k0 * delta * 2 / 2 / self.roc
+        # 1st order
+        p1_x = p2 * 2 * (beamc - self.dx)
+
+        # lens transmission based on beta and thickness profile
+        transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
+
+        # adjust beam properties
+        new_zx = 1 / (1 / beamz + p2 * beam.lambda0 / np.pi)
+
+        if self.orientation == 0:
+            beam.change_z(new_zx=new_zx)
+            beam.ax += p1_x * beam.lambda0 / 2 / np.pi
+            # multiply beam by CRL transmission function and any high order phase
+            beam.wavex *= transmission * np.exp(1j * phase)
+        else:
+            beam.change_z(new_zy=new_zx)
+            beam.ay += p1_x * beam.lambda0 / 2 / np.pi
+            # multiply beam by CRL transmission function and any high order phase
+            beam.wavey *= transmission * np.exp(1j * phase)
+
+        print('focal length: %.2f' % (-1/(p2*beam.lambda0/np.pi)))
+
+    def propagate(self, beam):
+        """
+        Method to propagate beam through CRL. Calls multiply.
+        :param beam: Beam
+            Beam object to propagate through CRL. Beam is modified by this method.
+        :return: None
+        """
+        self.multiply(beam)
 
 
 class WFS:
