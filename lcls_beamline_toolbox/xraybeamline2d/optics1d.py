@@ -1683,7 +1683,7 @@ class Crystal(Mirror):
         self.beta0 = self.alpha
 
         # get bragg peak angle
-        self.bragg = self.crystal.get_Bragg_angle(self.E0) - self.crystal.get_dtheta(self.E0, alpha=alphaAsym)
+        self.bragg = self.crystal.get_Bragg_angle(self.E0) - self.crystal.get_dtheta(self.E0, alpha=alphaAsym*0)
         if asym_type == 'incidence':
             self.alpha = self.bragg - self.alphaAsym
             self.beta0 = self.bragg + self.alphaAsym
@@ -1717,15 +1717,15 @@ class Crystal(Mirror):
         mirror_y0 = np.array([0, 1, 0], dtype=float)
         mirror_z0 = np.array([0, 0, 1], dtype=float)
 
-        # crystal q vector (unit vector)
-        q_x = np.cos(self.alphaAsym)
-        q_z = -np.sin(self.alphaAsym)
+        # crystal plane normal vector
+        c_x = np.cos(self.alphaAsym)
+        c_z = np.sin(self.alphaAsym)
 
         # vector parallel to crystal plane, in xz plane
         crystal_x = np.sin(self.alphaAsym)
         crystal_z = np.cos(self.alphaAsym)
 
-        q_vector0 = np.array([q_x, 0, q_z], dtype=float)
+        c_normal0 = np.array([c_x, 0, c_z], dtype=float)
 
         crystal_vector0 = np.array([crystal_x, 0, crystal_z], dtype=float)
 
@@ -1734,7 +1734,7 @@ class Crystal(Mirror):
         mirror_x = np.matmul(Ry, mirror_x0)
         mirror_y = np.matmul(Ry, mirror_y0)
         mirror_z = np.matmul(Ry, mirror_z0)
-        q_vector = np.matmul(Ry, q_vector0)
+        c_normal = np.matmul(Ry, c_normal0)
         crystal_vector = np.matmul(Ry, crystal_vector0)
 
         r2 = transform.Rotation.from_rotvec(mirror_z * self.roll)
@@ -1742,7 +1742,7 @@ class Crystal(Mirror):
         mirror_x = np.matmul(Rz, mirror_x)
         mirror_y = np.matmul(Rz, mirror_y)
         mirror_z = np.matmul(Rz, mirror_z)
-        q_vector = np.matmul(Rz, q_vector)
+        c_normal = np.matmul(Rz, c_normal)
         crystal_vector = np.matmul(Rz, crystal_vector)
 
         r3 = transform.Rotation.from_rotvec(mirror_x * self.yaw)
@@ -1750,7 +1750,7 @@ class Crystal(Mirror):
         mirror_x = np.matmul(Rx, mirror_x)
         mirror_y = np.matmul(Rx, mirror_y)
         mirror_z = np.matmul(Rx, mirror_z)
-        q_vector = np.matmul(Rx, q_vector)
+        c_normal = np.matmul(Rx, c_normal)
         crystal_vector = np.matmul(Rx, crystal_vector)
 
         # print(mirror_x)
@@ -1758,18 +1758,13 @@ class Crystal(Mirror):
         # print(mirror_z)
 
         # ---- "normal case" when crystal is aligned perfectly to beamline
-        # component of k_i in crystal q direction
-        k_i_q = np.dot(k_i, q_vector0) * q_vector0 # k_x (should be negative)
-        # component of k_i in crystal "z" direction
-        k_i_c = np.dot(k_i, crystal_vector0) * crystal_vector0 # k_z (should be positive)
-        # component of k_i along crystal y direction
-        k_i_y = np.dot(k_i, mirror_y0) * mirror_y0 # k_y (should be zero)
-
-        k_i = k_i_q + k_i_c + k_i_y
+        # get component of crystal normal along crystal surface
+        g_parallel = np.dot(c_normal0, mirror_z0) * mirror_z0
 
         # figure out k_f in "normal case"
-        k_f_y = k_i_y # should be 0
-        k_f_q = k_i_q + self.lambda0 / self.d * q_vector0 # should just flip sign
+        k_f_y = np.dot(k_i, mirror_y) * mirror_y # should be 0
+        k_f_z = np.dot(k_i, mirror_z) * mirror_z +
+            k_i_q + self.lambda0 / self.d * q_vector0 # should just flip sign
         k_f_c = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_q, k_f_q)) * crystal_vector0 # should not change
         k_f_normal = k_f_y + k_f_q + k_f_c # should be same as k_i except x component changed sign
 
@@ -1922,16 +1917,15 @@ class Crystal(Mirror):
         # grating coordinates (along z-axis)
         z_g = np.linspace(-self.length / 2, self.length / 2, 1024)
 
-        # deviation from average angle of incidence at each point along the grating
-        alphaBeamG = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), alphaBeam)
+
 
         # account for all contributions to alpha
-        alpha_total = self.alpha + self.delta + alphaBeamG
+        alpha_total = self.alpha + self.delta + alphaBeam
 
         # calculate diffraction angle at every point on the grating
         # beta = np.arccos(np.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
-        beta = np.zeros(1024)
-        for i in range(1024):
+        beta = np.zeros(zi_1d.size)
+        for i in range(zi_1d.size):
             k_ix = 0
             k_iy = 0
             k_iz = 0
@@ -1960,6 +1954,9 @@ class Crystal(Mirror):
 
         # calculate desired slope at each point of the grating
 
+        # deviation from average angle of incidence at each point along the grating
+        betaC = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), beta)
+
         x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
         z1 = self.f * np.cos(self.beta0 - self.delta)
 
@@ -1973,7 +1970,7 @@ class Crystal(Mirror):
 
         # calculate slope error
         # slope_error = np.tan(beta) - m
-        slope_error = np.tan(beta-self.beta0)
+        slope_error = np.tan(betaC-self.beta0)
         # slope_error = np.tan(beta - self.beta0)
         # plt.figure()
         # plt.plot(z_g, slope_error)
@@ -2033,18 +2030,24 @@ class Crystal(Mirror):
 
         # ---- get crystal reflectivity
         # figure out angle relative to crystal plane
-        alpha_crystal = self.alpha + self.delta + alphaBeam + self.alphaAsym
+        if self.asym_type == 'incidence':
+            alpha_crystal = self.alpha + self.delta + alphaBeam + self.alphaAsym
+            beta_crystal = beta - self.alphaAsym
+        else:
+            alpha_crystal = self.alpha + self.delta + alphaBeam - self.alphaAsym
+            beta_crystal = beta + self.alphaAsym
 
         # correction between asymmetric and non-asymmetric
-        angle_correction = (self.crystal.get_dtheta(beam.photonEnergy, alpha=self.alphaAsym) -
-                            self.crystal.get_dtheta(beam.photonEnergy, alpha=0))
+        # angle_correction = (self.crystal.get_dtheta(beam.photonEnergy, alpha=self.alphaAsym) -
+        #                     self.crystal.get_dtheta(beam.photonEnergy, alpha=0))
 
         # add correction to account for asymmetric geometry
-        alpha_crystal += angle_correction
-        beta_crystal = beta - self.delta 
+        # alpha_crystal += angle_correction
+        # beta_crystal = beta - self.alphaAsym
 
         # complex reflectivity. Not sure if I should be defining beamOutDotNormal but this is probably a small effect
-        C1, C2 = np.array(self.crystal.get_amplitude(beam.photonEnergy, np.cos(np.pi / 2 - alpha_crystal)))
+        C1, C2 = np.array(self.crystal.get_amplitude(beam.photonEnergy, np.cos(np.pi / 2 - alpha_crystal),
+                                                     beamOutDotNormal=np.cos(np.pi/2 - beta_crystal)))
 
         if self.pol == 's':
             C = C1
