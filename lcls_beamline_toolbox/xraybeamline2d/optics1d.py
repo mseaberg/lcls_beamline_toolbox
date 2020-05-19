@@ -1688,48 +1688,48 @@ class Crystal(Mirror):
         #     self.alpha = self.bragg + self.alphaAsym
         #     self.beta0 = self.bragg - self.alphaAsym
 
-        alpha = self.bragg + self.alphaAsym
+        self.alpha = self.bragg + self.alphaAsym
 
-        # check rocking curve
-        N = 1024
-        # print(theta_bragg*180/np.pi)
-        alpha = np.linspace(alpha - 50e-6, alpha + 50e-6, N)
-        # mirror vectors
-        m_x = np.array([1, 0, 0], dtype=float)
-        m_y = np.array([0, 1, 0], dtype=float)
-        m_z = np.array([0, 0, 1], dtype=float)
-
-        # k_i vector
-        k_ix = np.outer(-np.sin(alpha), m_x)
-        k_iy = np.outer(np.zeros(N), m_y)
-        k_iz = np.outer(np.cos(alpha), m_z)
-        k_i = k_ix + k_iy + k_iz
-
-        # crystal normal vector
-        c_x = np.cos(alphaAsym) * m_x
-        c_z = np.sin(alphaAsym) * m_z
-        c_normal = c_x + c_z
-
-        c_parallel = np.dot(c_normal, m_z) * m_z * self.lambda0 / (self.crystal.d * 1e-10)
-        k_fy = k_iy
-        k_fz = k_iz + np.outer(np.ones(N), c_parallel)
-        k_fx = np.outer(np.sqrt(np.ones(N) - np.sum(k_fy * k_fy, axis=1) - np.sum(k_fz * k_fz, axis=1)), m_x)
-        k_f = k_fy + k_fz + k_fx
-
-        beamInDotNormal = np.sum(k_i * m_x, axis=1)
-        beamOutDotNormal = np.sum(k_f * m_x, axis=1)
-        beamInDotHNormal = np.sum(k_i * np.outer(np.ones(N), c_normal), axis=1)
-
-        C1, C2 = np.array(self.crystal.get_amplitude(self.E0, beamInDotNormal, beamOutDotNormal, beamInDotHNormal))
-
-        # get peak
-        if self.pol == 's':
-            index = np.argmax(np.abs(C1)**2)
-        else:
-            index = np.argmax(np.abs(C2)**2)
-
-        # set alpha to peak value
-        self.alpha = alpha[index]
+        # # check rocking curve
+        # N = 1024
+        # # print(theta_bragg*180/np.pi)
+        # alpha = np.linspace(alpha - 50e-6, alpha + 50e-6, N)
+        # # mirror vectors
+        # m_x = np.array([1, 0, 0], dtype=float)
+        # m_y = np.array([0, 1, 0], dtype=float)
+        # m_z = np.array([0, 0, 1], dtype=float)
+        #
+        # # k_i vector
+        # k_ix = np.outer(-np.sin(alpha), m_x)
+        # k_iy = np.outer(np.zeros(N), m_y)
+        # k_iz = np.outer(np.cos(alpha), m_z)
+        # k_i = k_ix + k_iy + k_iz
+        #
+        # # crystal normal vector
+        # c_x = np.cos(alphaAsym) * m_x
+        # c_z = np.sin(alphaAsym) * m_z
+        # c_normal = c_x + c_z
+        #
+        # c_parallel = np.dot(c_normal, m_z) * m_z * self.lambda0 / (self.crystal.d * 1e-10)
+        # k_fy = k_iy
+        # k_fz = k_iz + np.outer(np.ones(N), c_parallel)
+        # k_fx = np.outer(np.sqrt(np.ones(N) - np.sum(k_fy * k_fy, axis=1) - np.sum(k_fz * k_fz, axis=1)), m_x)
+        # k_f = k_fy + k_fz + k_fx
+        #
+        # beamInDotNormal = np.sum(k_i * m_x, axis=1)
+        # beamOutDotNormal = np.sum(k_f * m_x, axis=1)
+        # beamInDotHNormal = np.sum(k_i * np.outer(np.ones(N), c_normal), axis=1)
+        #
+        # C1, C2 = np.array(self.crystal.get_amplitude(self.E0, beamInDotNormal, beamOutDotNormal, beamInDotHNormal))
+        #
+        # # get peak
+        # if self.pol == 's':
+        #     index = np.argmax(np.abs(C1)**2)
+        # else:
+        #     index = np.argmax(np.abs(C2)**2)
+        #
+        # # set alpha to peak value
+        # self.alpha = alpha[index]
         # print((self.alpha - (self.bragg + self.alphaAsym))*1e6)
 
         # k_i
