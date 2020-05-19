@@ -1163,10 +1163,18 @@ class Pulse:
         # gaussian fit to plot
         gauss_plot = Util.fit_gaussian(self.energy, centroid, sx)
 
+        # change label depending on bandwidth
+        if fwhm >= 1:
+            width_label = '%.2f eV FWHM' % fwhm
+        elif fwhm > 1e-3:
+            width_label = '%.2f meV FHWM' % (fwhm * 1e3)
+        else:
+            width_label = u'%.2f \u03BCeV FWHM' % (fwhm * 1e6)
+
         # plotting
         plt.figure()
-        plt.plot(self.energy, y_data/np.max(y_data), label='Simulated')
-        plt.plot(self.energy, gauss_plot, label=u'Gaussian Fit: %.2f eV FWHM' % fwhm)
+        plt.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
+        plt.plot(self.energy - self.E0, gauss_plot, label=width_label)
         plt.xlabel('Energy (eV)')
         plt.ylabel('Intensity (normalized)')
         plt.title(u'%s Spectrum at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
