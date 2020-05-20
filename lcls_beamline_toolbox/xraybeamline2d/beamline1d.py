@@ -9,10 +9,11 @@ Currently implements the following classes:
 Beamline: stores list of optics devices, and interfaces with Beam to propagate through beamline sections.
 """
 
-from .optics1d import Drift, Mono
+from .optics1d import Drift, Mono, Mirror, Grating
 # import matplotlib.pyplot as plt
 import copy
 import numpy as np
+from .util import Util
 
 
 class Beamline:
@@ -59,6 +60,17 @@ class Beamline:
         # initialize drift list
         drift_list = []
 
+        # initialize coordinates
+        x = 0
+        y = 0
+
+        # initialize angles
+        elevation = 0
+        azimuth = 0
+
+        # beam direction
+        k = Util.get_k(elevation, azimuth)
+
         # initialize drift number
         i = 0
         # initialize previous device
@@ -66,12 +78,44 @@ class Beamline:
         for device in self.device_list:
             # don't need any drifts upstream of first device
             if i > 0:
+
+                # z difference between devices
+                dz = device.z - prev_device.z
+
+                # figure out device location
+                x += k[0] / k[2] * dz
+                y += k[1] / k[2] * dz
+                # update device
+                device.global_x = x
+                device.global_y = y
+
                 # set drift name
                 name = 'drift%d' % i
                 if isinstance(prev_device, Mono):
                     prev_device = prev_device.grating
                 drift_list.append(Drift(name, upstream_component=prev_device,
                                         downstream_component=device))
+
+            # update global orientation
+            if issubclass(type(device), Mirror):
+                # update global alpha
+                if device.orientation == 0:
+                    device.global_alpha = device.alpha + azimuth
+                    azimuth += device.alpha + device.beta0
+                    print('after %s: %.2f' % (device.name, azimuth))
+                elif device.orientation == 1:
+                    device.global_alpha = device.alpha + elevation
+                    elevation += device.alpha + device.beta0
+                elif device.orientation == 2:
+                    device.global_alpha = azimuth - device.alpha
+                    azimuth -= (device.alpha + device.beta0)
+                    print('after %s: %.2f' % (device.name, azimuth))
+                elif device.orientation == 3:
+                    device.global_alpha = elevation - device.alpha
+                    elevation -= (device.alpha + device.beta0)
+
+                # update k
+                k = Util.get_k(elevation, azimuth)
             # update previous device
             prev_device = device
             # increment drift number
@@ -146,6 +190,7 @@ class Beamline:
             # print some beam info
             print('zx: %.2f' % beam.zx)
             print('zy: %.2f' % beam.zy)
+            print('azimuth %.2f mrad' % (beam.global_azimuth*1e3))
             # print('ay: %.2f microrad' % (beam.ay*1e6))
             # print('cy: %.2f microns' % (beam.cy*1e6))
 

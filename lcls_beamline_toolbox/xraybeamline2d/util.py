@@ -5,6 +5,7 @@ import numpy as np
 import numpy.fft as fft
 import scipy.special
 import scipy.optimize as optimize
+import scipy.spatial.transform as transform
 
 
 class Util:
@@ -641,3 +642,25 @@ class Util:
             print('Fit failed. Using second moment for width.')
 
         return cx, sx
+
+    @staticmethod
+    def get_k(elevation, azimuth):
+        x = np.array([1, 0, 0], dtype=float)
+        y = np.array([0, 1, 0], dtype=float)
+        z = np.array([0, 0, 1], dtype=float)
+
+        r1 = transform.Rotation.from_rotvec(x * elevation)
+        Rx = r1.as_matrix()
+        x = np.matmul(Rx, x)
+        y = np.matmul(Rx, y)
+        z = np.matmul(Rx, z)
+
+        r2 = transform.Rotation.from_rotvec(y * azimuth)
+        Ry = r2.as_matrix()
+        x = np.matmul(Ry, x)
+        y = np.matmul(Ry, y)
+        z = np.matmul(Ry, z)
+
+        # beam points in z direction
+        k = z
+        return k

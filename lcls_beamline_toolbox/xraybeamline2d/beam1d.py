@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from .util import Util
 from skimage.restoration import unwrap_phase
+import scipy.spatial.transform as transform
 
 
 class Beam:
@@ -112,6 +113,8 @@ class Beam:
                 initial distance from horizontal waist (positive if beam is diverging, negative if beam is converging)
             z0y: float
                 initial distance from vertical waist (positive if beam is diverging, negative if beam is converging)
+            z_source: float
+                global z coordinate of undulator exit
         """
 
         # beam_param keys to check
@@ -203,6 +206,15 @@ class Beam:
         self.x = self.x + self.cx
         self.y = self.y + self.cy
 
+        self.global_x = np.copy(self.cx)
+        self.global_y = np.copy(self.cy)
+        # initialize global z
+        self.global_z = beam_params['z_source'] + (self.zx + self.zy) / 2
+
+        # initialize global angles
+        self.global_azimuth = np.copy(self.ax)
+        self.global_elevation = np.copy(self.ay)
+
         # calculate spatial frequencies at initial plane
         fx_max = 1.0 / (2.0 * self.dx)
         fy_max = 1.0 / (2.0 * self.dy)
@@ -243,6 +255,49 @@ class Beam:
         # update horizontal and vertical radii of curvature by propagation distance
         self.zx = self.zx + dz
         self.zy = self.zy + dz
+
+        # update global positions
+        k_beam = self.get_k()
+        # tan(alpha) = k_beam[0]/k_beam[2]
+        # x = k_beam[0]/k_beam[2] * dz * k_beam[2]
+        # z = dz * np.cos(alpha). cos(alpha) = k[2]
+        # self.global_z += k_beam[2] * dz
+        self.global_x += k_beam[0] * dz
+        self.global_y += k_beam[1] * dz
+        self.global_z += k_beam[2] * dz
+
+    def rotate_nominal(self, delta_elevation=0, delta_azimuth=0):
+        self.global_elevation += delta_elevation
+        self.global_azimuth += delta_azimuth
+
+    def rotate_beam(self, delta_ax=0, delta_ay=0):
+        # first adjust "local" angles
+        self.ax += delta_ax
+        self.ay += delta_ay
+
+        self.global_elevation += delta_ay
+        self.global_azimuth += delta_ax
+
+    def get_k(self):
+        x = np.array([1, 0, 0], dtype=float)
+        y = np.array([0, 1, 0], dtype=float)
+        z = np.array([0, 0, 1], dtype=float)
+
+        r1 = transform.Rotation.from_rotvec(x * self.global_elevation)
+        Rx = r1.as_matrix()
+        x = np.matmul(Rx, x)
+        y = np.matmul(Rx, y)
+        z = np.matmul(Rx, z)
+
+        r2 = transform.Rotation.from_rotvec(y * self.global_azimuth)
+        Ry = r2.as_matrix()
+        x = np.matmul(Ry, x)
+        y = np.matmul(Ry, y)
+        z = np.matmul(Ry, z)
+
+        # beam points in z direction
+        k = z
+        return k
 
     def rescale_x_noshift(self, factor):
         """
@@ -915,8 +970,8 @@ class Pulse:
         maxx = np.round(np.max(self.x[image_name]) * 1e6)
         miny = np.round(np.min(self.y[image_name]) * 1e6)
         maxy = np.round(np.max(self.y[image_name]) * 1e6)
-        min_E = np.min(self.energy)
-        max_E = np.max(self.energy)
+        min_E = np.min(self.energy) - self.E0
+        max_E = np.max(self.energy) - self.E0
 
         # generate the figure
         plt.figure(figsize=(6,6))
@@ -1119,7 +1174,7 @@ class Pulse:
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
 
-    def plot_spectrum(self, image_name, x_pos=0, y_pos=0):
+    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False):
         """
         Method to plot the spectrum at a given location
         Parameters
@@ -1130,6 +1185,8 @@ class Pulse:
             horizontal location (microns)
         y_pos: float
             vertical location (microns)
+        integrated: bool
+            whether to integrate the spectrum
 
         Returns
         -------
