@@ -783,6 +783,9 @@ class Pulse:
         self.energy = np.linspace(-3*self.bandwidth, 3*self.bandwidth, self.N) + self.E0
         self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
 
+        # frequencies
+        self.f = self.energy / 4.136
+
         # calculate wavelengths
         self.wavelength = 1239.8/self.energy*1e-9
 
@@ -798,6 +801,9 @@ class Pulse:
 
         # initialize time stacks with dictionary. Keys are profile monitor names
         self.time_stacks = {}
+
+        # initialize list of screens
+        self.screens = []
 
         # initialize coordinates for profile monitors
         self.x = {}
@@ -828,6 +834,8 @@ class Pulse:
         -------
         None
         """
+
+        self.screens = screen_names
 
         # add screens to energy stacks
         for screen in screen_names:
@@ -904,6 +912,92 @@ class Pulse:
 
         return time_stack
 
+    def add_pulse(self, another_pulse, time_shift):
+        """
+        Method to combine two pulses. For the moment it is assumed that the two pulses have the same time/energy
+        sampling, and have been evaluated at the same screens.
+        Parameters
+        ----------
+        another_pulse: Pulse
+            The pulse to add to the current one
+        time_shift: float
+            relative delay to shift pulses (in fs).
+
+        Returns
+        -------
+        A new Pulse that is the coherent sum of the two pulses.
+        """
+        beam_params = self.beam_params
+        tau = self.tau
+        time_window = self.time_window
+        new_pulse = Pulse(beam_params=beam_params, tau=tau, time_window=time_window)
+
+        time_stacks = {}
+        energy_stacks = {}
+        x = {}
+        y = {}
+        new_pulse.screens = self.screens.copy()
+
+        print(another_pulse.energy_stacks.keys())
+
+        time_pixels = time_shift/self.deltaT
+
+        energy_phase = np.exp(1j*2*np.pi*time_shift*self.f)
+
+        # convert to time domain
+        for screen in self.screens:
+            # deal with quadratic phase
+            # subtract mean
+            qx_mean1 = np.mean(self.qx[screen])
+            qx_mean2 = np.mean(another_pulse.qx[screen])
+            qy_mean1 = np.mean(self.qy[screen])
+            qy_mean2 = np.mean(another_pulse.qy[screen])
+
+            qx_mean = (np.mean(self.qx[screen]) + np.mean(another_pulse.qx[screen]))/2
+            qy_mean = (np.mean(self.qy[screen]) + np.mean(another_pulse.qy[screen]))/2
+
+            energy_stacks[screen] = np.zeros_like(self.energy_stacks[screen],dtype=complex)
+            x[screen] = self.x[screen]
+            y[screen] = self.y[screen]
+
+            for num in range(self.N):
+                qx = self.qx[screen][num]
+                qy = self.qy[screen][num]
+                cx = self.cx[screen][num]
+                cy = self.cy[screen][num]
+                # subtract off mean quadratic phase
+                # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
+                # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
+                # x_phase1 = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
+                x_phase1 = np.pi / self.wavelength[num] * (qx_mean - qx_mean1) * self.xx[screen] ** 2
+                # y_phase1 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
+                y_phase1 = np.pi / self.wavelength[num] * (qy_mean - qy_mean1) * self.yy[screen] ** 2
+
+                qx = another_pulse.qx[screen][num]
+                qy = another_pulse.qy[screen][num]
+                cx = another_pulse.cx[screen][num]
+                cy = another_pulse.cy[screen][num]
+                # subtract off mean quadratic phase
+                # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
+                # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
+                # x_phase2 = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
+                x_phase2 = np.pi / self.wavelength[num] * (qx_mean - qx_mean2) * self.xx[screen] ** 2
+                # y_phase2 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
+                y_phase2 = np.pi / self.wavelength[num] * (qy_mean - qy_mean2) * self.yy[screen] ** 2
+                energy_stacks[screen][:, :, num] = (self.energy_stacks[screen][:,:,num] *
+                                                    np.exp(1j * (x_phase1 + y_phase1))*energy_phase[num] +
+                                                    another_pulse.energy_stacks[screen][:,:,num] *
+                                                    np.exp(1j*(x_phase2 + y_phase2)))
+
+            time_stacks[screen] = Pulse.energy_to_time(energy_stacks[screen])
+
+        new_pulse.time_stacks = time_stacks
+        new_pulse.energy_stacks = energy_stacks
+        new_pulse.x = x
+        new_pulse.y = y
+
+        return new_pulse
+
     def imshow_projection(self, image_name):
         """
         Method to show an image of the total integrated intensity
@@ -932,13 +1026,15 @@ class Pulse:
         ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
 
         # calculate the profile
-        profile = np.sum(np.abs(self.energy_stacks[image_name]), axis=2) ** 2
+        # profile = np.sum(np.abs(self.energy_stacks[image_name]), axis=2) ** 2
+        profile = np.sum(np.abs(self.time_stacks[image_name]), axis=2) ** 2
         x_lineout = np.sum(profile, axis=0)
         y_lineout = np.sum(profile, axis=1)
 
         # show the 2D profile
         ax_profile.imshow(np.flipud(profile),
-                          extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
+                          extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'),
+                                clim=(0,np.max(profile)))
         # label coordinates
         ax_profile.set_xlabel('X coordinates (microns)')
         ax_profile.set_ylabel('Y coordinates (microns)')
@@ -947,6 +1043,8 @@ class Pulse:
         ax_x.plot(self.x[image_name] * 1e6, x_lineout / np.max(x_lineout))
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
+
+        return ax_profile, ax_x, ax_y
 
     def imshow_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
         """

@@ -2090,7 +2090,7 @@ class PPM:
     ----------
     name: str
         device name (e.g. IM1K4)
-    fov: float
+    FOV: float
         width of the (restricted to be square) field of view
     n: int
         number of pixels across the image. Image is NxN.
@@ -2160,7 +2160,7 @@ class PPM:
         self.N = N
         dx = FOV / N
         self.dx = dx
-        self.fov = FOV
+        self.FOV = FOV
         self.z = z
         self.name = name
         self.blur = blur
