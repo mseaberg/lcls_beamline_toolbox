@@ -1457,7 +1457,7 @@ class Grating(Mirror):
                 # 1D interpolation onto beam coordinates
                 central_line = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs, self.shapeError)
                 # tile onto mirror short axis direction
-                shapeError2 = np.tile(central_line, (np.size(yi_1d), 1))
+                shapeError2 = np.tile(central_line, (np.size(yi_1d), 1))*1e-9
             # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
             else:
                 # shape error array shape
@@ -1472,7 +1472,14 @@ class Grating(Mirror):
 
                 # 2D interpolation onto beam coordinates
                 f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
-                shapeError2 = f(zi_1d - self.dx / np.tan(total_alpha), yi_1d - self.dy)
+                shapeError2 = f(zi_1d - self.dx / np.tan(total_alpha), yi_1d - self.dy)*1e-9
+
+            if self.orientation == 1:
+                shapeError2 = np.swapaxes(shapeError2, 0, 1)
+
+            elif self.orientation == 3:
+                shapeError2 = np.swapaxes(shapeError2, 0, 1)
+
 
         # project beam angle onto grating axis
         # Also take into account grating shift in dx (+dx corresponds to dz = -dx/alpha)
@@ -2586,6 +2593,42 @@ class PPM:
 
         # calculate centroids and beam widths
         self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
+
+    def view_vertical(self, ax_y=None, normalized=True, show_fit=True, legend=False, label='Lineout'):
+        """
+        Method to view
+        :param normalized: whether to normalize the lineout
+        :return:
+        """
+
+        gaussian_fit = np.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
+
+        if ax_y is None:
+            # generate the figure
+            plt.figure()
+            ax_y = plt.subplot2grid((1,1), (0, 0))
+        if normalized:
+            # show the vertical lineout (distance in microns)
+            ax_y.plot(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
+            ax_y.set_ylim(0, 1.05)
+            ax_y.set_ylabel('Intensity (normalized)')
+        else:
+            # show the vertical lineout (distance in microns)
+            ax_y.plot(self.y * 1e6, self.y_lineout, label=label)
+            gaussian_fit *= np.max(self.y_lineout)
+            ax_y.set_ylabel('Intensity (arbitrary units)')
+        # also plot the Gaussian fit
+        if show_fit:
+            ax_y.plot(self.y * 1e6, gaussian_fit, label='fit')
+        if legend:
+            ax_y.legend()
+        ax_y.set_xlabel('Y Coordinates (\u03BCm)')
+        # show a grid
+        ax_y.grid(True)
+        # set limits
+
+
+        return ax_y
 
     def view_beam(self):
         """
