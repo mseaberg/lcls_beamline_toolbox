@@ -26,6 +26,11 @@ from skimage.restoration import unwrap_phase
 import os
 import pickle
 from .util import Util
+try:
+    from epics import PV
+    from pcdsdevices.areadetector.detectors import PCDSAreaDetector
+except:
+    print("Can't find epics package. PPM_Imager class will not be supported")
 
 
 class Mirror:
@@ -2136,8 +2141,7 @@ class PPM:
         PPM optical resolution. Used if blur is True.
     """
 
-    def __init__(self, name, FOV=10e-3, z=None, N=2048, blur=False,
-                 view_angle_x=90, view_angle_y=90, resolution=5e-6, calc_phase=False):
+    def __init__(self, name, **kwargs):
         """
         Method to initialize a PPM.
         :param name: str
@@ -2163,35 +2167,52 @@ class PPM:
             whether to calculate/interpolate the phase profile at the PPM. Used with Pulse class.
         """
 
+        self.FOV = 10e-3
+        self.z = None
+        self.N = 2048
+        self.blur = False
+        self.view_angle_x = 90
+        self.view_angle_y = 90
+        self.resolution = 5e-6
+        self.calc_phase = False
+
+        # set allowed kwargs
+        allowed_arguments = ['N', 'dx', 'FOV', 'z', 'blur', 'view_angle_x',
+                             'view_angle_y', 'resolution', 'calc_phase']
+        # update attributes based on kwargs
+        for key, value in kwargs.items():
+            if key in allowed_arguments:
+                setattr(self, key, value)
+
         # set some attributes
-        self.N = N
-        dx = FOV / N
-        self.dx = dx
-        self.FOV = FOV
-        self.z = z
+        # self.N = N
+        self.M = np.copy(self.N)
+        self.dx = self.FOV / self.N
+        # self.FOV = FOV
+        # self.z = z
         self.name = name
-        self.blur = blur
-        self.view_angle_x = view_angle_x
-        self.view_angle_y = view_angle_y
-        self.resolution = resolution
-        self.calc_phase = calc_phase
+        # self.blur = blur
+        # self.view_angle_x = view_angle_x
+        # self.view_angle_y = view_angle_y
+        # self.resolution = resolution
+        # self.calc_phase = calc_phase
 
         # calculate PPM coordinates
-        self.x = np.linspace(-N / 2, N / 2 - 1, N) * dx
+        self.x = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx
         self.y = np.copy(self.x)
 
         # get 2D coordinate arrays
         self.xx, self.yy = np.meshgrid(self.x, self.y)
 
         # initialize some attributes
-        self.profile = np.zeros((N, N))
-        self.phase = np.zeros((N, N), dtype=complex)
+        self.profile = np.zeros((self.N, self.N))
+        self.phase = np.zeros((self.N, self.N), dtype=complex)
         self.zx = 0
         self.zy = 0
         self.cx_beam = 0
         self.cy_beam = 0
-        self.x_lineout = np.zeros(N)
-        self.y_lineout = np.zeros(N)
+        self.x_lineout = np.zeros(self.M)
+        self.y_lineout = np.zeros(self.N)
         self.cx = 0
         self.cy = 0
         self.wx = 0
@@ -2396,7 +2417,7 @@ class PPM:
         y_lim = int(self.wy/self.dx)
 
         # calculated beam center in pixels
-        x_center = Util.coordinate_to_pixel(self.cx, self.dx, self.N)
+        x_center = Util.coordinate_to_pixel(self.cx, self.dx, self.M)
         y_center = Util.coordinate_to_pixel(self.cy, self.dx, self.N)
 
         # get lineouts from 2d profile
@@ -2439,7 +2460,7 @@ class PPM:
         dy_prime = y_prime[1] - y_prime[0]
 
         # re-center residual phase coordinates on beam center
-        x_prime += (x_center-self.N/2) * dx_prime
+        x_prime += (x_center-self.M/2) * dx_prime
         y_prime += (y_center-self.N/2) * dy_prime
 
         # convert coordinates to microns
@@ -2698,6 +2719,145 @@ class PPM:
         else:
             complex_beam = np.sqrt(self.profile)
         return complex_beam, self.zx, self.zy, self.cx_beam, self.cy_beam
+
+
+class PPM_Imager(PPM):
+    """
+    Child class of PPM that is used for a physical PPM, rather than simulated.
+    """
+    def __init__(self, name, **kwargs):
+        super().__init__(name, **kwargs)
+
+        self.imager_prefix = name
+        self.threshold = 0.1
+
+        # set allowed kwargs
+        allowed_arguments = ['threshold']
+
+        # update attributes based on kwargs
+        for key, value in kwargs.items():
+            if key in allowed_arguments:
+                setattr(self, key, value)
+
+        self.cam_name = self.imager_prefix + 'CAM:'
+        self.epics_name = self.cam_name + 'IMAGE2:'
+
+        FOV_dict = {
+            'IM2K4': 8.5,
+            'IM3K4': 8.5,
+            'IM4K4': 5.0,
+            'IM5K4': 8.5,
+            'IM6K4': 8.5,
+            'IM1K1': 8.5,
+            'IM2K1': 8.5,
+            'IM1K2': 8.5,
+            'IM2K2': 18.5,
+            'IM3K2': 18.5,
+            'IM4K2': 8.5,
+            'IM5K2': 8.5,
+            'IM6K2': 5.0,
+            'IM7K2': 5.0,
+            'IM1L1': 8.5,
+            'IM2L1': 8.5,
+            'IM3L1': 8.5,
+            'IM4L1': 8.5,
+            'IM1K3': 8.5,
+            'IM2K3': 8.5,
+            'IM3K3': 8.5,
+            'IM3L0': 5.0
+        }
+
+        try:
+            self.distance = FOV_dict[self.epics_name[0:5]] * 1e3
+        except:
+            self.distance = 8500.0
+
+
+        try:
+            self.gige = PCDSAreaDetector(self.cam_name, name='gige')
+            self.reset_camera()
+        except Exception:
+            print('\nSomething wrong with camera server')
+            self.gige = None
+
+        # need to change this later. Units are in microns
+        self.dx = 5.5/1.2
+
+        # if len(sys.argv)>1:
+        #     self.cam_name = sys.argv[1]
+        #     self.epics_name = sys.argv[1] + 'IMAGE2:'
+
+        self.image_pv = PV(self.epics_name + 'ArrayData')
+
+        # get ROI info
+        xmin = PV(self.epics_name + 'ROI:MinX_RBV').get()
+        xmax = xmin + PV(self.epics_name + 'ROI:SizeX_RBV').get() - 1
+        ymin = PV(self.epics_name + 'ROI:MinY_RBV').get()
+        ymax = ymin + PV(self.epics_name + 'ROI:SizeY_RBV').get() - 1
+        # get binning
+        xbin = PV(self.epics_name + 'ROI:BinX_RBV').get()
+        ybin = PV(self.epics_name + 'ROI:BinY_RBV').get()
+        # get array size
+        self.xsize = PV(self.epics_name + 'ROI:ArraySizeX_RBV').get()
+        self.ysize = PV(self.epics_name + 'ROI:ArraySizeY_RBV').get()
+
+        self.x = np.linspace(xmin, xmax - (xbin - 1), self.xsize, dtype=float)
+        self.x -= (xmax + 1) / 2
+        self.y = np.linspace(ymin, ymax - (ybin - 1), self.ysize, dtype=float)
+        self.y -= (ymax + 1) / 2
+
+        self.x *= self.dx
+        self.y *= self.dx
+        self.xx, self.yy = np.meshgrid(self.x, self.y)
+
+        self.N, self.M = np.shape(self.xx)
+
+        self.profile = np.zeros_like(self.xx)
+        self.x_lineout = np.zeros(self.M)
+        self.y_lineout = np.zeros(self.N)
+        self.lambda0 = 0.0
+        self.time_stamp = 0.0
+        self.cx = 0
+        self.cy = 0
+        self.wx = 0
+        self.wy = 0
+
+    def stop(self):
+        self.running = False
+        try:
+            self.gige.cam.acquire.put(0, wait=True)
+        except AttributeError:
+            pass
+
+    def reset_camera(self):
+        try:
+            self.gige.cam.acquire.put(0, wait=True)
+            self.gige.cam.acquire.put(1)
+        except:
+            print('no camera')
+
+    def get_image(self):
+        try:
+            # image_data = self.gige.image2.get()
+            image_data = self.image_pv.get_with_metadata()
+            img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+            time_stamp = image_data['timestamp']
+            # time_stamp = image_data.time_stamp
+            # img = np.array(image_data.shaped_image,dtype='float')
+            # img = np.array(self.gige.image2.image,dtype='float')
+            img = Util.threshold_array(img, self.threshold)
+            self.profile = img
+            self.x_lineout = np.sum(self.profile, axis=0)
+            self.y_lineout = np.sum(self.profile, axis=1)
+
+            # get beam statistics
+            self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
+
+            self.time_stamp = time_stamp
+            return img, time_stamp
+        except:
+            print('no image')
+            return np.zeros((2048, 2048))
 
 
 class WFS:
