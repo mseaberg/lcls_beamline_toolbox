@@ -2810,6 +2810,8 @@ class PPM_Imager(PPM):
         self.y *= self.dx*ybin
         self.xx, self.yy = np.meshgrid(self.x, self.y)
 
+        self.FOV = np.max(self.x) - np.min(self.x)
+
         self.N, self.M = np.shape(self.xx)
 
         self.profile = np.zeros_like(self.xx)
