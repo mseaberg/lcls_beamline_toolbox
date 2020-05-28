@@ -2806,8 +2806,8 @@ class PPM_Imager(PPM):
         self.y = np.linspace(ymin, ymax - (ybin - 1), self.ysize, dtype=float)
         self.y -= (ymax + 1) / 2
 
-        self.x *= self.dx
-        self.y *= self.dx
+        self.x *= self.dx*xbin
+        self.y *= self.dx*ybin
         self.xx, self.yy = np.meshgrid(self.x, self.y)
 
         self.N, self.M = np.shape(self.xx)
