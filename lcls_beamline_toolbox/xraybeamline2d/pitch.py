@@ -421,7 +421,7 @@ class TalbotLineout:
 
         # calculate dx of new coordinates in case it's slightly off
         dx_prime = 1. / (Nx * dfx)
-        print('dxprime: '+str(dx_prime))
+        # print('dxprime: '+str(dx_prime))
 
         # define coordinates for residual phase
         x_prime = np.linspace(-Nx/2, Nx/2-1, Nx, dtype=float) * dx_prime
@@ -459,7 +459,7 @@ class TalbotLineout:
         # period is 1/peak in Fourier domain (pixels)
         x_pitch = 1./x_centroid
 
-        print(x_pitch)
+        # print(x_pitch)
 
         # set some attributes
         self.x_pitch = x_pitch
