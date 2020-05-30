@@ -116,24 +116,24 @@ class TalbotLineout:
         # position of focus (positive means upstream of device)
         zf = zT * mag_x / (mag_x - 1.)
 
-        print('zf: '+str(zf))
+        # print('zf: '+str(zf))
 
         # residual phase gradient
         grad = -self.residual * dg / fraction / lambda0 / zT
 
         if fit_object is None:
             # generate the Legendre polynomial basis
-            print('generating basis')
+            # print('generating basis')
             fit_object = LegendreFit1D(np.size(grad), 16)
-            print('basis generated')
+            # print('basis generated')
 
         # get Legendre coefficients. Nothing is masked out for now.
         W = fit_object.coeff_from_grad(grad, dx2, np.ones(np.size(grad), dtype=bool)).flatten()
 
         # second order coefficient based on distance to focus
         max_x = dx2*np.size(xcoord)/2
-        print('max1: ' + str(max_x))
-        print('max2: '+str(np.max(xcoord)))
+        # print('max1: ' + str(max_x))
+        # print('max2: '+str(np.max(xcoord)))
         # A = np.pi / lambda0 / zf * np.max(xcoord) ** 2
         A = np.pi / lambda0 / zf * max_x**2
         # convert to Legendre coefficient for P_2.

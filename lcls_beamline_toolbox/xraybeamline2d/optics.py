@@ -2398,7 +2398,7 @@ class PPM:
                 Distance to vertical focus
         """
 
-        print('retrieving wavefront')
+        # print('retrieving wavefront')
 
         # get Talbot fraction that we're using (fractional Talbot effect)
         fraction = wfs.fraction
@@ -2433,7 +2433,7 @@ class PPM:
         fc = peak * self.dx
 
         # calculate pitch from lineouts. See pitch module.
-        print('getting lineouts')
+        # print('getting lineouts')
         self.xline = TalbotLineout(lineout_x, fc, fraction, pad=True)
         self.yline = TalbotLineout(lineout_y, fc, fraction, pad=True)
 
@@ -2448,12 +2448,12 @@ class PPM:
                 }
 
         # calculate Legendre coefficients
-        print('getting Legendre coefficients')
+        # print('getting Legendre coefficients')
         wfs_param['dg'] = wfs.x_pitch_sim
         z_x, coeff_x, x_prime, x_res, fit_object = self.xline.get_legendre(wfs_param)
         wfs_param['dg'] = wfs.y_pitch_sim
         z_y, coeff_y, y_prime, y_res, fit_object = self.yline.get_legendre(wfs_param)
-        print('found Legendre coefficients')
+        # print('found Legendre coefficients')
 
         # pixel size for retrieved wavefront
         dx_prime = x_prime[1] - x_prime[0]
@@ -2468,8 +2468,8 @@ class PPM:
         y_prime = y_prime * 1e6
 
         # print calculated distance to focus
-        print('Distance to source: '+str(z_x))
-        print('Distance to source: '+str(z_y))
+        # print('Distance to source: '+str(z_x))
+        # print('Distance to source: '+str(z_y))
 
         # output. See method docstring for descriptions.
         wfs_data = {
