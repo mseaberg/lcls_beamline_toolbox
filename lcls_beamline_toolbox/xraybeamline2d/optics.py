@@ -2721,7 +2721,7 @@ class PPM:
         return complex_beam, self.zx, self.zy, self.cx_beam, self.cy_beam
 
 
-class PPM_Imager(PPM):
+class PPM_Device(PPM):
     """
     Child class of PPM that is used for a physical PPM, rather than simulated.
     """
@@ -2767,10 +2767,37 @@ class PPM_Imager(PPM):
             'IM3L0': 5.0
         }
 
+        z_dict = {
+            'IM1L0': 699.5576832,
+            'IM2L0': 736.50848,
+            'IM3L0': 746.0000167,
+            'IM4L0': 753.5587416,
+            'IM1K0': 699.4677942,
+            'IM2K0': 732.3403281,
+            'IM1K1': 738.0279162,
+            'IM2K1': 742.15,
+            'IM1K2': 777.93,
+            'IM2K2': 780.425,
+            'IM3K2': 781.9,
+            'IM4K2': 783.455,
+            'IM5K2': 787.417,
+            'IM6K2': 792.167,
+            'IM7K2': 798.5,
+            'IM1L1': 745.4046250,
+            'IM2L1': 759.02,
+            'IM3L1': 778.96,
+            'IM4L1': 778.96,
+            'IM1K3': 740.804,
+            'IM2K3': 750,
+            'IM3K3': 778.66
+        }
+
         try:
             self.distance = FOV_dict[self.epics_name[0:5]] * 1e3
+            self.z = z_dict[self.epics_name[0:5]]
         except:
             self.distance = 8500.0
+            self.z = z_dict['IM1L0']
 
 
         try:
@@ -2871,7 +2898,7 @@ class WFS:
 
     """
 
-    def __init__(self, name, pitch=None, duty_cycle=0.1, z=None, f0=100, phase=False, enabled=True, fraction=1):
+    def __init__(self, name, **kwargs):
         """
         Method to initialize a wavefront sensor.
         :param name: str
@@ -2894,13 +2921,22 @@ class WFS:
 
         # set attributes
         self.name = name
-        self.pitch = pitch
-        self.duty_cycle = duty_cycle
-        self.f0 = f0
-        self.z = z
-        self.phase = phase
-        self.enabled = enabled
-        self.fraction = fraction
+        self.pitch = None
+        self.duty_cycle = 0.1
+        self.f0 = 100
+        self.z = None
+        self.phase = False
+        self.enabled = True
+        self.fraction = 1
+
+        # set allowed kwargs
+        allowed_arguments = ['pitch', 'duty_cycle', 'f0', 'z', 'phase', 'enabled',
+                             'fraction']
+        # update attributes based on kwargs
+        for key, value in kwargs.items():
+            if key in allowed_arguments:
+                setattr(self, key, value)
+
         # initialize some calculated attributes
         self.x_pitch = 0.
         self.y_pitch = 0.
@@ -2989,3 +3025,53 @@ class WFS:
 
         # multiply beam by grating
         beam.wave *= self.grating
+
+
+class WFS_Device(WFS):
+    def __init__(self, name, **kwargs):
+        super().__init__(name, **kwargs)
+
+        self.state = 1
+
+        # set allowed kwargs
+        allowed_arguments = ['state']
+
+        # update attributes based on kwargs
+        for key, value in kwargs.items():
+            if key in allowed_arguments:
+                setattr(self, key, value)
+
+        self.epics_name = self.name + ':WFS:'
+
+        pitch_dict = {
+            'PF1K0': [39.6, 41],
+            'PF1L0': [28.4, 29.9, 31.7, 33.9, 36.6],
+            'PF1K4': [34.6, 35.8],
+            'PF2K4': [33.3],
+            'PF1K2': [32, 36.4]
+        }
+
+        z_dict = {
+            'PF1K0': 731.5855078,
+            'PF1L0': 735.6817413,
+            'PF1K4': 763.515,
+            'PF2K4': 768.583,
+            'PF1K2': 786.918,
+        }
+
+        f0_dict = {
+            'PF1K0': 100,
+            'PF1L0': 100,
+            'PF1K4': 1.772,
+            'PF2K4': 0.996,
+            'PF1K2': 1.668
+        }
+
+        try:
+            self.pitch = pitch_dict[self.name][self.state] * 1e-6
+            self.z = z_dict[self.name]
+            self.f0 = f0_dict[self.name]
+        except:
+            self.pitch = 30.0
+            self.z = z_dict['PF1L0']
+            self.f0 = 100
