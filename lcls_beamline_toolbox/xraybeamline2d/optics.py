@@ -2844,7 +2844,7 @@ class PPM_Device(PPM):
         self.profile = np.zeros_like(self.xx)
         self.x_lineout = np.zeros(self.M)
         self.y_lineout = np.zeros(self.N)
-        self.lambda0 = 0.0
+        self.lambda0 = 1239.8/1000*1e-9
         self.time_stamp = 0.0
         self.cx = 0
         self.cy = 0
