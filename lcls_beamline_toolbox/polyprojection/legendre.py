@@ -68,15 +68,15 @@ class LegendreFit1D:
         self.leg_x = {}
         self.mapping = np.zeros((self.P, self.P))
 
-        print('calculating Legendre polynomials')
+        # print('calculating Legendre polynomials')
         # calculate Legendre polynomials on this grid
         self.get_legendre()
-        print('calculated Legendre polynomials')
+        # print('calculated Legendre polynomials')
 
-        print('generating matrix')
+        # print('generating matrix')
         # calculate Legendre derivatives
         self.make_A()
-        print('matrix generated')
+        # print('matrix generated')
 
     def get_legendre(self):
         """
