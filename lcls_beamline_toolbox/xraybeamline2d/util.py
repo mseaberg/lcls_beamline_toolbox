@@ -98,7 +98,10 @@ class Util:
             Function evaluated at all points in x.
         """
         # just return an array evaluating the Gaussian function based on input parameters.
-        return np.exp(-((x - x0) ** 2 / (2 * w ** 2)))
+        if w == 0:
+            return np.zeros_like(x)
+        else:
+            return np.exp(-((x - x0) ** 2 / (2 * w ** 2)))
 
     @staticmethod
     def decentering(coeff, order, offset):
