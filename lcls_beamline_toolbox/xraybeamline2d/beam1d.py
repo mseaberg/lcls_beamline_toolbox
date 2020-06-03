@@ -938,7 +938,7 @@ class Pulse:
         y = {}
         new_pulse.screens = self.screens.copy()
 
-        print(another_pulse.energy_stacks.keys())
+        # print(another_pulse.energy_stacks.keys())
 
         time_pixels = time_shift/self.deltaT
 
@@ -1026,8 +1026,8 @@ class Pulse:
         ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
 
         # calculate the profile
-        # profile = np.sum(np.abs(self.energy_stacks[image_name]), axis=2) ** 2
-        profile = np.sum(np.abs(self.time_stacks[image_name]), axis=2) ** 2
+        # profile = np.sum(np.abs(self.energy_stacks[image_name])**2, axis=2)
+        profile = np.sum(np.abs(self.time_stacks[image_name])**2, axis=2)
         x_lineout = np.sum(profile, axis=0)
         y_lineout = np.sum(profile, axis=1)
 
