@@ -1336,7 +1336,7 @@ class Pulse:
         plt.legend()
         plt.grid()
 
-    def plot_pulse(self, image_name, x_pos=0, y_pos=0):
+    def plot_pulse(self, image_name, x_pos=0, y_pos=0, shift=None):
         """
         Method to plot the temporal pulse structure at a given location
         Parameters
@@ -1377,6 +1377,10 @@ class Pulse:
         # get gaussian stats
         centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
         fwhm = int(sx * 2.355)
+
+        if shift is not None:
+            y_data = np.roll(y_data, int(shift/self.deltaT))
+            centroid += shift
 
         # gaussian fit to plot
         gauss_plot = Util.fit_gaussian(self.t_axis, centroid, sx)
