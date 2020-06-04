@@ -937,6 +937,8 @@ class Pulse:
         x = {}
         y = {}
         new_pulse.screens = self.screens.copy()
+        new_pulse.xx = self.xx.copy()
+        new_pulse.yy = self.yy.copy()
 
         # print(another_pulse.energy_stacks.keys())
 
@@ -960,11 +962,14 @@ class Pulse:
             x[screen] = self.x[screen]
             y[screen] = self.y[screen]
 
+            new_pulse.qx[screen] = np.zeros(self.N)
+            new_pulse.qy[screen] = np.zeros(self.N)
+
             for num in range(self.N):
                 qx = self.qx[screen][num]
                 qy = self.qy[screen][num]
-                cx = self.cx[screen][num]
-                cy = self.cy[screen][num]
+                # cx = self.cx[screen][num]
+                # cy = self.cy[screen][num]
                 # subtract off mean quadratic phase
                 # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
                 # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
@@ -975,8 +980,8 @@ class Pulse:
 
                 qx = another_pulse.qx[screen][num]
                 qy = another_pulse.qy[screen][num]
-                cx = another_pulse.cx[screen][num]
-                cy = another_pulse.cy[screen][num]
+                # cx = another_pulse.cx[screen][num]
+                # cy = another_pulse.cy[screen][num]
                 # subtract off mean quadratic phase
                 # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
                 # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
@@ -988,6 +993,9 @@ class Pulse:
                                                     np.exp(1j * (x_phase1 + y_phase1))*energy_phase[num] +
                                                     another_pulse.energy_stacks[screen][:,:,num] *
                                                     np.exp(1j*(x_phase2 + y_phase2)))
+
+                new_pulse.qx[screen][num] = (self.qx[screen][num] + another_pulse.qx[screen][num])/2
+                new_pulse.qy[screen][num] = (self.qy[screen][num] + another_pulse.qy[screen][num])/2
 
             time_stacks[screen] = Pulse.energy_to_time(energy_stacks[screen])
 
@@ -1138,7 +1146,7 @@ class Pulse:
         # ax_profile.set_title('%s Energy Slice' % image_name)
         ax_profile.set_title(title)
 
-    def imshow_time_slice(self, image_name, dim='x', slice_pos=0):
+    def imshow_time_slice(self, image_name, dim='x', slice_pos=0, shift=None):
         """
         Method to show a slice along space and time
         Parameters
@@ -1167,7 +1175,9 @@ class Pulse:
         plt.figure(figsize=(6, 6))
 
         # generate the axes, in a grid
-        ax_profile = plt.subplot2grid((1, 1), (0, 0))
+        # ax_profile = plt.subplot2grid((1, 1), (0, 0))
+        ax_profile = plt.subplot2grid((5, 8), (0, 0), colspan=7, rowspan=5)
+        ax_colorbar = plt.subplot2grid((5, 8), (1, 7), colspan=1, rowspan=3)
 
         # horizontal slice
         if dim == 'x':
@@ -1199,9 +1209,17 @@ class Pulse:
             ylabel = ''
             aspect_ratio = 1
 
+        # normalize
+        profile = profile/np.max(profile)
+
+        if shift is not None:
+            profile = np.roll(profile, int(shift/self.deltaT), axis=1)
+
         # show the 2D profile
-        ax_profile.imshow(np.flipud(profile), aspect=aspect_ratio,
+        im_profile = ax_profile.imshow(np.flipud(profile), aspect=aspect_ratio,
                           extent=extent, cmap=plt.get_cmap('gnuplot'))
+        cbar_label = 'Intensity (normalized)'
+        plt.colorbar(im_profile, cax=ax_colorbar, label=cbar_label)
         # label coordinates
         ax_profile.set_xlabel('Time (fs)')
         ax_profile.set_ylabel(ylabel)
