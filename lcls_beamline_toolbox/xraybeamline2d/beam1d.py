@@ -746,7 +746,7 @@ class Pulse:
     Class to represent a collection of beams within a pulse structure.
     """
 
-    def __init__(self, beam_params=None, tau=None, time_window=None):
+    def __init__(self, beam_params=None, tau=None, time_window=None, SASE=False, num_spikes=3):
         """
         Create a Pulse object
         :param beam_params: same parameters as given for Beam
@@ -759,6 +759,7 @@ class Pulse:
         self.beam_params = beam_params
         self.tau = tau
         self.time_window = time_window
+        self.num_spikes = num_spikes
         self.E0 = beam_params['photonEnergy']
 
         # ----- energy range
@@ -768,7 +769,10 @@ class Pulse:
         self.bandwidth = 2 * np.sqrt(2) * hbar * np.sqrt(np.log(2)) / self.tau
 
         # define energy range 6 times the bandwidth
-        E_range = 6 * self.bandwidth
+        if SASE:
+            E_range = 6 * self.bandwidth * self.num_spikes
+        else:
+            E_range = 6 * self.bandwidth
 
         # total frequency range in petaHz (energy divided by Planck's constant (in eV * fs))
         f_range = E_range / 4.136
@@ -780,12 +784,17 @@ class Pulse:
         self.N = int(self.time_window / self.deltaT)
 
         # define pulse energies and envelope
-        self.energy = np.linspace(-3*self.bandwidth, 3*self.bandwidth, self.N) + self.E0
-        self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
+        self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
 
         # frequencies
         self.f = self.energy / 4.136
 
+        if SASE:
+            self.envelope = self.generate_SASE()
+        else:
+            self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
+
+        self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
         # calculate wavelengths
         self.wavelength = 1239.8/self.energy*1e-9
 
@@ -820,6 +829,23 @@ class Pulse:
         # initialize beam center
         self.cx = {}
         self.cy = {}
+
+    def generate_SASE(self):
+        spike_centers = (.5-np.random.rand(self.num_spikes))*self.num_spikes*self.bandwidth*2
+        spike_intensity = np.random.rand(self.num_spikes)
+        spike_linphase = (.5-np.random.rand(self.num_spikes))*2*self.tau
+        spike_offsetphase = np.random.rand(self.num_spikes)*2*np.pi
+        hbar = 0.6582
+
+        envelope = np.zeros_like(self.energy, dtype=complex)
+        sigma = 1/(self.tau ** 2 / 4 / hbar ** 2 / np.log(2))
+
+        for i in range(self.num_spikes):
+            phase = np.exp(1j*spike_offsetphase[i])*np.exp(1j*2*np.pi*spike_linphase[i]*self.f)
+            envelope += (spike_intensity[i]*
+                             np.sqrt(np.exp(-(self.energy - self.E0-spike_centers[i]) ** 2 / sigma))*phase)
+
+        return envelope
 
     def propagate(self, beamline=None, screen_names=None):
         """
@@ -1225,6 +1251,8 @@ class Pulse:
         ax_profile.set_ylabel(ylabel)
         ax_profile.set_title(title)
 
+        return ax_profile
+
     def imshow_spatial_slice(self, image_name, slice_type='energy', slice_pos=None):
         """
         Method to show a spatial slice at a given energy or time.
@@ -1338,16 +1366,17 @@ class Pulse:
 
         # change label depending on bandwidth
         if fwhm >= 1:
-            width_label = '%.2f eV FWHM' % fwhm
+            width_label = '%d eV FWHM' % fwhm
         elif fwhm > 1e-3:
-            width_label = '%.2f meV FHWM' % (fwhm * 1e3)
+            width_label = '%d meV FHWM' % (fwhm * 1e3)
         else:
-            width_label = u'%.2f \u03BCeV FWHM' % (fwhm * 1e6)
+            width_label = u'%d \u03BCeV FWHM' % (fwhm * 1e6)
 
         # plotting
         plt.figure()
         plt.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
         plt.plot(self.energy - self.E0, gauss_plot, label=width_label)
+        plt.ylim(-.05,1.3)
         plt.xlabel('Energy (eV)')
         plt.ylabel('Intensity (normalized)')
         plt.title(u'%s Spectrum at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
@@ -1407,6 +1436,7 @@ class Pulse:
         plt.figure()
         plt.plot(self.t_axis, y_data / np.max(y_data), label='Simulated')
         plt.plot(self.t_axis, gauss_plot, label=u'Gaussian Fit: %d fs FWHM' % fwhm)
+        plt.ylim(-.05, 1.3)
         plt.xlabel('Time (fs)')
         plt.ylabel('Intensity (normalized)')
         plt.title(u'%s Pulse at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
