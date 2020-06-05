@@ -806,6 +806,9 @@ class Pulse:
         self.t_axis = np.linspace(-self.N/2, self.N/2-1, self.N) * self.deltaT
 
         # initialize energy stacks with dictionary. Keys are profile monitor names
+        self.raw_energy_stacks = {}
+
+        # initialize energy stacks with dictionary. Keys are profile monitor names
         self.energy_stacks = {}
 
         # initialize time stacks with dictionary. Keys are profile monitor names
@@ -870,7 +873,7 @@ class Pulse:
             self.x[screen] = screen_obj.x
             self.y[screen] = screen_obj.y
             self.xx[screen], self.yy[screen] = np.meshgrid(self.x[screen], self.y[screen])
-            self.energy_stacks[screen] = np.zeros((Ns, Ns, self.N), dtype=complex)
+            self.raw_energy_stacks[screen] = np.zeros((Ns, Ns, self.N), dtype=complex)
             self.qx[screen] = np.zeros(self.N)
             self.qy[screen] = np.zeros(self.N)
             self.cx[screen] = np.zeros(self.N)
@@ -887,14 +890,13 @@ class Pulse:
                 # put current photon energy into energy stack, multiply by spectral envelope
                 screen_obj = getattr(beamline, screen)
                 energy_slice, zx, zy, cx, cy = screen_obj.complex_beam()
-                self.energy_stacks[screen][:, :, num] = energy_slice# * self.envelope[num]
+                self.raw_energy_stacks[screen][:, :, num] = energy_slice# * self.envelope[num]
                 if zx != 0:
                     self.qx[screen][num] = 1/zx
                 if zy != 0:
                     self.qy[screen][num] = 1/zy
                 self.cx[screen][num] = cx
                 self.cy[screen][num] = cy
-                # self.energy_stacks[screen][:, :, num] = screen_obj.complex_beam() * self.envelope[num]
 
         # convert to time domain
         for screen in screen_names:
@@ -915,13 +917,14 @@ class Pulse:
                 x_phase -= np.pi / self.wavelength[num] * qx_mean * self.xx[screen]**2
                 y_phase = np.pi/self.wavelength[num]*(qy)*(self.yy[screen]-cy)**2
                 y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
-                self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
+                self.raw_energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
 
-            self.time_stacks[screen] = Pulse.energy_to_time(self.broadcast_envelope(screen))
+            self.energy_stacks[screen] = self.broadcast_envelope(screen)
+            self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
 
     def broadcast_envelope(self, screen):
-        stack_shape = np.shape(self.energy_stacks[screen])
-        return self.energy_stacks[screen] * np.broadcast_to(self.envelope, stack_shape)
+        stack_shape = np.shape(self.raw_energy_stacks[screen])
+        return self.raw_energy_stacks[screen] * np.broadcast_to(self.envelope, stack_shape)
 
     @staticmethod
     def energy_to_time(energy_stack):
@@ -947,8 +950,8 @@ class Pulse:
         self.envelope = self.generate_SASE()
         # calculate new time domain
         for screen in self.screens:
-
-            self.time_stacks[screen] = Pulse.energy_to_time(self.broadcast_envelope(screen))
+            self.energy_stacks[screen] = self.broadcast_envelope(screen)
+            self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
 
     def add_pulse(self, another_pulse, time_shift):
         """
@@ -1044,6 +1047,42 @@ class Pulse:
         new_pulse.y = y
 
         return new_pulse
+
+    def plot_1d_projection(self, image_name, dim='x'):
+        """
+        Method to show an image of the total integrated intensity
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        dim: str
+            dimension for the lineout
+
+        Returns
+        -------
+
+        """
+
+        # generate the figure
+        plt.figure()
+
+        # generate the axes, in a grid
+        ax = plt.subplot2grid((1,1), (0,0))
+
+        # calculate the profile
+        # profile = np.sum(np.abs(self.energy_stacks[image_name])**2, axis=2)
+        profile = np.sum(np.abs(self.time_stacks[image_name])**2, axis=2)
+        if dim == 'x':
+            lineout = np.sum(profile, axis=0)
+        else:
+            lineout = np.sum(profile, axis=1)
+
+        # show the horizontal lineout (distance in microns)
+        ax.plot(getattr(self, dim)[image_name] * 1e6, lineout / np.max(lineout))
+        ax.set_xlabel('%s coordinates (microns)' % dim)
+        ax.set_ylabel('Intensity (normalized)')
+
+        return ax, lineout
 
     def imshow_projection(self, image_name):
         """
@@ -1184,6 +1223,8 @@ class Pulse:
         ax_profile.set_ylabel(ylabel)
         # ax_profile.set_title('%s Energy Slice' % image_name)
         ax_profile.set_title(title)
+
+        return ax_profile
 
     def imshow_time_slice(self, image_name, dim='x', slice_pos=0, shift=None):
         """
