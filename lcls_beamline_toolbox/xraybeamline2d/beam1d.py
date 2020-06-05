@@ -1032,6 +1032,42 @@ class Pulse:
 
         return new_pulse
 
+    def plot_1d_projection(self, image_name, dim='x'):
+        """
+        Method to show an image of the total integrated intensity
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        dim: str
+            dimension for the lineout
+
+        Returns
+        -------
+
+        """
+
+        # generate the figure
+        plt.figure()
+
+        # generate the axes, in a grid
+        ax = plt.subplot2grid((1,1), (0,0))
+
+        # calculate the profile
+        # profile = np.sum(np.abs(self.energy_stacks[image_name])**2, axis=2)
+        profile = np.sum(np.abs(self.time_stacks[image_name])**2, axis=2)
+        if dim == 'x':
+            lineout = np.sum(profile, axis=0)
+        else:
+            lineout = np.sum(profile, axis=1)
+
+        # show the horizontal lineout (distance in microns)
+        ax.plot(getattr(self, dim)[image_name] * 1e6, lineout / np.max(lineout))
+        ax.set_xlabel('%s coordinates (microns)' % dim)
+        ax.set_ylabel('Intensity (normalized)')
+
+        return ax, lineout
+
     def imshow_projection(self, image_name):
         """
         Method to show an image of the total integrated intensity
