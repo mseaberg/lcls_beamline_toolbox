@@ -887,7 +887,7 @@ class Pulse:
                 # put current photon energy into energy stack, multiply by spectral envelope
                 screen_obj = getattr(beamline, screen)
                 energy_slice, zx, zy, cx, cy = screen_obj.complex_beam()
-                self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
+                self.energy_stacks[screen][:, :, num] = energy_slice# * self.envelope[num]
                 if zx != 0:
                     self.qx[screen][num] = 1/zx
                 if zy != 0:
@@ -917,7 +917,11 @@ class Pulse:
                 y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
                 self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
 
-            self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
+            self.time_stacks[screen] = Pulse.energy_to_time(self.broadcast_envelope(screen))
+
+    def broadcast_envelope(self, screen):
+        stack_shape = np.shape(self.energy_stacks[screen])
+        return self.energy_stacks[screen] * np.broadcast_to(self.envelope, stack_shape)
 
     @staticmethod
     def energy_to_time(energy_stack):
@@ -937,6 +941,14 @@ class Pulse:
         time_stack = np.fft.fftshift(np.fft.fft(np.fft.fftshift(energy_stack, axes=2), axis=2), axes=2)
 
         return time_stack
+
+    def new_SASE(self):
+        # get new spectral envelope
+        self.envelope = self.generate_SASE()
+        # calculate new time domain
+        for screen in self.screens:
+
+            self.time_stacks[screen] = Pulse.energy_to_time(self.broadcast_envelope(screen))
 
     def add_pulse(self, another_pulse, time_shift):
         """
@@ -1015,9 +1027,10 @@ class Pulse:
                 x_phase2 = np.pi / self.wavelength[num] * (qx_mean - qx_mean2) * self.xx[screen] ** 2
                 # y_phase2 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
                 y_phase2 = np.pi / self.wavelength[num] * (qy_mean - qy_mean2) * self.yy[screen] ** 2
-                energy_stacks[screen][:, :, num] = (self.energy_stacks[screen][:,:,num] *
+                energy_stacks[screen][:, :, num] = (self.energy_stacks[screen][:,:,num]*self.envelope[num] *
                                                     np.exp(1j * (x_phase1 + y_phase1))*energy_phase[num] +
-                                                    another_pulse.energy_stacks[screen][:,:,num] *
+                                                    another_pulse.energy_stacks[screen][:,:,num]*
+                                                    another_pulse.envelope[num] *
                                                     np.exp(1j*(x_phase2 + y_phase2)))
 
                 new_pulse.qx[screen][num] = (self.qx[screen][num] + another_pulse.qx[screen][num])/2
