@@ -754,10 +754,6 @@ class Pulse:
             pulse width (fs)
         :param time_window: float
             full width of time window in fs (related to energy sampling)
-        :param SASE: bool
-            whether to model a SASE pulse. Default False
-        :param num_spikes: int
-            Only used if SASE=True. The number of spikes to model in the SASE spectrum.
         """
         # set some attributes
         self.beam_params = beam_params
@@ -810,9 +806,6 @@ class Pulse:
         self.t_axis = np.linspace(-self.N/2, self.N/2-1, self.N) * self.deltaT
 
         # initialize energy stacks with dictionary. Keys are profile monitor names
-        self.raw_energy_stacks = {}
-
-        # initialize energy stacks with dictionary. Keys are profile monitor names
         self.energy_stacks = {}
 
         # initialize time stacks with dictionary. Keys are profile monitor names
@@ -838,27 +831,13 @@ class Pulse:
         self.cy = {}
 
     def generate_SASE(self):
-        """
-        Method to generate a SASE-like spectral envelope
-        :return envelope: (N) ndarray
-             Complex spectral envelope containing SASE spikes
-        """
-        # ----- generate some random numbers -----
-        # center of spike in energy domain (relative to central energy). Range is proportional to single spike bandwidth
-        # and number of spikes.
         spike_centers = (.5-np.random.rand(self.num_spikes))*self.num_spikes*self.bandwidth*2
-        # relative spike intensity
         spike_intensity = np.random.rand(self.num_spikes)
-        # random linear phase corresponding to random shifts in time domain
         spike_linphase = (.5-np.random.rand(self.num_spikes))*2*self.tau
-        # random constant phase (relative between spikes)
         spike_offsetphase = np.random.rand(self.num_spikes)*2*np.pi
-        # hbar in eV*fs
         hbar = 0.6582
 
-        # initialize envelope
         envelope = np.zeros_like(self.energy, dtype=complex)
-        # 
         sigma = 1/(self.tau ** 2 / 4 / hbar ** 2 / np.log(2))
 
         for i in range(self.num_spikes):
@@ -891,7 +870,7 @@ class Pulse:
             self.x[screen] = screen_obj.x
             self.y[screen] = screen_obj.y
             self.xx[screen], self.yy[screen] = np.meshgrid(self.x[screen], self.y[screen])
-            self.raw_energy_stacks[screen] = np.zeros((Ns, Ns, self.N), dtype=complex)
+            self.energy_stacks[screen] = np.zeros((Ns, Ns, self.N), dtype=complex)
             self.qx[screen] = np.zeros(self.N)
             self.qy[screen] = np.zeros(self.N)
             self.cx[screen] = np.zeros(self.N)
@@ -908,13 +887,14 @@ class Pulse:
                 # put current photon energy into energy stack, multiply by spectral envelope
                 screen_obj = getattr(beamline, screen)
                 energy_slice, zx, zy, cx, cy = screen_obj.complex_beam()
-                self.raw_energy_stacks[screen][:, :, num] = energy_slice
+                self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
                 if zx != 0:
                     self.qx[screen][num] = 1/zx
                 if zy != 0:
                     self.qy[screen][num] = 1/zy
                 self.cx[screen][num] = cx
                 self.cy[screen][num] = cy
+                # self.energy_stacks[screen][:, :, num] = screen_obj.complex_beam() * self.envelope[num]
 
         # convert to time domain
         for screen in screen_names:
@@ -935,15 +915,9 @@ class Pulse:
                 x_phase -= np.pi / self.wavelength[num] * qx_mean * self.xx[screen]**2
                 y_phase = np.pi/self.wavelength[num]*(qy)*(self.yy[screen]-cy)**2
                 y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
-                self.raw_energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
+                self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
 
-            self.energy_stacks[screen] = self.broadcast_envelope(screen)
             self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
-
-    def broadcast_envelope(self, screen):
-        # stack_shape = np.shape(self.raw_energy_stacks[screen])
-        self.energy_stacks[screen] = self.raw_energy_stacks[screen] * self.envelope
-        # return self.raw_energy_stacks[screen] * self.envelope
 
     @staticmethod
     def energy_to_time(energy_stack):
@@ -963,20 +937,6 @@ class Pulse:
         time_stack = np.fft.fftshift(np.fft.fft(np.fft.fftshift(energy_stack, axes=2), axis=2), axes=2)
 
         return time_stack
-
-    def new_SASE(self):
-        """
-        Method to generate a new "SASE" pulse. Recalculates energy and time stacks.
-        :return: None
-        """
-        # get new spectral envelope
-        self.envelope = self.generate_SASE()
-        # apply new envelope to energy domain and calculate time domain
-        for screen in self.screens:
-            # broadcast new envelope onto energy domain
-            self.broadcast_envelope(screen)
-            # calculate time domain
-            self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
 
     def add_pulse(self, another_pulse, time_shift):
         """
@@ -1055,10 +1015,9 @@ class Pulse:
                 x_phase2 = np.pi / self.wavelength[num] * (qx_mean - qx_mean2) * self.xx[screen] ** 2
                 # y_phase2 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
                 y_phase2 = np.pi / self.wavelength[num] * (qy_mean - qy_mean2) * self.yy[screen] ** 2
-                energy_stacks[screen][:, :, num] = (self.energy_stacks[screen][:,:,num]*self.envelope[num] *
+                energy_stacks[screen][:, :, num] = (self.energy_stacks[screen][:,:,num] *
                                                     np.exp(1j * (x_phase1 + y_phase1))*energy_phase[num] +
-                                                    another_pulse.energy_stacks[screen][:,:,num]*
-                                                    another_pulse.envelope[num] *
+                                                    another_pulse.energy_stacks[screen][:,:,num] *
                                                     np.exp(1j*(x_phase2 + y_phase2)))
 
                 new_pulse.qx[screen][num] = (self.qx[screen][num] + another_pulse.qx[screen][num])/2
@@ -1248,8 +1207,6 @@ class Pulse:
         ax_profile.set_ylabel(ylabel)
         # ax_profile.set_title('%s Energy Slice' % image_name)
         ax_profile.set_title(title)
-
-        return ax_profile
 
     def imshow_time_slice(self, image_name, dim='x', slice_pos=0, shift=None):
         """
