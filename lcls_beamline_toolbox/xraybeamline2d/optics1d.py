@@ -634,11 +634,15 @@ class CurvedMirror(Mirror):
 
         # mirror offset from ellipse center in x
         x0 = -p * q / L * np.sin(2 * alpha)
-        z0 = np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+        if self.p > self.q:
+            z0 = np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+        else:
+            z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
 
         # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
         z1 = np.linspace(z0 - self.length / 2 * np.cos(alpha), z0 + self.length / 2 * np.cos(alpha), N)
         # ellipse equation (using center of ellipse as origin)
+
         x1 = -np.sqrt(b2) * np.sqrt(1 - z1 ** 2 / a2) * np.sign(alpha)
 
         return z1, x1, z0, x0, delta
@@ -874,7 +878,7 @@ class CurvedMirror(Mirror):
         p_scaled *= -2 * np.sin(self.total_alpha)
 
         # Add normal 2nd order phase to p_scaled
-        p_scaled[-3] += -1 / (2 * self.p) - 1 / (2 * self.q)
+        p_scaled[-3] += -1 / (2 * (self.p)) - 1 / (2 * (self.q))
 
         # account for decentering
         p_scaled = Util.recenter_coeff(p_scaled, offset_scaled)
