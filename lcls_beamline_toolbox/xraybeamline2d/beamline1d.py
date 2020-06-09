@@ -188,8 +188,8 @@ class Beamline:
             # propagate through device. beam is modified directly.
             device.propagate(beam)
             # print some beam info
-            print('zx: %.2f' % beam.zx)
-            print('zy: %.2f' % beam.zy)
+            print('zx: %.6f' % beam.zx)
+            print('zy: %.6f' % beam.zy)
             print('azimuth %.2f mrad' % (beam.global_azimuth*1e3))
             # print('ay: %.2f microrad' % (beam.ay*1e6))
             # print('cy: %.2f microns' % (beam.cy*1e6))

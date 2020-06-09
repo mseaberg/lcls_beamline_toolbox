@@ -382,15 +382,19 @@ class Beam:
             new_zy = self.zy
 
         # update Rayleigh range
-        self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
+        if new_zx is not None:
+            self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
                     self.rangeFactor)
-        self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
+        if new_zy is not None:
+            self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
                     self.rangeFactor)
 
         # check if beam should change state. This only needs to happen if beam is already focused because if unfocused
         # the beam_prop method will check anyway.
         x_focused = -self.zRx <= new_zx < self.zRx
         y_focused = -self.zRy <= new_zy < self.zRy
+        print('zRx: %.2e' % self.zRx)
+        print('zRy: %.2e' % self.zRy)
 
         # check if transitioning to unfocused
         if self.focused_x:
@@ -445,7 +449,7 @@ class Beam:
                 # print('FOVx: ' + str(np.max(self.x - self.cx)))
             # if we're not focused and this is the first step, calculate current Rayleigh length estimate
             if not self.focused_y and index == 0:
-                yWidth = np.abs(self.x[0] - self.x[-1])
+                yWidth = np.abs(self.y[0] - self.y[-1])
                 self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth/2) ** 2) *
                             self.rangeFactor)
                 # print('FOVy: ' + str(np.max(self.y - self.cy)))
@@ -1402,11 +1406,11 @@ class Pulse:
 
         # change label depending on bandwidth
         if fwhm >= 1:
-            width_label = '%d eV FWHM' % fwhm
+            width_label = '%.1f eV FWHM' % fwhm
         elif fwhm > 1e-3:
-            width_label = '%d meV FHWM' % (fwhm * 1e3)
+            width_label = '%.1f meV FHWM' % (fwhm * 1e3)
         else:
-            width_label = u'%d \u03BCeV FWHM' % (fwhm * 1e6)
+            width_label = u'%.1f \u03BCeV FWHM' % (fwhm * 1e6)
 
         # plotting
         plt.figure()
@@ -1553,14 +1557,18 @@ class GaussianSource:
         self.sigma_x = beam_params['sigma_x']
         self.sigma_y = beam_params['sigma_y']
         self.N = int(beam_params['N'])
-        if beam_params['z0x']:
+        if 'z0x' in beam_params.keys():
             self.z0x = beam_params['z0x']
         else:
             self.z0x = 0.0
-        if beam_params['z0y']:
+        if 'z0y' in beam_params.keys():
             self.z0y = beam_params['z0y']
         else:
-            self.z0y = 0.0
+            if 'z0x' in beam_params.keys():
+                self.z0y = np.copy(self.z0x)
+                beam_params['z0y'] = self.z0y
+            else:
+                self.zy = 0.0
         self.photonEnergy = beam_params['photonEnergy']
         if 'dx' in beam_params.keys():
             self.dx = beam_params['dx']

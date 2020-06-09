@@ -748,6 +748,7 @@ class CurvedMirror(Mirror):
             zi = beam.x / np.sin(self.total_alpha)
             zi_1d = zi
             cz = beam.cx / np.sin(self.total_alpha)
+            print(cz*1e6)
             yi = beam.y
             yi_1d = yi
             cy = beam.cy
@@ -878,7 +879,8 @@ class CurvedMirror(Mirror):
         p_scaled *= -2 * np.sin(self.total_alpha)
 
         # Add normal 2nd order phase to p_scaled
-        p_scaled[-3] += -1 / (2 * (self.p)) - 1 / (2 * (self.q))
+        p_scaled[-3] += (-1 / (2 * (self.p + cz*np.cos(self.total_alpha)))
+                         - 1 / (2 * (self.q - cz * np.cos(self.total_alpha))))
 
         # account for decentering
         p_scaled = Util.recenter_coeff(p_scaled, offset_scaled)
