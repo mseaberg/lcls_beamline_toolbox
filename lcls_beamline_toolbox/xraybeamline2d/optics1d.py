@@ -566,6 +566,14 @@ class CurvedMirror(Mirror):
         self.dF2 = dF2
         self.total_alpha = self.alpha + self.delta
 
+        # check if mirror is too long for distance to focus or source
+        if self.length/2 > self.p:
+            print('Mirror is longer than distance to source. Adjusting length to be compatible.')
+            self.length = 2 * self.p * .9
+        if self.length/2 > self.q:
+            print('Mirror is longer than distance to focus. Adjusting length to be compatible.')
+            self.length = 2 * self.q * .9
+
     def bend(self, cz):
         """
         Method to calculate polynomial coefficients due to bender influence

@@ -209,6 +209,7 @@ class Beam:
         self.global_x = np.copy(self.cx)
         self.global_y = np.copy(self.cy)
         # initialize global z
+        self.z_source = beam_params['z_source']
         self.global_z = beam_params['z_source'] + (self.zx + self.zy) / 2
 
         # initialize global angles
@@ -237,6 +238,14 @@ class Beam:
             self.wavex *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
         if self.focused_y:
             self.wavey *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+
+        # set beam parameters as attribute
+        self.beam_params = beam_params
+
+    def reinitialize(self, dz):
+        self.beam_params['z0x'] = dz
+        self.beam_params['z0y'] = dz
+        self.__init__(beam_params=self.beam_params)
 
     def update_parameters(self, dz):
         """
@@ -1560,7 +1569,7 @@ class GaussianSource:
         if 'z0x' in beam_params.keys():
             self.z0x = beam_params['z0x']
         else:
-            self.z0x = 0.0
+            self.z0x = 1.e-3
         if 'z0y' in beam_params.keys():
             self.z0y = beam_params['z0y']
         else:
@@ -1568,7 +1577,7 @@ class GaussianSource:
                 self.z0y = np.copy(self.z0x)
                 beam_params['z0y'] = self.z0y
             else:
-                self.zy = 0.0
+                self.z0y = 1.e-3
         self.photonEnergy = beam_params['photonEnergy']
         if 'dx' in beam_params.keys():
             self.dx = beam_params['dx']

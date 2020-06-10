@@ -180,6 +180,10 @@ class Beamline:
         # make a full copy of the beam input so that we don't modify the input
         beam = copy.deepcopy(beam_in)
 
+        # distance between source and first device
+        dz = self.full_list[0].z - beam.z_source
+        beam.reinitialize(dz)
+
         # loop through all devices including drifts
         for device in self.full_list:
             # print name
