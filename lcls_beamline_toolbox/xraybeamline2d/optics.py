@@ -1336,7 +1336,7 @@ class Grating(Mirror):
         # print(k_f)
         # print(delta_k)
 
-        return delta_k
+        return delta_k, k_f
 
     def propagate(self, beam):
         """
@@ -1444,7 +1444,10 @@ class Grating(Mirror):
                          np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
 
         k_i = np.array([k_ix, k_iy, k_iz])
-        delta_k = self.rotation_grating(k_i, beam.lambda0)
+        delta_k, k_f = self.rotation_grating(k_i, beam.lambda0)
+
+        # beta at beam center
+        beta1 = np.arccos(k_f[2])
 
         # mirror shape error interpolation onto beam coordinates (if applicable)
         if self.shapeError is not None:
@@ -1512,7 +1515,8 @@ class Grating(Mirror):
         m = (x1 - x0) / (z1 - z_g)
 
         # calculate slope error
-        slope_error = beta - np.arctan(m)
+        # slope_error = -(beta - np.arctan(m))
+        slope_error = -np.tan(beta - beta1)
 
         # plt.figure()
         # plt.plot(z_g,slope_error)
@@ -1543,7 +1547,7 @@ class Grating(Mirror):
         p_scaled = Util.poly_change_coords(p_int, scale) * np.sin(self.beta0 - self.delta)
 
         # Add 2nd order phase to p_scaled
-        p_scaled[-3] += -1 / (2 * self.f)
+        # p_scaled[-3] += -1 / (2 * self.f)
 
         # scale the offset
         offset_scaled = offset * scale

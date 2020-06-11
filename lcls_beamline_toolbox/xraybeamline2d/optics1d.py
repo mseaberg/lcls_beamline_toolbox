@@ -1679,57 +1679,71 @@ class Crystal(Mirror):
     Attributes
     ----------
     name: str
-        device name (e.g. MR3K1)
+        device name (e.g. CR3L0)
+    hkl: list
+        Crystal reflection hkl indices. Default is [1,1,1].
+    alphaAsym: float
+        crystal plane asymmetry angle, in radians. Negative means crystal normal faces in the "upstream" direction.
+    pol: str
+        Incident polarization: 's' or 'p'. Default is 's'.
+    material: str
+        Crystal material. Currently 'Si' and 'diamond' are implemented. default is 'Si'.
+    E0: float
+        Central photon energy for crystal reflection. Used to define Bragg angle and crystal angle of incidence.
+    lambda0: float
+        Central wavelength. Calculated from E0.
+    crystal: materials.Crystal** from xrt package
+        xrt Crystal object used for obtaining bragg angles, and complex reflectivity.
+    d: float
+        lattice spacing (m)
+    bragg: float
+        Bragg angle for energy E0. This accounts for shift due to crystal asymmetry.
+    b: float
+        Asymmetric factor (related to CFF of grating).
     length: float
-        grating length along z-axis
+        crystal length along z-axis
     width: float
-        grating width along y-axis
-    N0: float
-        grating periodicity (lines/m)
-    N1: float
-        grating second order (lines/m^2)
-    N2: float
-        grating third order (lines/m^3)
+        crystal width along y-axis
     alpha: float
-        grating angle of incidence (radians)
+        nominal crystal angle of incidence (radians)
     delta: float
-        adjustment to grating angle of incidence (rotation about y-axis)
+        adjustment to crystal angle of incidence (rotation about y-axis)
     roll: float
         rotation about z-axis
     yaw: float
         rotation about x-axis
     orientation: int
-        grating orientation: 0, 1, 2, or 3. See Figure 1 in documentation
+        crystal orientation: 0, 1, 2, or 3. See Figure 1 in documentation
     z: float
         z position along beamline (m)
     dx: float
-        Shift of the mirror normal to the mirror surface (meters)
+        Shift of the crystal normal to the mirror surface (meters)
     dy: float
-        Shift of the mirror parallel to the mirror Y-axis (meters)
+        Shift of the crystal parallel to the mirror Y-axis (meters)
     beta0: float
-        glancing diffraction angle (radians)
+        nominal glancing diffraction angle (radians)
     order: int
-        diffraction order: 0 or 1
-    f: float
-        grating "focal length" (distance from grating to desired focus)
+        diffraction order: 1 or higher. Not implemented yet.
     """
 
-    def __init__(self, name, hkl=None, material='Si', alphaAsym=0, asym_type='incidence',
-                 beta0=None, f=None, order=1, pol='s', E0=None, **kwargs):
+    def __init__(self, name, E0=None, hkl=None, material='Si', alphaAsym=0, order=1, pol='s', **kwargs):
         """
         Initialize grating object
         :param name: str
             device name (e.g. MR3K1)
+        :param E0: float
+            Central photon energy for crystal reflection. Used to define Bragg angle and crystal angle of incidence.
+            This is a required parameter.
+        :param hkl: list of ints (length 3)
+            hkl indices of crystal reflection. Default is [1,1,1].
+        :param material: str
+            Crystal material. Currently 'Si' and 'diamond' are implemented. default is 'Si'.
         :param alphaAsym: float
             crystal plane asymmetry angle, in radians. Negative means crystal normal faces in the "upstream" direction.
-        :param beta0: float
-            glancing diffraction angle (radians)
-        :param f: float
-            grating "focal length" (distance from grating to desired focus)
-        :param lambda0: float
-            wavelength grating is aligned for
         :param order: int
-            diffraction order: 0 or 1
+            Crystal diffraction order. Not implemented yet. Default 1.
+        :param pol: str
+            Incident polarization: 's' or 'p'. Default is 's'.
         :param kwargs: any of the following: length, width, alpha, z, orientation, shapeError, delta,
                                   dx, dy, roll, yaw, motor_list
             See class attributes for kwargs descriptions of the same name
@@ -1740,7 +1754,6 @@ class Crystal(Mirror):
         if self.hkl is None:
             self.hkl = [1, 1, 1]
         self.alphaAsym = alphaAsym
-        self.asym_type = asym_type
         self.material = material
         self.pol = pol
         self.E0 = E0
@@ -1755,72 +1768,22 @@ class Crystal(Mirror):
         # lattice spacing
         self.d = self.crystal.d * 1e-10
 
-        # crystal q vector magnitude
-        self.q = 2 * np.pi / self.d
-
         # initialize exit angle
         self.beta0 = self.alpha
 
         # get bragg peak angle
         self.bragg = self.crystal.get_Bragg_angle(self.E0) - self.crystal.get_dtheta(self.E0, alpha=alphaAsym)
-        # if asym_type == 'incidence':
-        #     self.alpha = self.bragg - self.alphaAsym
-        #     self.beta0 = self.bragg + self.alphaAsym
-        # elif asym_type == 'emergence':
-        #     self.alpha = self.bragg + self.alphaAsym
-        #     self.beta0 = self.bragg - self.alphaAsym
 
+        # calculate proper angle of incidence for energy E0 (general case is asymmetric)
         self.alpha = self.bragg + self.alphaAsym
 
-        # # check rocking curve
-        # N = 1024
-        # # print(theta_bragg*180/np.pi)
-        # alpha = np.linspace(alpha - 50e-6, alpha + 50e-6, N)
-        # # mirror vectors
-        # m_x = np.array([1, 0, 0], dtype=float)
-        # m_y = np.array([0, 1, 0], dtype=float)
-        # m_z = np.array([0, 0, 1], dtype=float)
-        #
-        # # k_i vector
-        # k_ix = np.outer(-np.sin(alpha), m_x)
-        # k_iy = np.outer(np.zeros(N), m_y)
-        # k_iz = np.outer(np.cos(alpha), m_z)
-        # k_i = k_ix + k_iy + k_iz
-        #
-        # # crystal normal vector
-        # c_x = np.cos(alphaAsym) * m_x
-        # c_z = np.sin(alphaAsym) * m_z
-        # c_normal = c_x + c_z
-        #
-        # c_parallel = np.dot(c_normal, m_z) * m_z * self.lambda0 / (self.crystal.d * 1e-10)
-        # k_fy = k_iy
-        # k_fz = k_iz + np.outer(np.ones(N), c_parallel)
-        # k_fx = np.outer(np.sqrt(np.ones(N) - np.sum(k_fy * k_fy, axis=1) - np.sum(k_fz * k_fz, axis=1)), m_x)
-        # k_f = k_fy + k_fz + k_fx
-        #
-        # beamInDotNormal = np.sum(k_i * m_x, axis=1)
-        # beamOutDotNormal = np.sum(k_f * m_x, axis=1)
-        # beamInDotHNormal = np.sum(k_i * np.outer(np.ones(N), c_normal), axis=1)
-        #
-        # C1, C2 = np.array(self.crystal.get_amplitude(self.E0, beamInDotNormal, beamOutDotNormal, beamInDotHNormal))
-        #
-        # # get peak
-        # if self.pol == 's':
-        #     index = np.argmax(np.abs(C1)**2)
-        # else:
-        #     index = np.argmax(np.abs(C2)**2)
-        #
-        # # set alpha to peak value
-        # self.alpha = alpha[index]
-        # print((self.alpha - (self.bragg + self.alphaAsym))*1e6)
-
-        # k_i
+        # define nominal beam k_i
         k_ix = -np.sin(self.alpha)
         k_iy = 0
         k_iz = np.cos(self.alpha)
         k_i = [k_ix, k_iy, k_iz]
 
-        # crystal normal
+        # define crystal plane normal in crystal surface coordinates
         c_x = np.cos(self.alphaAsym)
         c_z = np.sin(self.alphaAsym)
         c_normal = [c_x, 0, c_z]
@@ -1828,7 +1791,7 @@ class Crystal(Mirror):
         # component of crystal normal in +z direction
         c_parallel = c_z * self.lambda0 / (self.crystal.d * 1e-10)
 
-        # k_f
+        # calculate nominal beam k_f
         k_fy = 0
         k_fz = k_iz + c_parallel
         k_fx = np.sqrt(1 - k_fy**2 - k_fz**2)
@@ -1837,12 +1800,12 @@ class Crystal(Mirror):
         # calculate nominal diffraction angle (relative to crystal surface)
         self.beta0 = np.arccos(k_fz)
 
+        # calculate asymmetric factor
         self.b = (np.sin(self.alpha)/np.sin(self.beta0))
         print('b %.2f' % self.b)
 
-        # set some more attributes
+        # set diffraction order (not implemented yet)
         self.order = order
-        # self.beta0 = beta0
 
     def rotation_crystal(self, k_i, lambda1):
         """
