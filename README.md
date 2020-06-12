@@ -1,7 +1,9 @@
 # lcls_beamline_toolbox
  
 ### Dependencies:
-Python 3.7
+Requires Python 3.7 to already be installed.
+
+All package dependencies are installed automatically during installation.
 
 ### How to install:
 
