@@ -5,9 +5,9 @@ Python 3.7
 
 ## How to install:
 
-<code>git clone https://github.com/mseaberg/lcls_beamline_toolbox <br />
-cd lcls_beamline_toolbox <br />
-python -m pip install -e .</code>(this step will install the package as an editable package)
+<code>git clone https://github.com/mseaberg/lcls_beamline_toolbox </code>  
+<code>cd lcls_beamline_toolbox </code>  
+<code>python -m pip install -e .</code>(this step will install the package as an editable package)
 
 ## Examples:
 
