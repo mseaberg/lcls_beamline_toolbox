@@ -1566,10 +1566,17 @@ class GaussianSource:
         self.sigma_x = beam_params['sigma_x']
         self.sigma_y = beam_params['sigma_y']
         self.N = int(beam_params['N'])
+        self.photonEnergy = beam_params['photonEnergy']
+        # calculate wavelength (m)
+        self.wavelength = 1239.8 / self.photonEnergy * 1e-9
+        # calculate Rayleigh ranges (m)
+        self.zRx = np.pi * self.sigma_x ** 2 / self.wavelength
+        self.zRy = np.pi * self.sigma_y ** 2 / self.wavelength
+
         if 'z0x' in beam_params.keys():
             self.z0x = beam_params['z0x']
         else:
-            self.z0x = 1.e-3
+            self.z0x = self.zRx
         if 'z0y' in beam_params.keys():
             self.z0y = beam_params['z0y']
         else:
@@ -1577,28 +1584,23 @@ class GaussianSource:
                 self.z0y = np.copy(self.z0x)
                 beam_params['z0y'] = self.z0y
             else:
-                self.z0y = 1.e-3
-        self.photonEnergy = beam_params['photonEnergy']
+                self.z0y = self.zRy
         if 'dx' in beam_params.keys():
             self.dx = beam_params['dx']
             self.dy = np.copy(self.dx)
         else:
             self.dx = None
             self.dy = None
-        
-        # calculate wavelength (m)
-        self.wavelength = 1240/self.photonEnergy*1e-9
-        # calculate Rayleigh ranges (m)
-        self.zRx = np.pi*self.sigma_x**2/self.wavelength
-        self.zRy = np.pi*self.sigma_y**2/self.wavelength
-        
+
         # calculate beam widths
         self.wx = self.sigma_x*np.sqrt(1+(self.z0x/self.zRx)**2)
         self.wy = self.sigma_y*np.sqrt(1+(self.z0y/self.zRy)**2)
 
         # calculate divergence
-        divergence_x = self.wx / self.z0x
-        divergence_y = self.wy / self.z0y
+        divergence_x = self.wavelength / np.pi / self.sigma_x
+        divergence_y = self.wavelength / np.pi / self.sigma_y
+        # divergence_x = self.wx / self.z0x
+        # divergence_y = self.wy / self.z0y
 
         # print beam width and divergence
         print('FWHM in x: '+str(1.18*self.wx*1e6)+' microns')
