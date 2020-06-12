@@ -7,6 +7,8 @@ All package dependencies are installed automatically during installation.
 
 ### How to install:
 
+From a command line run the following:
+
 <code>git clone https://github.com/mseaberg/lcls_beamline_toolbox </code>  
 <code>cd lcls_beamline_toolbox </code>  
 <code>python -m pip install -e .</code>(this step will install the package as an editable package)
