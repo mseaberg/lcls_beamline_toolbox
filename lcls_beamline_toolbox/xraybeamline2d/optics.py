@@ -1516,32 +1516,52 @@ class Grating(Mirror):
 
         # calculate slope error
         # slope_error = -(beta - np.arctan(m))
-        slope_error = -np.tan(beta - beta1)
+        slope_error = -np.tan(beta - self.beta0)
 
-        # plt.figure()
-        # plt.plot(z_g,slope_error)
+        plt.figure()
+        plt.plot(z_g,slope_error+m)
 
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
         # (do this with a polynomial fit up to 3rd order for now)
         p = np.polyfit(z_g, slope_error, 2)
 
-        # integrate slope error
+        # integrate slope error (eventually move integration to after change of coordinates)
         p_int = np.polyint(p)
+
+        # --- high order coefficients
+        # change coordinate systems to new beam coordinates
+        # scaling between grating z-axis and new beam coordinates
+        scale = np.sin(self.beta0 - self.delta)
+        p_scaled = Util.poly_change_coords(p_int, scale) * np.sin(self.beta0 - self.delta)
 
         # offset from center (along mirror z-axis)
         offset = cz - self.dx / np.tan(total_alpha)
+
+        # scale the offset
+        offset_scaled = offset * scale
+
+        p_centered = Util.recenter_coeff(p_scaled, offset_scaled)
+
+        # high order phase
+        high_order = (2 * np.pi / beam.lambda0 * Util.polyval_high_order(p_centered, (zi-cz)*np.sin(self.beta0)))
+
+        # offset from center (along mirror z-axis)
+        offset = cz - self.dx / np.tan(total_alpha)
+
+        # change coordinate systems to get back into beam coordinates
+        # p_scaled = Util.poly_change_coords(p_int, scale) * np.sin(self.beta0 - self.delta)
+        #
+        # # scale the offset
+        # offset_scaled = offset * scale
 
         # account for decentering
         p_recentered = Util.recenter_coeff(p_int, offset)
 
         # high order phase. Multiplied by sin(beta) because integration should actually happen in beam coordinates.
-        high_order = (2 * np.pi / beam.lambda0 * Util.polyval_high_order(p_recentered, zi - cz) *
-                      np.sin(self.beta0 - self.delta))
+        # high_order = (2 * np.pi / beam.lambda0 * Util.polyval_high_order(p_recentered, zi - cz))
 
-        # scaling between grating z-axis and new beam coordinates
-        scale = np.sin(self.beta0 - self.delta)
-
+        # --- low order coefficients
         # change coordinate systems to get proper low-order coefficients. Multiplied by sin(beta) because integration
         # should actually happen in beam coordinates.
         p_scaled = Util.poly_change_coords(p_int, scale) * np.sin(self.beta0 - self.delta)
