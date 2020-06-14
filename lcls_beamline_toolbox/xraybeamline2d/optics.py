@@ -1375,6 +1375,8 @@ class Grating(Mirror):
         cz = 0
         cy = 0
 
+        beamz = 0
+
         if self.orientation == 0:
             k_ix = -np.sin(self.alpha - beam.ax)
             k_iy = np.sin(beam.ay)
@@ -1391,6 +1393,8 @@ class Grating(Mirror):
 
             alphaBeam = (-beam.ax -
                          np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
+
+            beamz = beam.zx
 
         elif self.orientation == 1:
             k_ix = -np.sin(self.alpha - beam.ay)
@@ -1409,6 +1413,8 @@ class Grating(Mirror):
             alphaBeam = (-beam.ay -
                          np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
 
+            beamz = beam.zy
+
         elif self.orientation == 2:
             k_ix = -np.sin(self.alpha + beam.ax)
             k_iy = -np.sin(beam.ay)
@@ -1426,6 +1432,8 @@ class Grating(Mirror):
             alphaBeam = (beam.ax -
                          np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
 
+            beamz = beam.zx
+
         elif self.orientation == 3:
             k_ix = -np.sin(self.alpha + beam.ay)
             k_iy = beam.ax
@@ -1442,6 +1450,8 @@ class Grating(Mirror):
 
             alphaBeam = (beam.ay -
                          np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
+
+            beamz = beam.zy
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_grating(k_i, beam.lambda0)
@@ -1504,6 +1514,9 @@ class Grating(Mirror):
         # calculate diffraction angle at every point on the grating
         beta = np.arccos(np.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
 
+        # calculate new source position
+        # self.f = beamz*(self.beta0/self.alpha)**2
+
         # calculate desired slope at each point of the grating
         x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
         z1 = self.f * np.cos(self.beta0 - self.delta)
@@ -1515,11 +1528,11 @@ class Grating(Mirror):
         m = (x1 - x0) / (z1 - z_g)
 
         # calculate slope error
-        # slope_error = -(beta - np.arctan(m))
-        slope_error = -np.tan(beta - self.beta0)
+        slope_error = -np.tan(beta - np.arctan(m))
+        # slope_error = -np.tan(beta - self.beta0)
 
         plt.figure()
-        plt.plot(z_g,slope_error+m)
+        plt.plot(z_g,slope_error)
 
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
@@ -1567,7 +1580,7 @@ class Grating(Mirror):
         p_scaled = Util.poly_change_coords(p_int, scale) * np.sin(self.beta0 - self.delta)
 
         # Add 2nd order phase to p_scaled
-        # p_scaled[-3] += -1 / (2 * self.f)
+        p_scaled[-3] += -1 / (2 * self.f)
 
         # scale the offset
         offset_scaled = offset * scale
