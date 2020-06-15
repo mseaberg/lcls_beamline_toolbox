@@ -1410,8 +1410,10 @@ class Grating(Mirror):
             cz = beam.cy / np.sin(total_alpha)
             cy = -beam.cx
 
+            # alphaBeam = (-beam.ay -
+            #              np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
             alphaBeam = (-beam.ay -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
+                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / (beam.zy + (zi_1d-cz)*np.cos(total_alpha))))
 
             beamz = beam.zy
 
