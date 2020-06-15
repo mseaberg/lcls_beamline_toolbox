@@ -29,7 +29,7 @@ from .util import Util
 try:
     from epics import PV
     from pcdsdevices.areadetector.detectors import PCDSAreaDetector
-except:
+except ImportError:
     print("Can't find epics package. PPM_Imager class will not be supported")
 
 
@@ -1270,16 +1270,16 @@ class Grating(Mirror):
         """
 
         # figure out mirror vectors:
-        mirror_x = np.array([1, 0, 0], dtype=float)
-        mirror_y = np.array([0, 1, 0], dtype=float)
-        mirror_z = np.array([0, 0, 1], dtype=float)
+        mirror_x0 = np.array([1, 0, 0], dtype=float)
+        mirror_y0 = np.array([0, 1, 0], dtype=float)
+        mirror_z0 = np.array([0, 0, 1], dtype=float)
         grating_vector = np.array([0, 0, 1], dtype=float)
 
-        r1 = transform.Rotation.from_rotvec(mirror_y * self.delta)
+        r1 = transform.Rotation.from_rotvec(mirror_y0 * self.delta)
         Ry = r1.as_matrix()
-        mirror_x = np.matmul(Ry, mirror_x)
-        mirror_y = np.matmul(Ry, mirror_y)
-        mirror_z = np.matmul(Ry, mirror_z)
+        mirror_x = np.matmul(Ry, mirror_x0)
+        mirror_y = np.matmul(Ry, mirror_y0)
+        mirror_z = np.matmul(Ry, mirror_z0)
         grating_vector = np.matmul(Ry, grating_vector)
 
         r2 = transform.Rotation.from_rotvec(mirror_z * self.roll)
@@ -1300,11 +1300,17 @@ class Grating(Mirror):
         # print(mirror_y)
         # print(mirror_z)
 
-        k_f_y = k_i[1]
-        k_f_z = k_i[2] - self.n0 * self.lambda0
-        k_f_x = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z))
+        # normal case when incoming beam has correct incidence angle (at beam center)
+        k_ix_norm = -np.sin(self.alpha)
+        k_iy_norm = 0
+        k_iz_norm = np.cos(self.alpha)
+        k_i_norm = np.array([k_ix_norm, k_iy_norm, k_iz_norm])
 
-        k_f_normal = np.array([k_f_x, k_f_y, k_f_z])
+        # figure out k_f in "normal case"
+        k_f_y = np.dot(k_i_norm, mirror_y0) * mirror_y0  # should be 0
+        k_f_z = np.dot(k_i_norm, mirror_z0) * mirror_z0 - self.n0 * self.lambda0 * mirror_z0
+        k_f_x = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z)) * mirror_x0
+        k_f_normal = k_f_x + k_f_y + k_f_z  # should be same as k_i except x component changed sign
 
         # get component of k_i in direction of grating vector
         k_i_grating = np.dot(k_i, grating_vector)
@@ -1331,10 +1337,6 @@ class Grating(Mirror):
 
         # calculate difference between outgoing k-vector and the k-vector in absence of grating rotations
         delta_k = k_f - k_f_normal
-
-        # print(k_i)
-        # print(k_f)
-        # print(delta_k)
 
         return delta_k, k_f
 
@@ -1391,8 +1393,9 @@ class Grating(Mirror):
             cz = beam.cx / np.sin(total_alpha)
             cy = beam.cy
 
-            alphaBeam = (-beam.ax -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zx + (zi_1d - cz) * np.cos(total_alpha)
+            alphaBeam = -beam.ax - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
             beamz = beam.zx
 
@@ -1410,10 +1413,9 @@ class Grating(Mirror):
             cz = beam.cy / np.sin(total_alpha)
             cy = -beam.cx
 
-            # alphaBeam = (-beam.ay -
-            #              np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
-            alphaBeam = (-beam.ay -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / (beam.zy + (zi_1d-cz)*np.cos(total_alpha))))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zy + (zi_1d-cz)*np.cos(total_alpha)
+            alphaBeam = -beam.ay - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
             beamz = beam.zy
 
@@ -1431,8 +1433,9 @@ class Grating(Mirror):
             cz = -beam.cx / np.sin(total_alpha)
             cy = -beam.cy
 
-            alphaBeam = (beam.ax -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zx + (zi_1d - cz) * np.cos(total_alpha)
+            alphaBeam = beam.ax - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
             beamz = beam.zx
 
@@ -1450,8 +1453,10 @@ class Grating(Mirror):
             cz = -beam.cy / np.sin(total_alpha)
             cy = beam.cx
 
-            alphaBeam = (beam.ay -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zy + (zi_1d - cz) * np.cos(total_alpha)
+
+            alphaBeam = beam.ay - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
             beamz = beam.zy
 

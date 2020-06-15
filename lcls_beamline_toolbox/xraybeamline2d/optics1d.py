@@ -1296,16 +1296,16 @@ class Grating(Mirror):
         """
 
         # figure out mirror vectors:
-        mirror_x = np.array([1, 0, 0], dtype=float)
-        mirror_y = np.array([0, 1, 0], dtype=float)
-        mirror_z = np.array([0, 0, 1], dtype=float)
+        mirror_x0 = np.array([1, 0, 0], dtype=float)
+        mirror_y0 = np.array([0, 1, 0], dtype=float)
+        mirror_z0 = np.array([0, 0, 1], dtype=float)
         grating_vector = np.array([0, 0, 1], dtype=float)
 
-        r1 = transform.Rotation.from_rotvec(mirror_y * self.delta)
+        r1 = transform.Rotation.from_rotvec(mirror_y0 * self.delta)
         Ry = r1.as_matrix()
-        mirror_x = np.matmul(Ry, mirror_x)
-        mirror_y = np.matmul(Ry, mirror_y)
-        mirror_z = np.matmul(Ry, mirror_z)
+        mirror_x = np.matmul(Ry, mirror_x0)
+        mirror_y = np.matmul(Ry, mirror_y0)
+        mirror_z = np.matmul(Ry, mirror_z0)
         grating_vector = np.matmul(Ry, grating_vector)
 
         r2 = transform.Rotation.from_rotvec(mirror_z * self.roll)
@@ -1326,11 +1326,17 @@ class Grating(Mirror):
         # print(mirror_y)
         # print(mirror_z)
 
-        k_f_y = k_i[1]
-        k_f_z = k_i[2] - self.n0 * self.lambda0
-        k_f_x = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z))
+        # normal case when incoming beam has correct incidence angle (at beam center)
+        k_ix_norm = -np.sin(self.alpha)
+        k_iy_norm = 0
+        k_iz_norm = np.cos(self.alpha)
+        k_i_norm = np.array([k_ix_norm, k_iy_norm, k_iz_norm])
 
-        k_f_normal = np.array([k_f_x, k_f_y, k_f_z])
+        # figure out k_f in "normal case"
+        k_f_y = np.dot(k_i_norm, mirror_y0) * mirror_y0  # should be 0
+        k_f_z = np.dot(k_i_norm, mirror_z0) * mirror_z0 - self.n0 * self.lambda0 * mirror_z0
+        k_f_x = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z)) * mirror_x0
+        k_f_normal = k_f_x + k_f_y + k_f_z  # should be same as k_i except x component changed sign
 
         # get component of k_i in direction of grating vector
         k_i_grating = np.dot(k_i, grating_vector)
@@ -1414,8 +1420,9 @@ class Grating(Mirror):
             cz = beam.cx / np.sin(total_alpha)
             cy = beam.cy
 
-            alphaBeam = (-beam.ax -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zx + (zi_1d - cz) * np.cos(total_alpha)
+            alphaBeam = -beam.ax - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
         elif self.orientation == 1:
             k_ix = -np.sin(self.alpha - beam.ay)
@@ -1431,8 +1438,9 @@ class Grating(Mirror):
             cz = beam.cy / np.sin(total_alpha)
             cy = -beam.cx
 
-            alphaBeam = (-beam.ay -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zy + (zi_1d - cz) * np.cos(total_alpha)
+            alphaBeam = -beam.ay - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
         elif self.orientation == 2:
             k_ix = -np.sin(self.alpha + beam.ax)
@@ -1448,8 +1456,9 @@ class Grating(Mirror):
             cz = -beam.cx / np.sin(total_alpha)
             cy = -beam.cy
 
-            alphaBeam = (beam.ax -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zx + (zi_1d - cz) * np.cos(total_alpha)
+            alphaBeam = beam.ax - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
         elif self.orientation == 3:
             k_ix = -np.sin(self.alpha + beam.ay)
@@ -1465,8 +1474,10 @@ class Grating(Mirror):
             cz = -beam.cy / np.sin(total_alpha)
             cy = beam.cx
 
-            alphaBeam = (beam.ay -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zy + (zi_1d - cz) * np.cos(total_alpha)
+
+            alphaBeam = beam.ay - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k = self.rotation_grating(k_i, beam.lambda0)
@@ -1951,8 +1962,9 @@ class Crystal(Mirror):
             cz = beam.cx / np.sin(total_alpha)
             cy = beam.cy
 
-            alphaBeam = (-beam.ax -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zx + (zi_1d - cz) * np.cos(total_alpha)
+            alphaBeam = -beam.ax - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
             self.f = -beam.zx * (np.abs(np.sin(self.beta0)/np.sin(self.alpha))**2)
             # self.f = -beam.zx
@@ -1973,8 +1985,9 @@ class Crystal(Mirror):
             cz = beam.cy / np.sin(total_alpha)
             cy = -beam.cx
 
-            alphaBeam = (-beam.ay -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zy + (zi_1d - cz) * np.cos(total_alpha)
+            alphaBeam = -beam.ay - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
@@ -1995,8 +2008,9 @@ class Crystal(Mirror):
             cz = -beam.cx / np.sin(total_alpha)
             cy = -beam.cy
 
-            alphaBeam = (beam.ax -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zx))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zx + (zi_1d - cz) * np.cos(total_alpha)
+            alphaBeam = beam.ax - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
             self.f = -beam.zx * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zx
@@ -2017,8 +2031,10 @@ class Crystal(Mirror):
             cz = -beam.cy / np.sin(total_alpha)
             cy = beam.cx
 
-            alphaBeam = (beam.ay -
-                         np.arctan((zi_1d - cz) * np.sin(total_alpha) / beam.zy))
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zy + (zi_1d - cz) * np.cos(total_alpha)
+
+            alphaBeam = beam.ay - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
 
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
@@ -2062,44 +2078,6 @@ class Crystal(Mirror):
         k_f = k_fy + k_fz + k_fx
 
         beta = np.arccos(k_f[:, 2])
-
-        # beta = np.zeros(zi_1d.size)
-        # for i in range(zi_1d.size):
-        #     k_ix = 0
-        #     k_iy = 0
-        #     k_iz = 0
-        #     if self.orientation == 0:
-        #         k_ix = -np.sin(alpha_total[i])
-        #         k_iy = np.sin(beam.ay)
-        #         # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-        #         k_iz = np.cos(alpha_total[i])
-        #     elif self.orientation == 1:
-        #         k_ix = -np.sin(alpha_total[i])
-        #         k_iy = -np.sin(beam.ax)
-        #         # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-        #         k_iz = np.cos(alpha_total[i])
-        #     elif self.orientation == 2:
-        #         k_ix = -np.sin(alpha_total[i])
-        #         k_iy = -np.sin(beam.ay)
-        #         # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-        #         k_iz = np.cos(alpha_total[i])
-        #     elif self.orientation == 3:
-        #         k_ix = -np.sin(alpha_total[i])
-        #         k_iy = beam.ax
-        #         # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-        #         k_iz = np.cos(alpha_total[i])
-        #     k_i = np.array([k_ix, k_iy, k_iz])
-        #     delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
-        #     beta[i] = np.arccos(k_f[2])
-            # if k_f[2] > 0:
-            #     beta[i] = np.arccos(k_f[2])
-            # else:
-            #     beta[i] = np.pi - np.arcsin(k_f[0])
-
-        # calculate desired slope at each point of the grating
-
-        # check if beam doesn't extend to end of crystal
-
 
         # deviation from average angle of incidence at each point along the crystal
         betaC = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), beta)
