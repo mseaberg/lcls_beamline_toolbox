@@ -1547,7 +1547,9 @@ class Grating(Mirror):
         # we don't need to double-count it.
         # (do this with a polynomial fit up to 3rd order for now)
         # put center of z_g at zero
-        p = np.polyfit(z_g, slope_error, 2)
+        # limit this to size of grating
+        mask = np.abs(z_g) <= self.length/2
+        p = np.polyfit(z_g[mask], slope_error[mask], 2)
 
         # integrate slope error (eventually move integration to after change of coordinates)
         p_int = np.polyint(p)

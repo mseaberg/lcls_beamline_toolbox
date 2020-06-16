@@ -1516,7 +1516,9 @@ class Grating(Mirror):
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
         # (do this with a polynomial fit up to 3rd order for now)
-        p = np.polyfit(z_g, slope_error, 2)
+        # limit this to size of grating
+        mask = np.abs(z_g) <= self.length/2
+        p = np.polyfit(z_g[mask], slope_error[mask], 3)
 
         # integrate slope error
         p_int = np.polyint(p)
@@ -2106,7 +2108,11 @@ class Crystal(Mirror):
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
         # (do this with a polynomial fit up to 3rd order for now)
-        p = np.polyfit(zi_1d - self.dx / np.tan(total_alpha), slope_error, 2)
+        z_c = zi_1d - self.dx / np.tan(total_alpha)
+
+        # limit fit to size of crystal
+        mask = np.abs(z_c) <= self.length/2
+        p = np.polyfit(z_c[mask], slope_error[mask], 3)
 
         # integrate slope error
         p_int = np.polyint(p)
