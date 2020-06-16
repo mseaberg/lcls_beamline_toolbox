@@ -2103,7 +2103,7 @@ class Crystal(Mirror):
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
         # (do this with a polynomial fit up to 3rd order for now)
-        p = np.polyfit(z_g, slope_error, 2)
+        p = np.polyfit(z_g, slope_error, 3)
 
         # integrate slope error
         p_int = np.polyint(p)
