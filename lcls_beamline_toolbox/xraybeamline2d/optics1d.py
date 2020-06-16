@@ -1488,11 +1488,14 @@ class Grating(Mirror):
         # grating coordinates (along z-axis)
         z_g = np.linspace(-self.length / 2, self.length / 2, 1024)
 
-        # deviation from average angle of incidence at each point along the grating
-        alphaBeamG = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), alphaBeam)
+        # # deviation from average angle of incidence at each point along the grating
+        # alphaBeamG = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), alphaBeam)
+
+        z_g = zi_1d - self.dx / np.tan(total_alpha)
 
         # account for all contributions to alpha
-        alpha_total = self.alpha + self.delta + alphaBeamG
+        # alpha_total = self.alpha + self.delta + alphaBeamG
+        alpha_total = self.alpha + self.delta + alphaBeam
 
         # calculate diffraction angle at every point on the grating
         beta = np.arccos(np.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
@@ -1513,7 +1516,9 @@ class Grating(Mirror):
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
         # (do this with a polynomial fit up to 3rd order for now)
-        p = np.polyfit(z_g, slope_error, 2)
+        # limit this to size of grating
+        mask = np.abs(z_g) <= self.length/2
+        p = np.polyfit(z_g[mask], slope_error[mask], 3)
 
         # integrate slope error
         p_int = np.polyint(p)
@@ -2079,8 +2084,8 @@ class Crystal(Mirror):
 
         beta = np.arccos(k_f[:, 2])
 
-        # deviation from average angle of incidence at each point along the crystal
-        betaC = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), beta)
+        # # deviation from average angle of incidence at each point along the crystal
+        # betaC = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), beta)
 
         # x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
         # z1 = self.f * np.cos(self.beta0 - self.delta)
@@ -2095,7 +2100,7 @@ class Crystal(Mirror):
 
         # calculate slope error
         # slope_error = np.tan(beta) - m
-        slope_error = -np.tan(betaC-beta1)
+        slope_error = -np.tan(beta-beta1)
         # slope_error = np.tan(beta - self.beta0)
         # plt.figure()
         # plt.plot(z_g, slope_error)
@@ -2103,7 +2108,11 @@ class Crystal(Mirror):
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
         # (do this with a polynomial fit up to 3rd order for now)
-        p = np.polyfit(z_g, slope_error, 3)
+        z_c = zi_1d - self.dx / np.tan(total_alpha)
+
+        # limit fit to size of crystal
+        mask = np.abs(z_c) <= self.length/2
+        p = np.polyfit(z_c[mask], slope_error[mask], 3)
 
         # integrate slope error
         p_int = np.polyint(p)
