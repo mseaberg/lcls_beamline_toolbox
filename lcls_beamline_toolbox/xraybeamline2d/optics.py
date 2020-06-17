@@ -1532,7 +1532,8 @@ class Grating(Mirror):
         grating_focal_length = 1 / (self.lambda0 * D1 / D0 ** 2 / np.sin(self.beta0) ** 2)
         object_distance = beamz*(np.sin(self.beta0)/np.sin(self.alpha))**2
         f2 = 1 / (1 / grating_focal_length - 1 / object_distance)
-        print('Calculated distance to focus: %.2f' % f2)
+        self.f = f2
+        print('Calculated distance to focus: %.6f' % f2)
 
         # calculate desired slope at each point of the grating
         x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
@@ -1549,7 +1550,7 @@ class Grating(Mirror):
         # slope_error = -np.tan(beta - self.beta0)
 
         plt.figure()
-        plt.plot(z_g,slope_error)
+        plt.plot(z_g, slope_error)
 
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.

@@ -1405,6 +1405,7 @@ class Grating(Mirror):
         yi_1d = np.zeros(0)
         cz = 0
         cy = 0
+        beamz = 0
 
         if self.orientation == 0:
             k_ix = -np.sin(self.alpha - beam.ax)
@@ -1423,6 +1424,7 @@ class Grating(Mirror):
             # beam radius across grating (grating can be long enough that the additional correction is needed
             zEff = beam.zx + (zi_1d - cz) * np.cos(total_alpha)
             alphaBeam = -beam.ax - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
+            beamz = beam.zx
 
         elif self.orientation == 1:
             k_ix = -np.sin(self.alpha - beam.ay)
@@ -1441,6 +1443,7 @@ class Grating(Mirror):
             # beam radius across grating (grating can be long enough that the additional correction is needed
             zEff = beam.zy + (zi_1d - cz) * np.cos(total_alpha)
             alphaBeam = -beam.ay - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
+            beamz = beam.zy
 
         elif self.orientation == 2:
             k_ix = -np.sin(self.alpha + beam.ax)
@@ -1459,6 +1462,7 @@ class Grating(Mirror):
             # beam radius across grating (grating can be long enough that the additional correction is needed
             zEff = beam.zx + (zi_1d - cz) * np.cos(total_alpha)
             alphaBeam = beam.ax - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
+            beamz = beam.zx
 
         elif self.orientation == 3:
             k_ix = -np.sin(self.alpha + beam.ay)
@@ -1478,6 +1482,7 @@ class Grating(Mirror):
             zEff = beam.zy + (zi_1d - cz) * np.cos(total_alpha)
 
             alphaBeam = beam.ay - np.arctan((zi_1d - cz) * np.sin(total_alpha) / zEff)
+            beamz = beam.zy
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k = self.rotation_grating(k_i, beam.lambda0)
@@ -1499,6 +1504,15 @@ class Grating(Mirror):
 
         # calculate diffraction angle at every point on the grating
         beta = np.arccos(np.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
+
+        # figure out distance to focus
+        D1 = self.n1 / self.n0 ** 2
+        D0 = 1 / self.n0
+        grating_focal_length = 1 / (self.lambda0 * D1 / D0 ** 2 / np.sin(self.beta0) ** 2)
+        object_distance = beamz * (np.sin(self.beta0) / np.sin(self.alpha)) ** 2
+        f2 = 1 / (1 / grating_focal_length - 1 / object_distance)
+        self.f = f2
+        print('Calculated distance to focus: %.6f' % f2)
 
         # calculate desired slope at each point of the grating
         x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
