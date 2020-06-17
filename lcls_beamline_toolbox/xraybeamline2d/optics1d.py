@@ -1525,7 +1525,7 @@ class Grating(Mirror):
         m = (x1 - x0) / (z1 - z_g)
 
         # calculate slope error
-        slope_error = np.tan(beta) - m
+        slope_error = -np.tan(beta - np.arctan(m))
 
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
@@ -1987,6 +1987,7 @@ class Crystal(Mirror):
 
             self.f = -beam.zx * (np.abs(np.sin(self.beta0)/np.sin(self.alpha))**2)
             # self.f = -beam.zx
+            beamz = beam.zx
 
         elif self.orientation == 1:
             total_alpha -= beam.ay
@@ -2010,6 +2011,7 @@ class Crystal(Mirror):
 
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
+            beamz = beam.zy
 
         elif self.orientation == 2:
             total_alpha += beam.ax
@@ -2033,6 +2035,7 @@ class Crystal(Mirror):
 
             self.f = -beam.zx * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zx
+            beamz = beam.zx
 
         elif self.orientation == 3:
             total_alpha += beam.ay
@@ -2057,6 +2060,7 @@ class Crystal(Mirror):
 
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
+            beamz = beam.zy
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)

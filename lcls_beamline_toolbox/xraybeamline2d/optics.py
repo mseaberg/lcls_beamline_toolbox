@@ -1549,8 +1549,8 @@ class Grating(Mirror):
         slope_error = -np.tan(beta - np.arctan(m))
         # slope_error = -np.tan(beta - self.beta0)
 
-        plt.figure()
-        plt.plot(z_g, slope_error)
+        # plt.figure()
+        # plt.plot(z_g, slope_error)
 
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
