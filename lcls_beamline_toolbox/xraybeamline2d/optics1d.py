@@ -1576,8 +1576,8 @@ class Grating(Mirror):
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
-            beam.rescale_x(self.beta0 / self.alpha)
-            beam.cx *= self.beta0 / self.alpha
+            beam.rescale_x(np.sin(self.beta0) / np.sin(self.alpha))
+            beam.cx *= np.sin(self.beta0) / np.sin(self.alpha)
             beam.x += beam.cx
 
             # add quadratic phase
@@ -1605,8 +1605,8 @@ class Grating(Mirror):
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
-            beam.rescale_y(self.beta0 / self.alpha)
-            beam.cy *= self.beta0 / self.alpha
+            beam.rescale_y(np.sin(self.beta0) / np.sin(self.alpha))
+            beam.cy *= np.sin(self.beta0) / np.sin(self.alpha)
             beam.y += beam.cy
 
             # add quadratic phase
@@ -1634,8 +1634,8 @@ class Grating(Mirror):
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
-            beam.rescale_x(self.beta0 / self.alpha)
-            beam.cx *= self.beta0 / self.alpha
+            beam.rescale_x(np.sin(self.beta0) / np.sin(self.alpha))
+            beam.cx *= np.sin(self.beta0) / np.sin(self.alpha)
             beam.x += beam.cx
 
             # add quadratic phase
@@ -1663,8 +1663,8 @@ class Grating(Mirror):
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
-            beam.rescale_y(self.beta0 / self.alpha)
-            beam.cy *= self.beta0 / self.alpha
+            beam.rescale_y(np.sin(self.beta0) / np.sin(self.alpha))
+            beam.cy *= np.sin(self.beta0) / np.sin(self.alpha)
             beam.y += beam.cy
 
             # add quadratic phase

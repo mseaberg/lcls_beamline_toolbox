@@ -1526,6 +1526,14 @@ class Grating(Mirror):
         # calculate new source position
         # self.f = beamz*(self.beta0/self.alpha)**2
 
+        # figure out distance to focus
+        D1 = self.n1 / self.n0**2
+        D0 = 1 / self.n0
+        grating_focal_length = 1 / (self.lambda0 * D1 / D0 ** 2 / np.sin(self.beta0) ** 2)
+        object_distance = beamz*(np.sin(self.beta0)/np.sin(self.alpha))**2
+        f2 = 1 / (1 / grating_focal_length - 1 / object_distance)
+        print('Calculated distance to focus: %.2f' % f2)
+
         # calculate desired slope at each point of the grating
         x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
         z1 = self.f * np.cos(self.beta0 - self.delta)
@@ -1627,8 +1635,8 @@ class Grating(Mirror):
         if self.orientation == 0:
             # take into account coordinate rescaling
             beam.x -= beam.cx
-            beam.rescale_x(self.beta0 / self.alpha)
-            beam.cx *= self.beta0 / self.alpha
+            beam.rescale_x(np.sin(self.beta0) / np.sin(self.alpha))
+            beam.cx *= np.sin(self.beta0) / np.sin(self.alpha)
             beam.x += beam.cx
 
             # add quadratic phase
@@ -1651,8 +1659,8 @@ class Grating(Mirror):
         elif self.orientation == 1:
             # take into account coordinate rescaling
             beam.y -= beam.cy
-            beam.rescale_y(self.beta0 / self.alpha)
-            beam.cy *= self.beta0 / self.alpha
+            beam.rescale_y(np.sin(self.beta0) / np.sin(self.alpha))
+            beam.cy *= np.sin(self.beta0) / np.sin(self.alpha)
             beam.y += beam.cy
 
             # add quadratic phase
@@ -1675,8 +1683,8 @@ class Grating(Mirror):
         elif self.orientation == 2:
             # take into account coordinate rescaling
             beam.x -= beam.cx
-            beam.rescale_x(self.beta0 / self.alpha)
-            beam.cx *= self.beta0 / self.alpha
+            beam.rescale_x(np.sin(self.beta0) / np.sin(self.alpha))
+            beam.cx *= np.sin(self.beta0) / np.sin(self.alpha)
             beam.x += beam.cx
 
             # add quadratic phase
@@ -1700,8 +1708,8 @@ class Grating(Mirror):
         elif self.orientation == 3:
             # take into account coordinate rescaling
             beam.y -= beam.cy
-            beam.rescale_y(self.beta0 / self.alpha)
-            beam.cy *= self.beta0 / self.alpha
+            beam.rescale_y(np.sin(self.beta0) / np.sin(self.alpha))
+            beam.cy *= np.sin(self.beta0) / np.sin(self.alpha)
             beam.y += beam.cy
 
             # add quadratic phase
