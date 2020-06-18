@@ -1478,6 +1478,10 @@ class Pulse:
             y_data = np.roll(y_data, int(shift/self.deltaT))
             centroid += shift
 
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
+        fwhm = int(sx * 2.355)
+
         # gaussian fit to plot
         gauss_plot = Util.fit_gaussian(self.t_axis, centroid, sx)
 

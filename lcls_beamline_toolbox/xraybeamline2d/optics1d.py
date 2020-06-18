@@ -2102,31 +2102,28 @@ class Crystal(Mirror):
 
         beta = np.arccos(k_f[:, 2])
 
-        # # deviation from average angle of incidence at each point along the crystal
-        # betaC = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), beta)
-
-        # x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
-        # z1 = self.f * np.cos(self.beta0 - self.delta)
-        #
-        # # print('f: %.2f' % self.f)
-        #
-        # # take into account angular grating change, and dx
-        # x0 = 0.0
-        #
-        # # calculate ideal slope to focus at f in the direction beta0
-        # m = (x1 - x0) / (z1 - z_g)
-
-        # calculate slope error
-        # slope_error = np.tan(beta) - m
-        slope_error = -np.tan(beta-beta1)
-        # slope_error = np.tan(beta - self.beta0)
-        # plt.figure()
-        # plt.plot(z_g, slope_error)
-
         # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
         # we don't need to double-count it.
         # (do this with a polynomial fit up to 3rd order for now)
         z_c = zi_1d - self.dx / np.tan(total_alpha)
+
+        object_distance = beamz * (np.sin(self.beta0) / np.sin(self.alpha)) ** 2
+        f2 = -object_distance
+        self.f = f2
+        print('Calculated distance to focus: %.6f' % f2)
+
+        # calculate desired slope at each point of the grating
+        x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
+        z1 = self.f * np.cos(self.beta0 - self.delta)
+
+        # take into account angular grating change, and dx
+        x0 = 0.0
+
+        # calculate ideal slope to focus at f in the direction beta0
+        m = (x1 - x0) / (z1 - z_c)
+
+        # calculate slope error
+        slope_error = -np.tan(beta - np.arctan(m))
 
         # limit fit to size of crystal
         mask = np.abs(z_c) <= self.length/2
@@ -2153,7 +2150,7 @@ class Crystal(Mirror):
         p_scaled = Util.poly_change_coords(p_int, scale) * np.sin(beta1 - self.delta)
 
         # Add 2nd order phase to p_scaled
-        # p_scaled[-3] += -1 / (2 * self.f)
+        p_scaled[-3] += -1 / (2 * self.f)
 
         # scale the offset
         offset_scaled = offset * scale
