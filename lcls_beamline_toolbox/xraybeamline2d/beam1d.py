@@ -392,11 +392,17 @@ class Beam:
 
         # update Rayleigh range
         if new_zx is not None:
-            self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
-                    self.rangeFactor)
+            xWidth = np.abs(self.x[0] - self.x[-1])
+            self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
+                        self.rangeFactor)
+            # self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
+            #         self.rangeFactor)
         if new_zy is not None:
-            self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
-                    self.rangeFactor)
+            yWidth = np.abs(self.y[0] - self.y[-1])
+            self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
+                        self.rangeFactor)
+            # self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
+            #         self.rangeFactor)
 
         # check if beam should change state. This only needs to happen if beam is already focused because if unfocused
         # the beam_prop method will check anyway.
@@ -464,20 +470,20 @@ class Beam:
                 # print('FOVy: ' + str(np.max(self.y - self.cy)))
 
             # print current focal ranges
-            # print('zRx: %.2f microns' % (self.zRx*1e6))
-            # print('zRy: %.2f microns' % (self.zRy*1e6))
+            print('zRx: %.2f microns' % (self.zRx*1e6))
+            print('zRy: %.2f microns' % (self.zRy*1e6))
 
             # calculate remaining distance and print it
             dz_remaining = dz - dz_progress
-            # print('remaining distance: %.2f microns' % (dz_remaining*1e6))
+            print('remaining distance: %.2f microns' % (dz_remaining*1e6))
 
             # calculate what the radius of curvature will be when we're finished
             zx_goal = self.zx + dz_remaining
             zy_goal = self.zy + dz_remaining
-            # print('goal for zx: %.2f microns' % (zx_goal*1e6))
-            # print('current zx: %.2f microns' % (self.zx*1e6))
-            # print('goal for zy: %.2f microns' % (zy_goal*1e6))
-            # print('current zy: %.2f microns' % (self.zy*1e6))
+            print('goal for zx: %.2f microns' % (zx_goal*1e6))
+            print('current zx: %.2f microns' % (self.zx*1e6))
+            print('goal for zy: %.2f microns' % (zy_goal*1e6))
+            print('current zy: %.2f microns' % (self.zy*1e6))
 
             # check if we end up inside the focus range?
             x_focused = -self.zRx <= zx_goal < self.zRx
@@ -566,10 +572,10 @@ class Beam:
                         y_prop_limit = dz_remaining
 
                 # distance to propagate during this step. Pick the more restrictive case.
-                prop_step = np.min([x_prop_limit, y_prop_limit])
+                prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
 
                 # print the current step size
-                # print('current step size: %.2f microns' % (prop_step*1e6))
+                print('current step size: %.2f microns' % (prop_step*1e6))
 
                 # radii of curvature at the end of this propagation step
                 zx_goal = self.zx + prop_step

@@ -187,7 +187,7 @@ class Beamline:
         # loop through all devices including drifts
         for device in self.full_list:
             # print name
-            print(device.name)
+            print('\033[1m' +device.name+'\033[0m')
 
             # propagate through device. beam is modified directly.
             device.propagate(beam)
