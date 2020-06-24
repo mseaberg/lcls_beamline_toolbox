@@ -292,7 +292,7 @@ class Beam:
         y = np.array([0, 1, 0], dtype=float)
         z = np.array([0, 0, 1], dtype=float)
 
-        r1 = transform.Rotation.from_rotvec(x * self.global_elevation)
+        r1 = transform.Rotation.from_rotvec(-x * self.global_elevation)
         Rx = r1.as_matrix()
         x = np.matmul(Rx, x)
         y = np.matmul(Rx, y)

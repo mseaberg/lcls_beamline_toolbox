@@ -85,6 +85,8 @@ class Beamline:
                 # figure out device location
                 x += k[0] / k[2] * dz
                 y += k[1] / k[2] * dz
+                # x += k[0] * dz
+                # y += k[1] * dz
                 # update device
                 device.global_x = x
                 device.global_y = y
@@ -106,13 +108,16 @@ class Beamline:
                 elif device.orientation == 1:
                     device.global_alpha = device.alpha + elevation
                     elevation += device.alpha + device.beta0
+                    print('after %s: %.2f' % (device.name, elevation))
                 elif device.orientation == 2:
                     device.global_alpha = azimuth - device.alpha
                     azimuth -= (device.alpha + device.beta0)
                     print('after %s: %.2f' % (device.name, azimuth))
+
                 elif device.orientation == 3:
                     device.global_alpha = elevation - device.alpha
                     elevation -= (device.alpha + device.beta0)
+                    print('after %s: %.2f' % (device.name, elevation))
 
                 # update k
                 k = Util.get_k(elevation, azimuth)

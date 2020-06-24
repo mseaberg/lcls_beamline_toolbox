@@ -678,15 +678,19 @@ class CurvedMirror(Mirror):
         if self.orientation == 0:
             # x position of upstream focus
             xs = beam.cx + beam.ax * zs - self.dx / np.cos(self.alpha + self.delta)
+            beamz = beam.zx
 
         elif self.orientation == 1:
             xs = beam.cy + beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
+            beamz = beam.zy
 
         elif self.orientation == 2:
             xs = -beam.cx - beam.ax * zs - self.dx / np.cos(self.alpha + self.delta)
+            beamz = beam.zx
 
         elif self.orientation == 3:
             xs = -beam.cy - beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
+            beamz = beam.zy
 
         # calculate ellipse based on design parameters
         z1, x1, z0, x0, delta1 = self.calc_ellipse(self.p, self.q, self.alpha)
@@ -2577,6 +2581,8 @@ class Drift:
         #     if issubclass(type(self.downstream_component), Mirror):
         #         alpha = self.downstream_component.global_alpha
         #
+        print('global_x %.2f' % beam.global_x)
+        print('global_y %.2f' % beam.global_y)
 
         if issubclass(type(self.downstream_component), Mirror):
             # beam global coordinates are currently on surface of upstream component
