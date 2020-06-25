@@ -275,6 +275,10 @@ class Beam:
         self.global_y += k_beam[1] * dz
         self.global_z += k_beam[2] * dz
 
+    def beam_offset(self, x_offset=0, y_offset=0):
+        self.global_x += x_offset
+        self.global_y += y_offset
+
     def rotate_nominal(self, delta_elevation=0, delta_azimuth=0):
         self.global_elevation += delta_elevation
         self.global_azimuth += delta_azimuth

@@ -104,20 +104,20 @@ class Beamline:
                 if device.orientation == 0:
                     device.global_alpha = device.alpha + azimuth
                     azimuth += device.alpha + device.beta0
-                    print('after %s: %.2f' % (device.name, azimuth))
+                    print('after %s: %.4f' % (device.name, azimuth))
                 elif device.orientation == 1:
                     device.global_alpha = device.alpha + elevation
                     elevation += device.alpha + device.beta0
-                    print('after %s: %.2f' % (device.name, elevation))
+                    print('after %s: %.4f' % (device.name, elevation))
                 elif device.orientation == 2:
                     device.global_alpha = azimuth - device.alpha
                     azimuth -= (device.alpha + device.beta0)
-                    print('after %s: %.2f' % (device.name, azimuth))
+                    print('after %s: %.4f' % (device.name, azimuth))
 
                 elif device.orientation == 3:
                     device.global_alpha = elevation - device.alpha
                     elevation -= (device.alpha + device.beta0)
-                    print('after %s: %.2f' % (device.name, elevation))
+                    print('after %s: %.4f' % (device.name, elevation))
 
                 # update k
                 k = Util.get_k(elevation, azimuth)

@@ -100,13 +100,14 @@ class Mirror:
         self.yaw = 0.
         self.dx = 0.
         self.dy = 0.
+        self.dz = 0.
         self.global_x = 0
         self.global_y = 0
         self.global_alpha = 0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
-                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw']
+                             'delta', 'dx', 'dy', 'dz', 'motor_list', 'roll', 'yaw']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -297,7 +298,7 @@ class Mirror:
                 # mirror coordinates
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
                 # 1D interpolation onto beam coordinates
-                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs, self.shapeError)
+                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs, self.shapeError)
             # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
             else:
                 # shape error array shape
@@ -309,10 +310,10 @@ class Mirror:
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
 
                 # just take central line for 1d shape error
-                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs, self.shapeError[int(Ns/2),:])
+                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs, self.shapeError[int(Ns/2),:])
 
         # figure out aperturing due to mirror's finite size
-        z_mask = (np.abs(zi - self.dx / np.tan(total_alpha)) < self.length / 2).astype(float)
+        z_mask = (np.abs(zi - self.dx / np.tan(total_alpha) - self.dz) < self.length / 2).astype(float)
 
         # height error now in meters
         total_error = shapeError2 * 1e-9
@@ -340,6 +341,7 @@ class Mirror:
             # beam.ay += np.arcsin(delta_k[1])
 
             # adjust beam position due to mirror de-centering
+            # beam.beam_offset(x_offset=2 * self.dx * np.cos(total_alpha))
             delta_cx = 2 * self.dx * np.cos(total_alpha)
             beam.cx = -beam.cx + delta_cx
             beam.x = beam.x + delta_cx
@@ -364,6 +366,7 @@ class Mirror:
             # beam.ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha))
 
             # adjust beam position due to mirror de-centering
+            # beam.beam_offset(y_offset=2 * self.dx * np.cos(total_alpha))
             delta_cy = 2 * self.dx * np.cos(total_alpha)
             beam.cy = -beam.cy + delta_cy
             beam.y = beam.y + delta_cy
@@ -388,6 +391,7 @@ class Mirror:
             # beam.ay += -np.arcsin(delta_k[1])
 
             # adjust beam position due to mirror de-centering
+            # beam.beam_offset(x_offset=-2 * self.dx * np.cos(total_alpha))
             delta_cx = -2 * self.dx * np.cos(total_alpha)
             beam.cx = -beam.cx + delta_cx
             beam.x = beam.x + delta_cx
@@ -412,6 +416,7 @@ class Mirror:
             # beam.ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha))
 
             # adjust beam position due to mirror de-centering
+            # beam.beam_offset(y_offset=-2 * self.dx * np.cos(total_alpha))
             delta_cy = -2 * self.dx * np.cos(total_alpha)
             beam.cy = -beam.cy + delta_cy
             beam.y = beam.y + delta_cy
@@ -1127,10 +1132,17 @@ class Mono:
         self.m2.z = self.m2.z + .006 * (self.delta_mirror + delta_mirror) - .68 * (
                 np.cos(self.delta_mirror + delta_mirror) - 1)
         # pre-mirror x-axis position adjustment
-        self.m2.dx = self.m2.dx - .68 * (self.delta_mirror + delta_mirror) - .006 * (
-                np.cos(self.delta_mirror + delta_mirror) - 1)
+        # self.m2.dx = self.m2.dx - .68 * (self.delta_mirror + delta_mirror) - .006 * (
+        #         np.cos(self.delta_mirror + delta_mirror) - 1)
+
         # pre-mirror angle adjustment
-        self.m2.delta = self.delta_mirror + delta_mirror
+        # change this to an adjustment of alpha
+        self.m2.alpha += self.delta_mirror + delta_mirror
+        self.m2.dz = (- .68 * (self.delta_mirror + delta_mirror) - .006 * (
+                 np.cos(self.delta_mirror + delta_mirror) - 1)) / np.tan(self.m2.alpha)
+
+        self.m2.beta0 = self.m2.alpha
+        # self.m2.delta = self.delta_mirror + delta_mirror
         # grating angle of incidence
         self.grating.alpha = alpha0 + self.delta - self.delta_mirror * 2
         # grating diffraction angle
@@ -1501,6 +1513,8 @@ class Grating(Mirror):
         # alphaBeamG = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), alphaBeam)
 
         z_g = zi_1d - self.dx / np.tan(total_alpha)
+        plt.figure()
+        plt.plot(z_g)
 
         # account for all contributions to alpha
         # alpha_total = self.alpha + self.delta + alphaBeamG
@@ -1536,6 +1550,7 @@ class Grating(Mirror):
         # (do this with a polynomial fit up to 3rd order for now)
         # limit this to size of grating
         mask = np.abs(z_g) <= self.length/2
+        # mask = np.ones_like(z_g).astype(bool)
         p = np.polyfit(z_g[mask], slope_error[mask], 3)
 
         # integrate slope error
@@ -1608,8 +1623,15 @@ class Grating(Mirror):
             beam.x *= -1
 
             # adjust beam direction relative to properly aligned axis
-            beam.ax = np.arcsin(delta_k[0] / np.cos(self.alpha)) + p1st
-            beam.ay += np.arcsin(delta_k[1])
+            beam.rotate_nominal(delta_azimuth=self.alpha + self.beta0)
+            delta_ax = -beam.ax + np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
+            # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
+            delta_ay = np.arcsin(delta_k[1])
+            beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
+
+            # adjust beam direction relative to properly aligned axis
+            # beam.ax = np.arcsin(delta_k[0] / np.cos(self.alpha)) + p1st
+            # beam.ay += np.arcsin(delta_k[1])
 
             # adjust beam position due to mirror de-centering
             delta_cx = 2 * self.dx * np.cos(self.alpha)
@@ -1637,8 +1659,15 @@ class Grating(Mirror):
             beam.y *= -1
 
             # adjust beam direction relative to properly aligned axis
-            beam.ax += -np.arcsin(delta_k[1])
-            beam.ay = np.arcsin(delta_k[0] / np.cos(self.alpha)) + p1st
+            beam.rotate_nominal(delta_elevation=self.alpha + self.beta0)
+            delta_ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
+            # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
+            delta_ax = -np.arcsin(delta_k[1])
+            beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
+
+            # adjust beam direction relative to properly aligned axis
+            # beam.ax += -np.arcsin(delta_k[1])
+            # beam.ay = np.arcsin(delta_k[0] / np.cos(self.alpha)) + p1st
 
             # adjust beam position due to mirror de-centering
             delta_cy = 2 * self.dx * np.cos(self.alpha)
@@ -1666,8 +1695,15 @@ class Grating(Mirror):
             beam.x *= -1
 
             # adjust beam direction relative to properly aligned axis
-            beam.ax = - np.arcsin(delta_k[0] / np.cos(self.alpha)) - p1st
-            beam.ay += -np.arcsin(delta_k[1])
+            beam.rotate_nominal(delta_azimuth=-self.alpha - self.beta0)
+            delta_ax = -beam.ax - np.arcsin(delta_k[0] / np.cos(self.beta0)) - p1st
+            # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
+            delta_ay = np.arcsin(delta_k[1])
+            beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
+
+            # adjust beam direction relative to properly aligned axis
+            # beam.ax = - np.arcsin(delta_k[0] / np.cos(self.alpha)) - p1st
+            # beam.ay += -np.arcsin(delta_k[1])
 
             # adjust beam position due to mirror de-centering
             delta_cx = -2 * self.dx * np.cos(self.alpha)
@@ -1693,6 +1729,13 @@ class Grating(Mirror):
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
+
+            # adjust beam direction relative to properly aligned axis
+            beam.rotate_nominal(delta_elevation=-self.alpha - self.beta0)
+            delta_ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.beta0)) - p1st
+            # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
+            delta_ax = np.arcsin(delta_k[1])
+            beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
             beam.ax += np.arcsin(delta_k[1])
@@ -2612,7 +2655,11 @@ class Drift:
             z_intersect = self.downstream_component.z
 
         x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
+        print('x intersect: %.4e' % x_intersect)
+        print('component x: %.4e' % self.downstream_component.global_x)
         y_intersect = k[1] / k[2] * (z_intersect - beam.global_z) + beam.global_y
+        print('y intersect: %.4e' % y_intersect)
+        print('component y: %.4e' % self.downstream_component.global_y)
         dx = x_intersect - beam.global_x
         dy = y_intersect - beam.global_y
         dz = z_intersect - beam.global_z
