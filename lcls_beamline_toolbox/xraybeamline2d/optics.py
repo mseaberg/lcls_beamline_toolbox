@@ -2909,6 +2909,9 @@ class PPM_Device(PPM):
         self.wx = 0
         self.wy = 0
 
+        # load in dummy image
+        self.dummy_image = np.load('../../scripts/im2l0_sim.npy')
+
     def stop(self):
         self.running = False
         try:
@@ -2922,6 +2925,9 @@ class PPM_Device(PPM):
             self.gige.cam.acquire.put(1)
         except:
             print('no camera')
+
+    def get_dummy_image(self):
+        return self.dummy_image
 
     def get_image(self):
         try:
