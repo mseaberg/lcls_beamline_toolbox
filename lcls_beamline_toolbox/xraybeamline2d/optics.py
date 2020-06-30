@@ -2867,6 +2867,8 @@ class PPM_Device(PPM):
 
         # need to change this later. Units are in microns
         self.dx = 5.5/1.2
+        # pixel size in meters
+        self.dxm = self.dx * 1e-6
 
         # if len(sys.argv)>1:
         #     self.cam_name = sys.argv[1]
@@ -2910,7 +2912,7 @@ class PPM_Device(PPM):
         self.wy = 0
 
         # load in dummy image
-        self.dummy_image = np.load('../../scripts/im2l0_sim.npy')
+        self.dummy_image = np.load('im2l0_sim.npy')
 
     def retrieve_wavefront(self, wfs):
         """
@@ -2950,7 +2952,7 @@ class PPM_Device(PPM):
         mag = (zT + wfs.f0) / wfs.f0
 
         # number of pixels to sum across to get lineout
-        lineout_width = int(wfs.pitch / self.dx * 5 * mag)
+        lineout_width = int(wfs.pitch / self.dxm * 5 * mag)
 
         # lineout boundaries in pixels (distance from center)
         x_lim = int(self.wx/self.dx)
@@ -2972,7 +2974,7 @@ class PPM_Device(PPM):
         peak = 1. / mag / wfs.pitch * fraction
 
         # spatial frequency now in units of (1/pixels)
-        fc = peak * self.dx
+        fc = peak * self.dxm
 
         # calculate pitch from lineouts. See pitch module.
         # print('getting lineouts')
@@ -2983,7 +2985,7 @@ class PPM_Device(PPM):
         wfs_param = {
                 "dg": wfs.pitch,  # wavefront sensor pitch (m)
                 "fraction": fraction,  # wavefront sensor fraction
-                "dx": self.dx,  # PPM pixel size
+                "dx": self.dxm,  # PPM pixel size
                 "zT": zT,  # distance between WFS and PPM
                 "lambda0": self.lambda0,  # beam wavelength
                 "fc": fc  # spatial frequency of expected peak (1/pixels)
