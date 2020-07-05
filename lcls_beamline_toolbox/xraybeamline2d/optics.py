@@ -17,6 +17,8 @@ PPM: power profile monitor, for viewing beam intensity
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import json
+from time import sleep
 from .pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolation
 import scipy.ndimage as ndimage
@@ -2790,7 +2792,7 @@ class PPM_Device(PPM):
         self.threshold = 0.1
 
         # set allowed kwargs
-        allowed_arguments = ['threshold']
+        allowed_arguments = ['average','threshold']
 
         # update attributes based on kwargs
         for key, value in kwargs.items():
@@ -2865,8 +2867,15 @@ class PPM_Device(PPM):
             print('\nSomething wrong with camera server')
             self.gige = None
 
-        # need to change this later. Units are in microns
-        self.dx = 5.5/1.2
+        # load in pixel size
+        try:
+            with open('imagers.db') as json_file:
+                data = json.load(json_file)
+            self.dx = float(data[self.epics_name[0:5]]['pixel'])
+        except json.decoder.JSONDecodeError:
+            self.dx = 5.5/1.2
+            
+        print(self.dx)
         # pixel size in meters
         self.dxm = self.dx * 1e-6
 
@@ -2876,26 +2885,40 @@ class PPM_Device(PPM):
 
         self.image_pv = PV(self.epics_name + 'ArrayData')
 
+        # get acquisition info (this is in seconds)
+        self.acquisition_period = PV(self.epics_name[:-7] + 'AcquirePeriod_RBV').get()
+
         # get ROI info
         xmin = PV(self.epics_name + 'ROI:MinX_RBV').get()
         xmax = xmin + PV(self.epics_name + 'ROI:SizeX_RBV').get() - 1
         ymin = PV(self.epics_name + 'ROI:MinY_RBV').get()
         ymax = ymin + PV(self.epics_name + 'ROI:SizeY_RBV').get() - 1
         # get binning
-        xbin = PV(self.epics_name + 'ROI:BinX_RBV').get()
-        ybin = PV(self.epics_name + 'ROI:BinY_RBV').get()
+        self.xbin = PV(self.epics_name + 'ROI:BinX_RBV').get()
+        self.ybin = PV(self.epics_name + 'ROI:BinY_RBV').get()
+
         # get array size
         self.xsize = PV(self.epics_name + 'ROI:ArraySizeX_RBV').get()
         self.ysize = PV(self.epics_name + 'ROI:ArraySizeY_RBV').get()
 
-        self.x = np.linspace(xmin, xmax - (xbin - 1), self.xsize, dtype=float)
+        print(self.xsize)
+
+        #self.x = np.linspace(0, self.xsize - 1, self.xsize, dtype=float)
+        #self.x -= self.xsize/2
+        #self.y = np.linspace(0, self.ysize - 1, self.ysize, dtype=float)
+        #self.y -= self.ysize/2
+
+        self.x = np.linspace(xmin, xmax - (self.xbin - 1), self.xsize, dtype=float)
         self.x -= (xmax + 1) / 2
-        self.y = np.linspace(ymin, ymax - (ybin - 1), self.ysize, dtype=float)
+        self.y = np.linspace(ymin, ymax - (self.ybin - 1), self.ysize, dtype=float)
         self.y -= (ymax + 1) / 2
 
-        self.x *= self.dx*xbin
-        self.y *= self.dx*ybin
+        self.x *= self.dx
+        self.y *= self.dx
         self.xx, self.yy = np.meshgrid(self.x, self.y)
+
+        print(self.epics_name)
+        print(self.xsize)
 
         self.FOV = np.max(self.x) - np.min(self.x)
 
@@ -3048,9 +3071,26 @@ class PPM_Device(PPM):
 
     def get_image(self):
         try:
-            # image_data = self.gige.image2.get()
+            # do averaging
+            if hasattr(self, 'average'):
+                numImages = getattr(self, 'average').get_numImages()
+            else:
+                numImages = 1
+            
             image_data = self.image_pv.get_with_metadata()
+
             img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+            if numImages > 1:
+                for i in range(numImages-1):
+                    # wait for the next image
+                    sleep(self.acquisition_period)
+                    image_data = self.image_pv.get_with_metadata()
+                    imgTemp = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+                    img += imgTemp
+
+
+            img = img/numImages
+
             time_stamp = image_data['timestamp']
             # time_stamp = image_data.time_stamp
             # img = np.array(image_data.shaped_image,dtype='float')
