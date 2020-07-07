@@ -288,6 +288,24 @@ class Util:
         return p_new
 
     @staticmethod
+    def get_borderval(img, radius=None):
+        """
+        Given an image and a radius, examine the average value of the image
+        at most radius pixels from the edge
+        """
+        if radius is None:
+            mindim = min(img.shape)
+            radius = max(1, mindim // 20)
+        mask = np.zeros_like(img, dtype=np.bool)
+        mask[:, :radius] = True
+        mask[:, -radius:] = True
+        mask[:radius, :] = True
+        mask[-radius:, :] = True
+
+        mean = np.median(img[mask])
+        return mean
+
+    @staticmethod
     def threshold_array(array_in, frac):
         """Method for thresholding an array, useful for calculating center of mass
         :param array_in: array-like
