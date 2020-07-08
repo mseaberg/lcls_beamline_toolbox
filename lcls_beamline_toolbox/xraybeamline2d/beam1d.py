@@ -396,15 +396,36 @@ class Beam:
 
         # update Rayleigh range
         if new_zx is not None:
+            # if self.focused_x:
+            #     xWidth = np.abs(self.x[0] - self.x[-1])
+            #
+            #     # need to handle zx=0 appropriately
+            #     beamRef = xWidth / self.scaleFactor
+            #     w0 = np.sqrt(self.lambda0*self.zRx/np.pi)
+            #     w = w0 * np.sqrt(1 + (self.zx/self.zRx)**2)
+            #     xWidth *= np.abs(self.zx / (self.zRx * self.rangeFactor))
+            # else:
+            #     xWidth = np.abs(self.x[0] - self.x[-1])
             xWidth = np.abs(self.x[0] - self.x[-1])
-            self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
-                        self.rangeFactor)
+
+            # self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
+            #             self.rangeFactor)
+            self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (new_zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
+                                     self.rangeFactor)
             # self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
             #         self.rangeFactor)
         if new_zy is not None:
+            # if self.focused_y:
+            #     yWidth = np.abs(self.y[0] - self.y[-1])
+            #     yWidth *= np.abs(self.zy / (self.zRy * self.rangeFactor))
+            # else:
+            #     yWidth = np.abs(self.y[0] - self.y[-1])
             yWidth = np.abs(self.y[0] - self.y[-1])
-            self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
-                        self.rangeFactor)
+
+            # self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
+            #             self.rangeFactor)
+            self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (new_zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
+                                     self.rangeFactor)
             # self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
             #         self.rangeFactor)
 
