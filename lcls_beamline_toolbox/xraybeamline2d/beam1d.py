@@ -1463,6 +1463,102 @@ class Pulse:
         plt.legend()
         plt.grid()
 
+    def pulse_bandwidth(self, image_name, x_pos=0, y_pos=0):
+        """
+        Method to calculate the bandwidth of the pulse at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to check
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+
+        Returns
+        -------
+        bandwidth: float
+            pulse bandwidth (FWHM) in eV
+        """
+        pass
+
+    def central_energy(self, image_name, x_pos=0, y_pos=0):
+        """
+        Method to calculate the central energy of a pulse at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to check
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+
+        Returns
+        -------
+        central_energy: float
+            central energy of the pulse in eV
+        """
+        pass
+
+    def throughput(self, image1_name, image2_name):
+        """
+        Method to calculate the throughput at image2 relative to image1
+        Parameters
+        ----------
+        image1_name: str
+            upstream profile monitor name
+        image2_name: str
+            downstream profile monitor name
+
+        Returns
+        -------
+        throughput: float
+            fraction of pulse energy arriving at image2 relative to image1
+        """
+        pass
+
+    def pulsefront_tilt(self, image_name, dim='x', slice_pos=0, shift=None):
+        """
+        Method to calculate the pulse front tilt at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        dim: str
+            spatial dimension for the slice ('x' or 'y')
+        slice_pos: float
+            spatial slice location (in y if dim='x' and vice versa). Units are microns.
+        shift: float
+            amount to shift pulse in fs. if None, calculated automatically
+        Returns
+        -------
+        tilt: float
+            pulse front tilt in units of fs/micron
+        """
+        pass
+
+    def spatial_chirp(self, image_name, dim='x', slice_pos=0, shift=None):
+        """
+        Method to calculate the spatial chirp at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        dim: str
+            spatial dimension for the slice ('x' or 'y')
+        slice_pos: float
+            spatial slice location (in y if dim='x' and vice versa). Units are microns.
+        shift: float
+            amount to shift spectrum in eV. if None, calculated automatically
+
+        Returns
+        -------
+        chirp: float
+            spatial chirp in units of eV/micron
+        """
+        pass
+
     def pulse_duration(self, image_name, x_pos=0, y_pos=0):
         """
         Method to calculate the temporal pulse structure at a given location

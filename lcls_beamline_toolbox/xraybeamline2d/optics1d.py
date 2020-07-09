@@ -1424,6 +1424,10 @@ class Grating(Mirror):
         beamz = 0
 
         if self.orientation == 0:
+
+            # account for change to angle of incidence
+            total_alpha += -beam.ax
+
             k_ix = -np.sin(self.alpha - beam.ax)
             k_iy = np.sin(beam.ay)
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
@@ -1443,6 +1447,10 @@ class Grating(Mirror):
             beamz = beam.zx
 
         elif self.orientation == 1:
+
+            # account for change to angle of incidence
+            total_alpha += -beam.ay
+
             k_ix = -np.sin(self.alpha - beam.ay)
             k_iy = -np.sin(beam.ax)
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
@@ -1462,6 +1470,10 @@ class Grating(Mirror):
             beamz = beam.zy
 
         elif self.orientation == 2:
+
+            # account for change to angle of incidence
+            total_alpha += beam.ax
+
             k_ix = -np.sin(self.alpha + beam.ax)
             k_iy = -np.sin(beam.ay)
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
@@ -1481,6 +1493,10 @@ class Grating(Mirror):
             beamz = beam.zx
 
         elif self.orientation == 3:
+
+            # account for change to angle of incidence
+            total_alpha += beam.ay
+
             k_ix = -np.sin(self.alpha + beam.ay)
             k_iy = beam.ax
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
@@ -1845,9 +1861,6 @@ class Crystal(Mirror):
         # lattice spacing
         self.d = self.crystal.d * 1e-10
 
-        # initialize exit angle
-        self.beta0 = self.alpha
-
         # get bragg peak angle
         self.bragg = self.crystal.get_Bragg_angle(self.E0) - self.crystal.get_dtheta(self.E0, alpha=alphaAsym)
 
@@ -2013,11 +2026,14 @@ class Crystal(Mirror):
 
 
         if self.orientation == 0:
+            # account for change to angle of incidence
             total_alpha -= beam.ax
-            k_ix = -np.sin(total_alpha)
+
+            # k_ix = -np.sin(total_alpha)
+            k_ix = -np.sin(self.alpha - beam.ax)
             k_iy = np.sin(beam.ay)
-            # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-            k_iz = np.cos(total_alpha)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(self.alpha - beam.ax))
+            # k_iz = np.cos(total_alpha)
 
             # coordinate mapping for interpolation
             zi = beam.x / np.sin(total_alpha)
@@ -2037,11 +2053,14 @@ class Crystal(Mirror):
             beamz = beam.zx
 
         elif self.orientation == 1:
+            # account for change to angle of incidence
             total_alpha -= beam.ay
-            k_ix = -np.sin(total_alpha)
+
+            # k_ix = -np.sin(total_alpha)
+            k_ix = -np.sin(self.alpha - beam.ay)
             k_iy = -np.sin(beam.ax)
-            # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-            k_iz = np.cos(total_alpha)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(self.alpha - beam.ay))
+            # k_iz = np.cos(total_alpha)
 
             # coordinate mapping for interpolation
             zi = beam.y / np.sin(total_alpha)
@@ -2061,11 +2080,14 @@ class Crystal(Mirror):
             beamz = beam.zy
 
         elif self.orientation == 2:
+            # account for change to angle of incidence
             total_alpha += beam.ax
-            k_ix = -np.sin(total_alpha)
+
+            # k_ix = -np.sin(total_alpha)
+            k_ix = -np.sin(self.alpha + beam.ax)
             k_iy = -np.sin(beam.ay)
-            # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-            k_iz = np.cos(total_alpha)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(self.alpha + beam.ax))
+            # k_iz = np.cos(total_alpha)
 
             # coordinate mapping for interpolation
             zi = -beam.x / np.sin(total_alpha)
@@ -2085,11 +2107,14 @@ class Crystal(Mirror):
             beamz = beam.zx
 
         elif self.orientation == 3:
+            # account fo change to angle of incidence
             total_alpha += beam.ay
-            k_ix = -np.sin(total_alpha)
+
+            # k_ix = -np.sin(total_alpha)
+            k_ix = -np.sin(self.alpha + beam.ay)
             k_iy = beam.ax
-            # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-            k_iz = np.cos(total_alpha)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(self.alpha + beam.ay))
+            # k_iz = np.cos(total_alpha)
 
             # coordinate mapping for interpolation
             zi = -beam.y / np.sin(total_alpha)
@@ -2133,7 +2158,8 @@ class Crystal(Mirror):
         # define k_i at each point along beam
         k_ix = np.outer(-np.sin(alpha_total), m_x)
         k_iy = np.outer(np.ones_like(zi_1d)*k_iy, m_y)
-        k_iz = np.outer(np.cos(alpha_total), m_z)
+        # k_iz = np.outer(np.cos(alpha_total), m_z)
+        k_iz = np.outer(np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(alpha_total)), m_z)
         k_i = k_ix + k_iy + k_iz
 
         c_x = np.cos(self.alphaAsym) * m_x
