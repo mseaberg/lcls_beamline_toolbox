@@ -2159,7 +2159,7 @@ class Crystal(Mirror):
         k_ix = np.outer(-np.sin(alpha_total), m_x)
         k_iy = np.outer(np.ones_like(zi_1d)*k_iy, m_y)
         # k_iz = np.outer(np.cos(alpha_total), m_z)
-        k_iz = np.outer(np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(alpha_total)), m_z)
+        k_iz = np.outer(np.sqrt(np.ones_like(zi_1d) - np.sum(k_ix * k_ix, axis=1) - np.sum(k_iy * k_iy, axis=1)) * np.sign(np.cos(alpha_total)), m_z)
         k_i = k_ix + k_iy + k_iz
 
         c_x = np.cos(self.alphaAsym) * m_x
