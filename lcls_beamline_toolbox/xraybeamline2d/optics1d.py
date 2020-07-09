@@ -1973,6 +1973,7 @@ class Crystal(Mirror):
 
         # ---- now figure out case when crystal is misaligned
         g_parallel = np.dot(c_normal, mirror_z) * mirror_z * lambda1/self.d
+
         k_f_y = np.dot(k_i, mirror_y) * mirror_y
         k_f_z = np.dot(k_i, mirror_z) * mirror_z + g_parallel
         k_f_x = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z)) * mirror_x
@@ -2136,6 +2137,7 @@ class Crystal(Mirror):
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
+        print(delta_k)
 
         # beta at beam center
         beta1 = np.arccos(k_f[2])
