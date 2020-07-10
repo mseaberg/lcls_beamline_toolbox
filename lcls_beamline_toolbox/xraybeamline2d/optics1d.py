@@ -2202,7 +2202,12 @@ class Crystal(Mirror):
 
         # limit fit to size of crystal
         mask = np.abs(z_c) <= self.length/2
-        p = np.polyfit(z_c[mask], slope_error[mask], 3)
+
+        if np.sum(mask) > 0:
+            p = np.polyfit(z_c[mask], slope_error[mask], 3)
+        else:
+            p = np.zeros(4)
+        # p = np.polyfit(z_c[mask], slope_error[mask], 3)
 
         # integrate slope error
         p_int = np.polyint(p)
