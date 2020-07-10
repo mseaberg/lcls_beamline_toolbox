@@ -3075,6 +3075,12 @@ class PPM:
         profilex = np.abs(beam.wavex) ** 2
         profiley = np.abs(beam.wavey) ** 2
 
+        # check if either profile contains NANs
+        # if np.sum(np.isnan(profilex))>0:
+        #     profilex = np.zeros_like(profilex)
+        # if np.sum(np.isnan(profiley))>0:
+        #     profiley = np.zeros_like(profiley)
+
         # coordinate scaling due to off-axis viewing angle
         scaling_x = 1 / np.sin(self.view_angle_x * np.pi / 180)
         scaling_y = 1 / np.sin(self.view_angle_y * np.pi / 180)
@@ -3099,6 +3105,12 @@ class PPM:
         # beam phase
         x_phase = np.unwrap(np.angle(beam.wavex))
         y_phase = np.unwrap(np.angle(beam.wavey))
+
+        # check for nans
+        # if np.sum(np.isnan(x_phase))>0:
+        #     x_phase = np.zeros_like(x_phase, dtype=complex)
+        # if np.sum(np.isnan(y_phase))>0:
+        #     y_phase = np.zeros_like(y_phase, dtype=complex)
 
         # interpolating function from np.interp (allowing for flipped coordinates)
         self.x_phase = Util.interp_flip(self.x, x * scaling_x, x_phase)
