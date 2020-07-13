@@ -3513,11 +3513,8 @@ class CRL:
         if self.f is not None and self.E0 is not None:
             # interpolate to find index of refraction at beam's energy
             delta = np.interp(self.E0, self.energy, self.delta)
-            lambda0 = 1239.8/E0*1e-9
-            k0 = 2*np.pi/lambda0
-
-            p2 = -1/(f*lambda0/np.pi)
-            self.roc = -k0 * delta * 2 / 2 / p2
+            # calculate radius of curvature based on f and delta
+            self.roc = 2 * delta * self.f
 
     def multiply(self, beam):
         """
