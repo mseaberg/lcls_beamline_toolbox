@@ -1396,7 +1396,7 @@ class Pulse:
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
 
-    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False):
+    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False, log=False):
         """
         Method to plot the spectrum at a given location
         Parameters
@@ -1433,7 +1433,10 @@ class Pulse:
         y_index = int((y_pos - miny) / dy)
 
         # calculate spectral intensity
-        y_data = np.abs(self.energy_stacks[image_name][y_index,x_index,:])**2
+        if integrated:
+            y_data = np.sum(np.abs(self.energy_stacks[image_name])**2, axis=(0,1))
+        else:
+            y_data = np.abs(self.energy_stacks[image_name][y_index,x_index,:])**2
 
         # get gaussian stats
         centroid, sx = Util.gaussian_stats(self.energy, y_data)
@@ -1452,12 +1455,19 @@ class Pulse:
 
         # plotting
         plt.figure()
-        plt.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
-        plt.plot(self.energy - self.E0, gauss_plot, label=width_label)
+        if log:
+            plt.semilogy(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
+            plt.semilogy(self.energy - self.E0, gauss_plot, label=width_label)
+        else:
+            plt.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
+            plt.plot(self.energy - self.E0, gauss_plot, label=width_label)
         plt.ylim(-.05,1.3)
         plt.xlabel('Energy (eV)')
         plt.ylabel('Intensity (normalized)')
-        plt.title(u'%s Spectrum at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
+        if integrated:
+            plt.title(u'%s Integrated Spectrum' % (image_name))
+        else:
+            plt.title(u'%s Spectrum at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
         plt.legend()
         plt.grid()
 

@@ -3442,6 +3442,10 @@ class CRL:
         Diameter beyond which the lenses absorb all photons. (meters)
     roc: float
         Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+    E0: float or None
+        photon energy in eV for calculating radius of curvature for a given focal length
+    f: float or None
+        focal length in meters for calculating radius of curvature for a given energy
     material: str
         Lens material. Currently only Be is implemented but may add CVD diamond in the future.
         Looks up downloaded data from CXRO.
@@ -3459,7 +3463,7 @@ class CRL:
         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
     """
 
-    def __init__(self, name, diameter=300e-6, roc=50e-6, material='Be', z=0, dx=0, orientation=0):
+    def __init__(self, name, diameter=300e-6, roc=50e-6, E0=None, f=None, material='Be', z=0, dx=0, orientation=0):
         """
         Method to create a CRL object.
         :param name: str
@@ -3468,6 +3472,10 @@ class CRL:
             Diameter beyond which the lenses absorb all photons. (meters)
         :param roc: float
             Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+        :param E0: float
+            photon energy for calculating radius of curvature for a given focal length (eV)
+        :param f: float
+            focal length for calculating radius of curvature for a given energy (meters)
         :param material: str
             Lens material. Currently only Be is implemented but may add CVD diamond in the future.
         Looks up downloaded data from CXRO.
@@ -3483,6 +3491,8 @@ class CRL:
         self.name = name
         self.diameter = diameter
         self.roc = roc
+        self.E0 = E0
+        self.f = f
         self.material = material
         self.dx = dx
         self.z = z
@@ -3498,6 +3508,16 @@ class CRL:
         self.energy = cxro_data[:, 0]
         self.delta = cxro_data[:, 1]
         self.beta = cxro_data[:, 2]
+
+        # if these arguments are given then override default roc or even roc argument
+        if self.f is not None and self.E0 is not None:
+            # interpolate to find index of refraction at beam's energy
+            delta = np.interp(self.E0, self.energy, self.delta)
+            lambda0 = 1239.8/E0*1e-9
+            k0 = 2*np.pi/lambda0
+
+            p2 = -1/(f*lambda0/np.pi)
+            self.roc = -k0 * delta * 2 / 2 / p2
 
     def multiply(self, beam):
         """
