@@ -1424,6 +1424,10 @@ class Grating(Mirror):
         beamz = 0
 
         if self.orientation == 0:
+
+            # account for change to angle of incidence
+            total_alpha += -beam.ax
+
             k_ix = -np.sin(self.alpha - beam.ax)
             k_iy = np.sin(beam.ay)
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
@@ -1443,6 +1447,10 @@ class Grating(Mirror):
             beamz = beam.zx
 
         elif self.orientation == 1:
+
+            # account for change to angle of incidence
+            total_alpha += -beam.ay
+
             k_ix = -np.sin(self.alpha - beam.ay)
             k_iy = -np.sin(beam.ax)
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
@@ -1462,6 +1470,10 @@ class Grating(Mirror):
             beamz = beam.zy
 
         elif self.orientation == 2:
+
+            # account for change to angle of incidence
+            total_alpha += beam.ax
+
             k_ix = -np.sin(self.alpha + beam.ax)
             k_iy = -np.sin(beam.ay)
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
@@ -1481,6 +1493,10 @@ class Grating(Mirror):
             beamz = beam.zx
 
         elif self.orientation == 3:
+
+            # account for change to angle of incidence
+            total_alpha += beam.ay
+
             k_ix = -np.sin(self.alpha + beam.ay)
             k_iy = beam.ax
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
@@ -1845,9 +1861,6 @@ class Crystal(Mirror):
         # lattice spacing
         self.d = self.crystal.d * 1e-10
 
-        # initialize exit angle
-        self.beta0 = self.alpha
-
         # get bragg peak angle
         self.bragg = self.crystal.get_Bragg_angle(self.E0) - self.crystal.get_dtheta(self.E0, alpha=alphaAsym)
 
@@ -1960,6 +1973,7 @@ class Crystal(Mirror):
 
         # ---- now figure out case when crystal is misaligned
         g_parallel = np.dot(c_normal, mirror_z) * mirror_z * lambda1/self.d
+
         k_f_y = np.dot(k_i, mirror_y) * mirror_y
         k_f_z = np.dot(k_i, mirror_z) * mirror_z + g_parallel
         k_f_x = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z)) * mirror_x
@@ -2013,11 +2027,14 @@ class Crystal(Mirror):
 
 
         if self.orientation == 0:
+            # account for change to angle of incidence
             total_alpha -= beam.ax
-            k_ix = -np.sin(total_alpha)
+
+            # k_ix = -np.sin(total_alpha)
+            k_ix = -np.sin(self.alpha - beam.ax)
             k_iy = np.sin(beam.ay)
-            # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-            k_iz = np.cos(total_alpha)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(self.alpha - beam.ax))
+            # k_iz = np.cos(total_alpha)
 
             # coordinate mapping for interpolation
             zi = beam.x / np.sin(total_alpha)
@@ -2037,11 +2054,14 @@ class Crystal(Mirror):
             beamz = beam.zx
 
         elif self.orientation == 1:
+            # account for change to angle of incidence
             total_alpha -= beam.ay
-            k_ix = -np.sin(total_alpha)
+
+            # k_ix = -np.sin(total_alpha)
+            k_ix = -np.sin(self.alpha - beam.ay)
             k_iy = -np.sin(beam.ax)
-            # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-            k_iz = np.cos(total_alpha)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(self.alpha - beam.ay))
+            # k_iz = np.cos(total_alpha)
 
             # coordinate mapping for interpolation
             zi = beam.y / np.sin(total_alpha)
@@ -2061,11 +2081,14 @@ class Crystal(Mirror):
             beamz = beam.zy
 
         elif self.orientation == 2:
+            # account for change to angle of incidence
             total_alpha += beam.ax
-            k_ix = -np.sin(total_alpha)
+
+            # k_ix = -np.sin(total_alpha)
+            k_ix = -np.sin(self.alpha + beam.ax)
             k_iy = -np.sin(beam.ay)
-            # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-            k_iz = np.cos(total_alpha)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(self.alpha + beam.ax))
+            # k_iz = np.cos(total_alpha)
 
             # coordinate mapping for interpolation
             zi = -beam.x / np.sin(total_alpha)
@@ -2085,11 +2108,14 @@ class Crystal(Mirror):
             beamz = beam.zx
 
         elif self.orientation == 3:
+            # account fo change to angle of incidence
             total_alpha += beam.ay
-            k_ix = -np.sin(total_alpha)
+
+            # k_ix = -np.sin(total_alpha)
+            k_ix = -np.sin(self.alpha + beam.ay)
             k_iy = beam.ax
-            # k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
-            k_iz = np.cos(total_alpha)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(self.alpha + beam.ay))
+            # k_iz = np.cos(total_alpha)
 
             # coordinate mapping for interpolation
             zi = -beam.y / np.sin(total_alpha)
@@ -2111,6 +2137,7 @@ class Crystal(Mirror):
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
+        print(delta_k)
 
         # beta at beam center
         beta1 = np.arccos(k_f[2])
@@ -2133,7 +2160,8 @@ class Crystal(Mirror):
         # define k_i at each point along beam
         k_ix = np.outer(-np.sin(alpha_total), m_x)
         k_iy = np.outer(np.ones_like(zi_1d)*k_iy, m_y)
-        k_iz = np.outer(np.cos(alpha_total), m_z)
+        # k_iz = np.outer(np.cos(alpha_total), m_z)
+        k_iz = np.outer(np.sqrt(np.ones_like(zi_1d) - np.sum(k_ix * k_ix, axis=1) - np.sum(k_iy * k_iy, axis=1)) * np.sign(np.cos(alpha_total)), m_z)
         k_i = k_ix + k_iy + k_iz
 
         c_x = np.cos(self.alphaAsym) * m_x
@@ -2174,7 +2202,12 @@ class Crystal(Mirror):
 
         # limit fit to size of crystal
         mask = np.abs(z_c) <= self.length/2
-        p = np.polyfit(z_c[mask], slope_error[mask], 3)
+
+        if np.sum(mask) > 0:
+            p = np.polyfit(z_c[mask], slope_error[mask], 3)
+        else:
+            p = np.zeros(4)
+        # p = np.polyfit(z_c[mask], slope_error[mask], 3)
 
         # integrate slope error
         p_int = np.polyint(p)
@@ -3042,6 +3075,12 @@ class PPM:
         profilex = np.abs(beam.wavex) ** 2
         profiley = np.abs(beam.wavey) ** 2
 
+        # check if either profile contains NANs
+        # if np.sum(np.isnan(profilex))>0:
+        #     profilex = np.zeros_like(profilex)
+        # if np.sum(np.isnan(profiley))>0:
+        #     profiley = np.zeros_like(profiley)
+
         # coordinate scaling due to off-axis viewing angle
         scaling_x = 1 / np.sin(self.view_angle_x * np.pi / 180)
         scaling_y = 1 / np.sin(self.view_angle_y * np.pi / 180)
@@ -3066,6 +3105,12 @@ class PPM:
         # beam phase
         x_phase = np.unwrap(np.angle(beam.wavex))
         y_phase = np.unwrap(np.angle(beam.wavey))
+
+        # check for nans
+        # if np.sum(np.isnan(x_phase))>0:
+        #     x_phase = np.zeros_like(x_phase, dtype=complex)
+        # if np.sum(np.isnan(y_phase))>0:
+        #     y_phase = np.zeros_like(y_phase, dtype=complex)
 
         # interpolating function from np.interp (allowing for flipped coordinates)
         self.x_phase = Util.interp_flip(self.x, x * scaling_x, x_phase)
@@ -3397,6 +3442,10 @@ class CRL:
         Diameter beyond which the lenses absorb all photons. (meters)
     roc: float
         Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+    E0: float or None
+        photon energy in eV for calculating radius of curvature for a given focal length
+    f: float or None
+        focal length in meters for calculating radius of curvature for a given energy
     material: str
         Lens material. Currently only Be is implemented but may add CVD diamond in the future.
         Looks up downloaded data from CXRO.
@@ -3414,7 +3463,7 @@ class CRL:
         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
     """
 
-    def __init__(self, name, diameter=300e-6, roc=50e-6, material='Be', z=0, dx=0, orientation=0):
+    def __init__(self, name, diameter=300e-6, roc=50e-6, E0=None, f=None, material='Be', z=0, dx=0, orientation=0):
         """
         Method to create a CRL object.
         :param name: str
@@ -3423,6 +3472,10 @@ class CRL:
             Diameter beyond which the lenses absorb all photons. (meters)
         :param roc: float
             Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+        :param E0: float
+            photon energy for calculating radius of curvature for a given focal length (eV)
+        :param f: float
+            focal length for calculating radius of curvature for a given energy (meters)
         :param material: str
             Lens material. Currently only Be is implemented but may add CVD diamond in the future.
         Looks up downloaded data from CXRO.
@@ -3438,6 +3491,8 @@ class CRL:
         self.name = name
         self.diameter = diameter
         self.roc = roc
+        self.E0 = E0
+        self.f = f
         self.material = material
         self.dx = dx
         self.z = z
@@ -3453,6 +3508,13 @@ class CRL:
         self.energy = cxro_data[:, 0]
         self.delta = cxro_data[:, 1]
         self.beta = cxro_data[:, 2]
+
+        # if these arguments are given then override default roc or even roc argument
+        if self.f is not None and self.E0 is not None:
+            # interpolate to find index of refraction at beam's energy
+            delta = np.interp(self.E0, self.energy, self.delta)
+            # calculate radius of curvature based on f and delta
+            self.roc = 2 * delta * self.f
 
     def multiply(self, beam):
         """
