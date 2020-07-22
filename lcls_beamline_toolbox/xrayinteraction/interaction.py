@@ -193,6 +193,17 @@ class Device:
 
         return T
 
+    def get_thickness(self, transmission, E0):
+        """
+        Method to get material thickness corresponding to desired transmission
+        """
+        # interpolate to find beta at this energy
+        beta = np.interp(E0, self.energy, self.beta)
+
+        thickness = -np.log(transmission)/2/2/np.pi/beta*1240./E0*1e-9
+
+        return thickness
+
     def reflectivity(self):
 
         kiz = 2 * np.pi / self.wavelength * np.sin(self.angle)

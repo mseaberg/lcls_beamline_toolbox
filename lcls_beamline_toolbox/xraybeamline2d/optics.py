@@ -2301,8 +2301,13 @@ class PPM:
         """
 
         # normalize lineouts
-        line_x = line_x / np.max(line_x)
-        line_y = line_y / np.max(line_y)
+        if np.max(line_x) > 0:
+            line_x -= np.min(line_x)
+            line_x = line_x / np.max(line_x)
+            
+        if np.max(line_y) > 0:
+            line_y -= np.min(line_y)
+            line_y = line_y / np.max(line_y)
 
         # set 20% threshold
         thresh_x = np.max(line_x) * .2
@@ -2311,21 +2316,36 @@ class PPM:
         norm_x = line_x - thresh_x
         norm_x[norm_x < 0] = 0
         # re-normalize
-        norm_x = norm_x / np.max(norm_x)
+
+        if np.max(norm_x) > 0:
+            norm_x = norm_x / np.max(norm_x)
 
         # subtract threshold and set everything below to zero
         norm_y = line_y - thresh_y
         norm_y[norm_y < 0] = 0
         # re-normalize
-        norm_y = norm_y / np.max(norm_y)
+        if np.max(norm_y) > 0:
+            norm_y = norm_y / np.max(norm_y)
 
         # calculate centroids
-        cx = np.sum(norm_x * self.x) / np.sum(norm_x)
-        cy = np.sum(norm_y * self.y) / np.sum(norm_y)
 
-        # calculate second moments. Converted to microns to help with fitting
-        sx = np.sqrt(np.sum(norm_x * (self.x - cx) ** 2) / np.sum(norm_x)) * 1e6
-        sy = np.sqrt(np.sum(norm_y * (self.y - cy) ** 2) / np.sum(norm_y)) * 1e6
+        if np.sum(norm_x) > 0:
+            cx = np.sum(norm_x * self.x) / np.sum(norm_x)
+            # calculate second moments. Converted to microns to help with fitting
+            sx = np.sqrt(np.sum(norm_x * (self.x - cx) ** 2) / np.sum(norm_x)) * 1e6
+
+        else:
+            cx = 0
+            sx = 0
+        if np.sum(norm_y) > 0:
+            cy = np.sum(norm_y * self.y) / np.sum(norm_y)
+            # calculate second moments. Converted to microns to help with fitting
+            sy = np.sqrt(np.sum(norm_y * (self.y - cy) ** 2) / np.sum(norm_y)) * 1e6
+
+        else:
+            cy = 0
+            sy = 0
+
         # conversion factor from sigma to fwhm
         fwx_guess = sx * 2.355
         fwy_guess = sy * 2.355
@@ -2789,7 +2809,7 @@ class PPM_Device(PPM):
         super().__init__(name, **kwargs)
 
         self.imager_prefix = name
-        self.threshold = 0.1
+        self.threshold = 0.0001
 
         # set allowed kwargs
         allowed_arguments = ['average','threshold']
@@ -2800,7 +2820,7 @@ class PPM_Device(PPM):
                 setattr(self, key, value)
 
         self.cam_name = self.imager_prefix + 'CAM:'
-        self.epics_name = self.cam_name + 'IMAGE2:'
+        self.epics_name = self.cam_name + 'IMAGE3:'
 
         FOV_dict = {
             'IM2K4': 8.5,
@@ -2869,7 +2889,7 @@ class PPM_Device(PPM):
 
         # load in pixel size
         try:
-            with open('imagers.db') as json_file:
+            with open('/reg/neh/home/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
                 data = json.load(json_file)
             self.dx = float(data[self.epics_name[0:5]]['pixel'])
         except json.decoder.JSONDecodeError:
@@ -2935,7 +2955,7 @@ class PPM_Device(PPM):
         self.wy = 0
 
         # load in dummy image
-        self.dummy_image = np.load('im2l0_sim.npy')
+        self.dummy_image = np.load('/reg/neh/home/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
 
     def retrieve_wavefront(self, wfs):
         """
@@ -3055,7 +3075,8 @@ class PPM_Device(PPM):
     def stop(self):
         self.running = False
         try:
-            self.gige.cam.acquire.put(0, wait=True)
+            pass
+            #self.gige.cam.acquire.put(0, wait=True)
         except AttributeError:
             pass
 
@@ -3095,8 +3116,8 @@ class PPM_Device(PPM):
             # time_stamp = image_data.time_stamp
             # img = np.array(image_data.shaped_image,dtype='float')
             # img = np.array(self.gige.image2.image,dtype='float')
-            img = Util.threshold_array(img, self.threshold)
-            self.profile = img
+            #img = Util.threshold_array(img, self.threshold)
+            self.profile = np.fliplr(img)
             self.x_lineout = np.sum(self.profile, axis=0)
             self.y_lineout = np.sum(self.profile, axis=1)
 
