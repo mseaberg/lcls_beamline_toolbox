@@ -2014,6 +2014,7 @@ class Crystal(Mirror):
         total_alpha = self.alpha + self.delta
 
         # initialize some arrays
+        shapeError2 = np.zeros_like(beam.x)
         k_ix = 0
         k_iy = 0
         k_iz = 0
@@ -2134,6 +2135,35 @@ class Crystal(Mirror):
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
             beamz = beam.zy
+
+        # mirror shape error interpolation onto beam coordinates (if applicable)
+        if self.shapeError is not None:
+            # get shape of shape error input
+            mirror_shape = np.shape(self.shapeError)
+
+            # assume this is the central line shaper error along the long axis if only 1D
+            if np.size(mirror_shape) == 1:
+                # assume this is the central line and it's the same across the mirror width
+                Ms = mirror_shape[0]
+                # mirror coordinates (beam coordinates)
+                max_zs = self.length / 2
+                # mirror coordinates
+                zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
+                # 1D interpolation onto beam coordinates
+                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs, self.shapeError)
+            # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
+            else:
+                # shape error array shape
+                Ns = mirror_shape[0]
+                Ms = mirror_shape[1]
+                # mirror coordinates
+                max_xs = self.length / 2
+                # mirror coordinates
+                zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+
+                # just take central line for 1d shape error
+                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs,
+                                        self.shapeError[int(Ns / 2), :])
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
@@ -2289,6 +2319,13 @@ class Crystal(Mirror):
             C = C1
         else:
             C = C2
+
+        # height error now in meters
+        total_error = shapeError2 * 1e-9
+
+        # add shape error contribution to phase error
+        high_order += (-4 * np.pi / beam.lambda0 / np.sin(total_alpha) *
+                       np.sin((total_alpha + self.beta0 - self.delta) / 2) ** 2 * total_error)
 
         # handle beam re-pointing depending on the orientation
         if self.orientation == 0:
