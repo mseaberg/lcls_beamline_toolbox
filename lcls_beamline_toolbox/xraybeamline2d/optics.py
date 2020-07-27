@@ -2310,8 +2310,8 @@ class PPM:
             line_y = line_y / np.max(line_y)
 
         # set 20% threshold
-        thresh_x = np.max(line_x) * .2
-        thresh_y = np.max(line_y) * .2
+        thresh_x = np.max(line_x) * self.threshold
+        thresh_y = np.max(line_y) * self.threshold
         # subtract threshold and set everything below to zero
         norm_x = line_x - thresh_x
         norm_x[norm_x < 0] = 0
