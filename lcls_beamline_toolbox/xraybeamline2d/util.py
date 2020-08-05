@@ -319,6 +319,9 @@ class Util:
         # make sure the image is not complex
         array_out = np.abs(array_in)
 
+        # subtract minimum/background
+        array_out -= np.min(array_out)
+
         # get thresholding level
         thresh = np.max(array_out) * frac
         # subtract threshold level

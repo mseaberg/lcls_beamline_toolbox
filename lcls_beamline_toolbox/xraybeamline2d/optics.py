@@ -2821,6 +2821,14 @@ class PPM_Device(PPM):
 
         self.cam_name = self.imager_prefix + 'CAM:'
         self.epics_name = self.cam_name + 'IMAGE3:'
+        # get acquisition info (this is in seconds)
+        self.acquisition_period = PV(self.epics_name[:-7] + 'AcquirePeriod_RBV').get()
+
+        # check if Image3 is available
+        port = PV(self.epics_name + 'PortName_RBV').get()
+        if port is None:
+            self.epics_name = self.imager_prefix + 'DATA1:'
+            self.acquisition_period = PV(self.imager_prefix + 'AcquirePeriod_RBV').get()
 
         FOV_dict = {
             'IM2K4': 8.5,
@@ -2894,6 +2902,10 @@ class PPM_Device(PPM):
             self.dx = float(data[self.epics_name[0:5]]['pixel'])
         except json.decoder.JSONDecodeError:
             self.dx = 5.5/1.2
+        except KeyError:
+            print('pixel size not calibrated. units are pixels.')
+            self.dx = 1
+
             
         print(self.dx)
         # pixel size in meters
@@ -2904,9 +2916,6 @@ class PPM_Device(PPM):
         #     self.epics_name = sys.argv[1] + 'IMAGE2:'
 
         self.image_pv = PV(self.epics_name + 'ArrayData')
-
-        # get acquisition info (this is in seconds)
-        self.acquisition_period = PV(self.epics_name[:-7] + 'AcquirePeriod_RBV').get()
 
         # get ROI info
         xmin = PV(self.epics_name + 'ROI:MinX_RBV').get()
@@ -2922,6 +2931,13 @@ class PPM_Device(PPM):
         self.ysize = PV(self.epics_name + 'ROI:ArraySizeY_RBV').get()
 
         print(self.xsize)
+        if self.xsize == 0:
+            self.xsize = PV(self.epics_name + 'ArraySize0_RBV').get()
+            self.ysize = PV(self.epics_name + 'ArraySize1_RBV').get()
+            xmin = 0
+            ymin = 0
+            xmax = self.xsize - 1
+            ymax = self.ysize - 1
 
         #self.x = np.linspace(0, self.xsize - 1, self.xsize, dtype=float)
         #self.x -= self.xsize/2
@@ -3118,8 +3134,11 @@ class PPM_Device(PPM):
             # img = np.array(self.gige.image2.image,dtype='float')
             #img = Util.threshold_array(img, self.threshold)
             self.profile = np.fliplr(img)
-            self.x_lineout = np.sum(self.profile, axis=0)
-            self.y_lineout = np.sum(self.profile, axis=1)
+
+            temp_profile = Util.threshold_array(self.profile, self.threshold)
+
+            self.x_lineout = np.sum(temp_profile, axis=0)
+            self.y_lineout = np.sum(temp_profile, axis=1)
 
             # get beam statistics
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
