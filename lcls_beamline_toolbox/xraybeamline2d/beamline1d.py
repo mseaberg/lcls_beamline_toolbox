@@ -28,7 +28,7 @@ class Beamline:
         A list of all the devices contained along a given beamline (including Drifts).
     """
 
-    def __init__(self, device_list):
+    def __init__(self, device_list, ordered=False):
         """
         Initialize a Beamline object.
         :param device_list: list of optics objects (see optics module)
@@ -37,6 +37,9 @@ class Beamline:
 
         # set device_list as an attribute
         self.device_list = device_list
+
+        # set attribute for whether devices are in correct order
+        self.ordered = ordered
 
         # initialize full array without drifts
         self.full_list = self.device_list.copy()
@@ -54,8 +57,9 @@ class Beamline:
         :return: None
         """
 
-        # sort device list based on z
-        self.device_list.sort(key=lambda device: device.z)
+        if not self.ordered:
+            # sort device list based on z
+            self.device_list.sort(key=lambda device: device.z)
 
         # initialize drift list
         drift_list = []
@@ -126,11 +130,16 @@ class Beamline:
             # increment drift number
             i += 1
 
-        # add drifts to full_list
-        self.full_list.extend(drift_list)
+        if not self.ordered:
+            # add drifts to full_list
+            self.full_list.extend(drift_list)
 
-        # sort list based on z
-        self.full_list.sort(key=lambda device: device.z)
+            # sort list based on z
+            self.full_list.sort(key=lambda device: device.z)
+        else:
+            # keep everything in the same order, interleave drifts in between devices
+            for num, drift in enumerate(drift_list):
+                self.full_list.insert(2*num+1, drift)
 
     def update_devices(self):
         """
