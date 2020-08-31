@@ -808,7 +808,16 @@ class TalbotImage:
             'photonEnergy': 1239.8/(lambda0*1e9)
         }
 
-        # recovered_beam = Beam(initial_beam=recovered, beam_params=beam_parameters)
+        print(beam_parameters['z0x'])
+        print(beam_parameters['z0y'])
+
+        N,M = np.shape(recovered)        
+
+        recovered2 = np.zeros((512,512),dtype=complex)
+        recovered2[256-N/2:256+N/2,256-M/2:256+M/2] = recovered
+
+        recovered_beam = Beam(initial_beam=recovered2, beam_params=beam_parameters)
+
 
         # correct defocus
         # defocus_phase = np.exp(1j * (xp ** 2 * (px - p0) + yp ** 2 * (py - p0)))
@@ -846,4 +855,4 @@ class TalbotImage:
             # 'yf': yf
         }
 
-        return recovered, param
+        return recovered_beam, param
