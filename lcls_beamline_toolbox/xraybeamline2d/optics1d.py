@@ -3558,6 +3558,12 @@ class CRL:
             # calculate radius of curvature based on f and delta
             self.roc = 2 * delta * self.f
 
+        elif self.E0 is not None:
+            # interpolate to find index of refraction at beam's energy
+            delta = np.interp(self.E0, self.energy, self.delta)
+            self.f = self.roc/2/delta
+
+
     def multiply(self, beam):
         """
         Method to propagate beam through CRL

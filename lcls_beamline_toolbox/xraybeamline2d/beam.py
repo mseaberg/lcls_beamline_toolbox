@@ -654,7 +654,7 @@ class Pulse:
     Class to represent a collection of beams within a pulse structure.
     """
 
-    def __init__(self, beam_params=None, tau=None, time_window=None):
+    def __init__(self, beam_params=None, tau=None, time_window=None, unit_spectrum=False, spectral_width=0, N=0):
         """
         Create a Pulse object
         :param beam_params: same parameters as given for Beam
@@ -673,23 +673,39 @@ class Pulse:
         # 1/e^2 in intensity bandwidth (radius) for transform-limited pulse
         # hbar in eV*fs
         hbar = 0.6582
-        self.bandwidth = 2 * np.sqrt(2) * hbar * np.sqrt(np.log(2)) / self.tau
 
-        # define energy range 6 times the bandwidth
-        E_range = 6 * self.bandwidth
+        if unit_spectrum:
+            E_range = spectral_width
+            # total frequency range in petaHz (energy divided by Planck's constant (in eV * fs))
+            f_range = E_range / 4.136
 
-        # total frequency range in petaHz (energy divided by Planck's constant (in eV * fs))
-        f_range = E_range / 4.136
+            # time resolution corresponding to full energy range (in fs)
+            self.deltaT = 1 / f_range
 
-        # time resolution corresponding to full energy range (in fs)
-        self.deltaT = 1 / f_range
+            self.N = N
+            # define pulse energies and envelope
+            self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
+            self.envelope = np.ones(self.N)
 
-        # calculate number of samples needed
-        self.N = int(self.time_window / self.deltaT)
+        else:
 
-        # define pulse energies and envelope
-        self.energy = np.linspace(-3*self.bandwidth, 3*self.bandwidth, self.N) + self.E0
-        self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
+            self.bandwidth = 2 * np.sqrt(2) * hbar * np.sqrt(np.log(2)) / self.tau
+
+            # define energy range 6 times the bandwidth
+            E_range = 6 * self.bandwidth
+
+            # total frequency range in petaHz (energy divided by Planck's constant (in eV * fs))
+            f_range = E_range / 4.136
+
+            # time resolution corresponding to full energy range (in fs)
+            self.deltaT = 1 / f_range
+
+            # calculate number of samples needed
+            self.N = int(self.time_window / self.deltaT)
+
+            # define pulse energies and envelope
+            self.energy = np.linspace(-3*self.bandwidth, 3*self.bandwidth, self.N) + self.E0
+            self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
 
         # calculate wavelengths
         self.wavelength = 1239.8/self.energy*1e-9
