@@ -2829,6 +2829,15 @@ class PPM_Device(PPM):
         if port is None:
             self.epics_name = self.imager_prefix + 'DATA1:'
             self.acquisition_period = PV(self.imager_prefix + 'AcquirePeriod_RBV').get()
+        
+        port = PV(self.epics_name + 'PortName_RBV').get()
+
+        if port is None:
+            self.epics_name = self.imager_prefix + 'CAM:IMAGE2:'
+            self.acquisition_period = PV(self.imager_prefix + 'CAM:AcquirePeriod_RBV').get()
+
+        print(self.epics_name)
+
 
         FOV_dict = {
             'IM2K4': 8.5,
@@ -2970,6 +2979,8 @@ class PPM_Device(PPM):
         self.wx = 0
         self.wy = 0
 
+        self.fit_object = None
+
         # load in dummy image
         self.dummy_image = np.load('/reg/neh/home/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
 
@@ -3021,13 +3032,23 @@ class PPM_Device(PPM):
         x_center = Util.coordinate_to_pixel(self.cx, self.dx, self.M)
         y_center = Util.coordinate_to_pixel(self.cy, self.dx, self.N)
 
-        im1 = self.get_dummy_image()
+        #im1 = self.get_dummy_image()
+        #im1, ts = self.get_image()
+        im1 = self.profile
+
+        x_center = Util.coordinate_to_pixel(0, self.dx, self.M)
+        y_center = Util.coordinate_to_pixel(0, self.dx, self.N)
+
+        #lineout_x = Util.get_horizontal_lineout(im1, x_center=x_center, y_center=y_center, half_length=self.M/2, half_width=50)
+        #lineout_y = Util.get_vertical_lineout(im1, x_center=x_center,y_center=y_center,half_length=self.N/2,half_width=50)
+        lineout_x = Util.get_horizontal_lineout(im1)
+        lineout_y = Util.get_vertical_lineout(im1)
 
         # get lineouts from 2d profile
-        lineout_x = Util.get_horizontal_lineout(im1, x_center=x_center, y_center=y_center,
-                                                half_length=x_lim, half_width=lineout_width / 2)
-        lineout_y = Util.get_vertical_lineout(im1, x_center=x_center, y_center=y_center,
-                                              half_length=y_lim, half_width=lineout_width / 2)
+        #lineout_x = Util.get_horizontal_lineout(im1, x_center=x_center, y_center=y_center,
+        #                                        half_length=x_lim, half_width=lineout_width / 2)
+        #lineout_y = Util.get_vertical_lineout(im1, x_center=x_center, y_center=y_center,
+        #                                      half_length=y_lim, half_width=lineout_width / 2)
 
         # expected spatial frequency of Talbot pattern (1/m)
         peak = 1. / mag / wfs.pitch * fraction
@@ -3053,9 +3074,9 @@ class PPM_Device(PPM):
         # calculate Legendre coefficients
         # print('getting Legendre coefficients')
         # wfs_param['dg'] = wfs.x_pitch_sim
-        z_x, coeff_x, x_prime, x_res, fit_object = self.xline.get_legendre(wfs_param)
+        z_x, coeff_x, x_prime, x_res, self.fit_object = self.xline.get_legendre(wfs_param,fit_object=self.fit_object)
         # wfs_param['dg'] = wfs.y_pitch_sim
-        z_y, coeff_y, y_prime, y_res, fit_object = self.yline.get_legendre(wfs_param)
+        z_y, coeff_y, y_prime, y_res, self.fit_object = self.yline.get_legendre(wfs_param,fit_object=self.fit_object)
         # print('found Legendre coefficients')
 
         # pixel size for retrieved wavefront
