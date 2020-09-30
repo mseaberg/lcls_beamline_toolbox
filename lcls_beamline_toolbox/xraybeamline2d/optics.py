@@ -2227,6 +2227,7 @@ class PPM:
             whether to calculate/interpolate the phase profile at the PPM. Used with Pulse class.
         """
 
+        # set defaults
         self.FOV = 10e-3
         self.z = None
         self.N = 2048
@@ -2235,10 +2236,11 @@ class PPM:
         self.view_angle_y = 90
         self.resolution = 5e-6
         self.calc_phase = False
+        self.threshold = 0.0
 
         # set allowed kwargs
         allowed_arguments = ['N', 'dx', 'FOV', 'z', 'blur', 'view_angle_x',
-                             'view_angle_y', 'resolution', 'calc_phase']
+                             'view_angle_y', 'resolution', 'calc_phase', 'threshold']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:

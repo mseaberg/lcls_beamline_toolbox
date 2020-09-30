@@ -2165,6 +2165,11 @@ class Crystal(Mirror):
                 shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs,
                                         self.shapeError[int(Ns / 2), :])
 
+        # get slope error
+        shapePoly = np.polyfit(zi_1d, shapeError2, 4)
+        slopePoly = np.polyder(shapePoly)
+        slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
+
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
         print(delta_k)
@@ -2179,7 +2184,7 @@ class Crystal(Mirror):
         z_g = np.linspace(-self.length / 2, self.length / 2, 1024)
 
         # account for all contributions to alpha
-        alpha_total = self.alpha + self.delta + alphaBeam
+        alpha_total = self.alpha + self.delta + alphaBeam + slope_error
 
         # calculate diffraction angle at every point on the grating
         # beta = np.arccos(np.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
@@ -3552,6 +3557,12 @@ class CRL:
             delta = np.interp(self.E0, self.energy, self.delta)
             # calculate radius of curvature based on f and delta
             self.roc = 2 * delta * self.f
+
+        elif self.E0 is not None:
+            # interpolate to find index of refraction at beam's energy
+            delta = np.interp(self.E0, self.energy, self.delta)
+            self.f = self.roc/2/delta
+
 
     def multiply(self, beam):
         """
