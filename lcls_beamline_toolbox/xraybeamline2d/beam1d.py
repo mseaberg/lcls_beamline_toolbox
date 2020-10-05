@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from .util import Util
 from skimage.restoration import unwrap_phase
 import scipy.spatial.transform as transform
+import scipy.optimize as optimization
 
 
 class Beam:
@@ -1412,7 +1413,7 @@ class Pulse:
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
 
-    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False, log=False):
+    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False, log=False, voigt=False, show_fit=True):
         """
         Method to plot the spectrum at a given location
         Parameters
@@ -1458,8 +1459,13 @@ class Pulse:
         centroid, sx = Util.gaussian_stats(self.energy, y_data)
         fwhm = sx * 2.355
 
-        # gaussian fit to plot
-        gauss_plot = Util.fit_gaussian(self.energy, centroid, sx)
+        if voigt:
+            # get voigt fit
+            popt, pcov = optimization.curve_fit(Util.fit_lorentzian, self.energy, y_data, p0=[centroid, fwhm])
+            gauss_plot = Util.fit_lorentzian(self.energy, popt[0], popt[1])
+        else:
+            # gaussian fit to plot
+            gauss_plot = Util.fit_gaussian(self.energy, centroid, sx)
 
         # change label depending on bandwidth
         if fwhm >= 1:
@@ -1471,21 +1477,27 @@ class Pulse:
 
         # plotting
         plt.figure()
+        ax = plt.subplot2grid((1, 1), (0, 0))
         if log:
-            plt.semilogy(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
-            plt.semilogy(self.energy - self.E0, gauss_plot, label=width_label)
+            ax.semilogy(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
+            if show_fit:
+                ax.semilogy(self.energy - self.E0, gauss_plot, label=width_label)
         else:
-            plt.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
-            plt.plot(self.energy - self.E0, gauss_plot, label=width_label)
-        plt.ylim(-.05,1.3)
-        plt.xlabel('Energy (eV)')
-        plt.ylabel('Intensity (normalized)')
+            ax.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
+            if show_fit:
+                ax.plot(self.energy - self.E0, gauss_plot, label=width_label)
+        ax.set_ylim(-.05,1.3)
+        ax.set_xlabel('Energy (eV)')
+        ax.set_ylabel('Intensity (normalized)')
         if integrated:
-            plt.title(u'%s Integrated Spectrum' % (image_name))
+            ax.set_title(u'%s Integrated Spectrum' % (image_name))
         else:
-            plt.title(u'%s Spectrum at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
-        plt.legend()
+            ax.set_title(u'%s Spectrum at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
+        if show_fit:
+            plt.legend()
         plt.grid()
+
+        return ax
 
     def pulse_bandwidth(self, image_name, x_pos=0, y_pos=0):
         """

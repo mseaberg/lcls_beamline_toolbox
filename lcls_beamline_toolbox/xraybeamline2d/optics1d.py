@@ -2166,7 +2166,7 @@ class Crystal(Mirror):
                                         self.shapeError[int(Ns / 2), :])
 
         # get slope error
-        shapePoly = np.polyfit(zi_1d, shapeError2, 4)
+        shapePoly = np.polyfit(zi_1d, shapeError2, 16)
         slopePoly = np.polyder(shapePoly)
         slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
 
@@ -2239,13 +2239,15 @@ class Crystal(Mirror):
         mask = np.abs(z_c) <= self.length/2
 
         if np.sum(mask) > 0:
-            p = np.polyfit(z_c[mask], slope_error[mask], 3)
+            p = np.polyfit(z_c[mask], slope_error[mask], 16)
         else:
-            p = np.zeros(4)
+            p = np.zeros(16)
         # p = np.polyfit(z_c[mask], slope_error[mask], 3)
 
         # integrate slope error
         p_int = np.polyint(p)
+        R = 1 / (2 * p_int[-3])
+        print('radius of curvature: %.2e' % R)
 
         # offset from center (along mirror z-axis)
         offset = cz - self.dx / np.tan(total_alpha)
@@ -2328,9 +2330,11 @@ class Crystal(Mirror):
         # height error now in meters
         total_error = shapeError2 * 1e-9
 
+        #!!!!!! Seeme like high order phase is being double counted somehow, in addition to the fact that second order
+        #!!!!!! phase due to shape error is also being double counted.
         # add shape error contribution to phase error
-        high_order += (-4 * np.pi / beam.lambda0 / np.sin(total_alpha) *
-                       np.sin((total_alpha + self.beta0 - self.delta) / 2) ** 2 * total_error)
+        # high_order += (-4 * np.pi / beam.lambda0 / np.sin(total_alpha) *
+        #                np.sin((total_alpha + self.beta0 - self.delta) / 2) ** 2 * total_error)
 
         # handle beam re-pointing depending on the orientation
         if self.orientation == 0:

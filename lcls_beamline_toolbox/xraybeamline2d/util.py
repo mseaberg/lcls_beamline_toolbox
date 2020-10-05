@@ -104,6 +104,60 @@ class Util:
             return np.exp(-((x - x0) ** 2 / (2 * w ** 2)))
 
     @staticmethod
+    def fit_voigt(x, x0, wg, wl, eta):
+        """
+        Method for fitting to a pseudo-Voigt function. This method is a parameter to Scipy's optimize.curve_fit routine.
+        :param x: array_like
+            Copied from Scipy docs: "The independent variable where the data is measured. Should usually be an
+            M-length sequence or an (k,M)-shaped array for functions with k predictors, but can actually be any
+            object." Units are meters.
+        :param x0: float
+            Initial guess for beam center (m).
+        :param w: float
+            Initial guess for gaussian sigma (m).
+        :param eta: float
+            Initial guess for eta parameter
+        :return: array_like with same shape as x
+            Function evaluated at all points in x.
+        """
+        if wg == 0 or wl == 0:
+            return np.zeros_like(x)
+        else:
+            g = np.exp(-((x - x0) ** 2 / (2 * wg ** 2)))
+            l = (wl/2)**2 / ((x - x0)**2 + (wl/2)**2)
+
+            return (eta * g + (1-eta)*l)
+
+    @staticmethod
+    def fit_lorentzian(x, x0, w):
+        return (w/2)**2/((x-x0)**2+(w/2)**2)
+
+    @staticmethod
+    def fit_log_voigt(x, x0, wg, wl, eta):
+        """
+        Method for fitting to a pseudo-Voigt function. This method is a parameter to Scipy's optimize.curve_fit routine.
+        :param x: array_like
+            Copied from Scipy docs: "The independent variable where the data is measured. Should usually be an
+            M-length sequence or an (k,M)-shaped array for functions with k predictors, but can actually be any
+            object." Units are meters.
+        :param x0: float
+            Initial guess for beam center (m).
+        :param w: float
+            Initial guess for gaussian sigma (m).
+        :param eta: float
+            Initial guess for eta parameter
+        :return: array_like with same shape as x
+            Function evaluated at all points in x.
+        """
+        if wg == 0 or wl == 0:
+            return np.zeros_like(x)
+        else:
+            g = np.exp(-((x - x0) ** 2 / (2 * wg ** 2)))
+            l = (wl / 2)**2 / ((x - x0) ** 2 + (wl / 2) ** 2)
+
+            return np.log((eta * g + (1 - eta) * l))
+
+    @staticmethod
     def decentering(coeff, order, offset):
         """
         Method to add up phase contributions due to de-centering. Polynomial orders greater than param order
