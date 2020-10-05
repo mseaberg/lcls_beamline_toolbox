@@ -2184,7 +2184,7 @@ class Crystal(Mirror):
         z_g = np.linspace(-self.length / 2, self.length / 2, 1024)
 
         # account for all contributions to alpha
-        alpha_total = self.alpha + self.delta + alphaBeam + slope_error
+        alpha_total = self.alpha + self.delta + alphaBeam
 
         # calculate diffraction angle at every point on the grating
         # beta = np.arccos(np.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
@@ -2199,13 +2199,14 @@ class Crystal(Mirror):
         k_iz = np.outer(np.sqrt(np.ones_like(zi_1d) - np.sum(k_ix * k_ix, axis=1) - np.sum(k_iy * k_iy, axis=1)) * np.sign(np.cos(alpha_total)), m_z)
         k_i = k_ix + k_iy + k_iz
 
-        c_x = np.cos(self.alphaAsym) * m_x
-        c_z = np.sin(self.alphaAsym) * m_z
+        # define crystal plane at every coordinate including slope error
+        c_x = np.outer(np.cos(self.alphaAsym - slope_error), m_x)
+        c_z = np.outer(np.sin(self.alphaAsym - slope_error), m_z)
         c_normal = c_x + c_z
 
-        c_parallel = np.dot(c_normal, m_z) * m_z * beam.lambda0 / (self.crystal.d * 1e-10)
+        c_parallel = np.outer(np.sum(c_normal * m_z, axis=1), m_z) * beam.lambda0 / (self.crystal.d * 1e-10)
         k_fy = k_iy
-        k_fz = k_iz + np.outer(np.ones_like(zi_1d), c_parallel)
+        k_fz = k_iz +  c_parallel
         k_fx = np.outer(np.sqrt(np.ones_like(zi_1d) - np.sum(k_fy * k_fy, axis=1) - np.sum(k_fz * k_fz, axis=1)), m_x)
 
         k_f = k_fy + k_fz + k_fx
@@ -2317,7 +2318,7 @@ class Crystal(Mirror):
 
         beamInDotNormal = np.sum(k_i * m_x, axis=1)
         beamOutDotNormal = np.sum(k_f * m_x, axis=1)
-        beamInDotHNormal = np.sum(k_i * np.outer(np.ones_like(zi_1d), c_normal), axis=1)
+        beamInDotHNormal = np.sum(k_i * c_normal, axis=1)
 
         C1, C2 = np.array(self.crystal.get_amplitude(beam.photonEnergy,
                                                      beamInDotNormal, beamOutDotNormal, beamInDotHNormal))
