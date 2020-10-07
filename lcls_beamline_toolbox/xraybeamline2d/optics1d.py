@@ -2218,8 +2218,16 @@ class Crystal(Mirror):
         # (do this with a polynomial fit up to 3rd order for now)
         z_c = zi_1d - self.dx / np.tan(total_alpha)
 
-        object_distance = beamz * (np.sin(self.beta0) / np.sin(self.alpha)) ** 2
-        f2 = -object_distance
+        ##!! need to calculate effective focal distance while taking into account crystal curvature, similar to
+        ##!! what was needed for the grating
+
+        R = 1 / (2 * shapePoly[-3]*1e-9)
+        print(R)
+
+        # use equation for curved grating imaging condition. Works great!
+        f2 = np.sin(self.beta0) ** 2 / (
+                    (np.sin(self.alpha) + np.sin(self.beta0)) / R - np.sin(self.alpha) ** 2 / beamz)
+        # f2 = -object_distance
         self.f = f2
         print('Calculated distance to focus: %.6f' % f2)
 
