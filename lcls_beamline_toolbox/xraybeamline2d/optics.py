@@ -2828,15 +2828,28 @@ class PPM_Device(PPM):
 
         # check if Image3 is available
         port = PV(self.epics_name + 'PortName_RBV').get()
+        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
+
+        if port is None or array_rate==0:
+            self.epics_name = self.imager_prefix + 'CAM:IMAGE1:'
+            self.acquisition_period = PV(self.imager_prefix + 'CAM:AcquirePeriod_RBV').get()
+
+        port = PV(self.epics_name + 'PortName_RBV').get()
+
+        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
+
+
+        if port is None or array_rate==0:
+            self.epics_name = self.imager_prefix + 'CAM:IMAGE2:'
+            self.acquisition_period = PV(self.imager_prefix + 'CAM:AcquirePeriod_RBV').get()
+
+        port = PV(self.epics_name + 'PortName_RBV').get()
+
         if port is None:
             self.epics_name = self.imager_prefix + 'DATA1:'
             self.acquisition_period = PV(self.imager_prefix + 'AcquirePeriod_RBV').get()
         
-        port = PV(self.epics_name + 'PortName_RBV').get()
 
-        if port is None:
-            self.epics_name = self.imager_prefix + 'CAM:IMAGE2:'
-            self.acquisition_period = PV(self.imager_prefix + 'CAM:AcquirePeriod_RBV').get()
 
         print(self.epics_name)
 
