@@ -31,6 +31,9 @@ from .util import Util
 try:
     from epics import PV
     from pcdsdevices.areadetector.detectors import PCDSAreaDetector
+    from ophyd import EpicsSignal
+    from ophyd import EpicsSignalRO
+    from ophyd import Component as Cpt
 except ImportError:
     print("Can't find epics package. PPM_Imager class will not be supported")
 
@@ -2901,7 +2904,11 @@ class PPM_Device(PPM):
             'IM4L1': 778.96,
             'IM1K3': 740.804,
             'IM2K3': 750,
-            'IM3K3': 778.66
+            'IM3K3': 778.66,
+            'IM2K4': 755.32096,
+            'IM3K4': 758.889,
+            'IM4K4': 761.101,
+            'IM5K4': 764.485
         }
 
         try:
@@ -3351,7 +3358,7 @@ class WFS_Device(WFS):
         z_dict = {
             'PF1K0': 731.5855078,
             'PF1L0': 735.6817413,
-            'PF1K4': 763.515,
+            'PF1K4': 763.666,
             'PF2K4': 768.583,
             'PF1K2': 786.918,
         }
@@ -3364,10 +3371,16 @@ class WFS_Device(WFS):
             'PF1K2': 1.668
         }
 
+        state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()
+        self.z_pv = EpicsSignal(self.epics_name+'MMS:Z', name='omitted')
+
+        self.state = int(state_rbv[-1])
+
         try:
             self.pitch = pitch_dict[self.name][self.state] * 1e-6
             self.z = z_dict[self.name]
             self.f0 = f0_dict[self.name]
+            print(self.pitch)
         except:
             self.pitch = 30.0
             self.z = z_dict['PF1L0']
