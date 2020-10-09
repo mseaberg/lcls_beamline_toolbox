@@ -3000,6 +3000,7 @@ class PPM_Device(PPM):
         self.cy = 0
         self.wx = 0
         self.wy = 0
+        self.intensity = 0
 
         self.fit_object = None
 
@@ -3179,6 +3180,8 @@ class PPM_Device(PPM):
             self.profile = np.fliplr(img)
 
             temp_profile = Util.threshold_array(self.profile, self.threshold)
+
+            self.intensity = np.mean(temp_profile)
 
             self.x_lineout = np.sum(temp_profile, axis=0)
             self.y_lineout = np.sum(temp_profile, axis=1)
