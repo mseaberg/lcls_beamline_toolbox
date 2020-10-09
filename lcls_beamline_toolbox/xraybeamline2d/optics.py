@@ -3335,7 +3335,7 @@ class WFS_Device(WFS):
     def __init__(self, name, **kwargs):
         super().__init__(name, **kwargs)
 
-        self.state = 1
+        self.state = 0
 
         # set allowed kwargs
         allowed_arguments = ['state']
@@ -3374,7 +3374,11 @@ class WFS_Device(WFS):
         state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()
         self.z_pv = EpicsSignal(self.epics_name+'MMS:Z', name='omitted')
 
-        self.state = int(state_rbv[-1])
+        # state 0 is OUT, need to subtract 1 to align with target positions
+        self.state = state_rbv - 1
+        # for testing purposes we will set OUT to state 0
+        if self.state < 0:
+            self.state = 0
 
         try:
             self.pitch = pitch_dict[self.name][self.state] * 1e-6
