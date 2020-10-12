@@ -770,6 +770,9 @@ class TalbotImage:
         # calculate gradients
         h_grad, v_grad, grad_param = self.calc_gradients(param)
 
+        # 2D fourier transform
+        F0 = grad_param['fourier']
+
         # new pixel size
         dx2 = grad_param['dx']
 
@@ -867,7 +870,8 @@ class TalbotImage:
             'p0': p0,
             'px': px,
             'py': py,
-            'coeff': legendre_coeff
+            'coeff': legendre_coeff,
+            'F0': F0
             # 'xf': xf,
             # 'yf': yf
         }

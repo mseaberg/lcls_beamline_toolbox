@@ -27,6 +27,7 @@ import scipy.spatial.transform as transform
 from skimage.restoration import unwrap_phase
 import os
 import pickle
+from ..polyprojection.legendre import LegendreFit2D
 from .util import Util
 try:
     from epics import PV
@@ -2823,7 +2824,7 @@ class PPM_Device(PPM):
         self.threshold = 0.0001
 
         # set allowed kwargs
-        allowed_arguments = ['average','threshold']
+        allowed_arguments = ['average','threshold','fit_object']
 
         # update attributes based on kwargs
         for key, value in kwargs.items():
@@ -3017,6 +3018,16 @@ class PPM_Device(PPM):
         self.wy = 0
         self.intensity = 0
 
+        f_x = np.linspace(-self.M / 2., self.M / 2. - 1., self.M) / self.M / self.dxm
+        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
+
+        self.f_x, self.f_y = np.meshgrid(f_x, f_y)
+
+        self.downsample = 3
+
+        self.Nd = int(self.N / (2 ** self.downsample))
+        self.Md = int(self.M / (2 ** self.downsample))
+
         self.fit_object = None
 
         # load in dummy image
@@ -3024,6 +3035,142 @@ class PPM_Device(PPM):
 
     def set_orientation(self, orientation):
         self.orientation = orientation
+
+    def add_fit_object(self, fit_object):
+        self.fit_object = fit_object
+
+    # def retrieve_wavefront(self, wfs):
+    #     """
+    #     Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
+    #     :param wfs: WFS object
+    #         Grating structure that generates Talbot interferometry patterns. Passed to this method to gain access
+    #         to its attributes.
+    #     :return wfs_data: dict
+    #         Includes the following entries
+    #         x_prime: (M,) ndarray
+    #             Horizontal coordinates for retrieved high-order phase
+    #         y_prime: (N,) ndarray
+    #             Vertical coordinates for retrieved high-order phase
+    #         x_res: (M,) ndarray
+    #             Horizontal residual phase (>2nd order) at points in x_prime
+    #         y_res: (N,) ndarray
+    #             Vertical residual phase (>2nd order) at points in y_prime
+    #         coeff_x: (k,) ndarray
+    #             Legendre coefficients for horizontal phase lineout
+    #         coeff_y: (k,) ndarray
+    #             Legendre coefficients for vertical phase lineout
+    #         z2x: float
+    #             Distance to horizontal focus
+    #         z2y: float
+    #             Distance to vertical focus
+    #     """
+    #
+    #     # print('retrieving wavefront')
+    #
+    #     # get Talbot fraction that we're using (fractional Talbot effect)
+    #     fraction = wfs.fraction
+    #
+    #     # Distance from wavefront sensor to PPM
+    #     zT = self.z - wfs.z
+    #
+    #     # magnification of Talbot pattern
+    #     mag = (zT + wfs.f0) / wfs.f0
+    #
+    #     # number of pixels to sum across to get lineout
+    #     lineout_width = int(wfs.pitch / self.dxm * 5 * mag)
+    #
+    #     # lineout boundaries in pixels (distance from center)
+    #     x_lim = int(self.wx/self.dx)
+    #     y_lim = int(self.wy/self.dx)
+    #
+    #     # calculated beam center in pixels
+    #     x_center = Util.coordinate_to_pixel(self.cx, self.dx, self.M)
+    #     y_center = Util.coordinate_to_pixel(self.cy, self.dx, self.N)
+    #
+    #     #im1 = self.get_dummy_image()
+    #     #im1, ts = self.get_image()
+    #     im1 = self.profile
+    #
+    #     x_center = Util.coordinate_to_pixel(0, self.dx, self.M)
+    #     y_center = Util.coordinate_to_pixel(0, self.dx, self.N)
+    #
+    #     #lineout_x = Util.get_horizontal_lineout(im1, x_center=x_center, y_center=y_center, half_length=x_lim, half_width=50)
+    #     #lineout_y = Util.get_vertical_lineout(im1, x_center=x_center,y_center=y_center,half_length=y_lim,half_width=50)
+    #     lineout_x = Util.get_horizontal_lineout(im1)
+    #     lineout_y = Util.get_vertical_lineout(im1)
+    #
+    #     # get lineouts from 2d profile
+    #     #lineout_x = Util.get_horizontal_lineout(im1, x_center=x_center, y_center=y_center,
+    #     #                                        half_length=x_lim, half_width=lineout_width / 2)
+    #     #lineout_y = Util.get_vertical_lineout(im1, x_center=x_center, y_center=y_center,
+    #     #                                      half_length=y_lim, half_width=lineout_width / 2)
+    #
+    #     # expected spatial frequency of Talbot pattern (1/m)
+    #     peak = 1. / mag / wfs.pitch * fraction
+    #
+    #     # spatial frequency now in units of (1/pixels)
+    #     fc = peak * self.dxm
+    #
+    #     # calculate pitch from lineouts. See pitch module.
+    #     # print('getting lineouts')
+    #     try:
+    #         self.xline = TalbotLineout(lineout_x, fc, fraction, pad=True)
+    #         self.yline = TalbotLineout(lineout_y, fc, fraction, pad=True)
+    #     except:
+    #         print('lineout was empty')
+    #         pass
+    #
+    #     # parameters for calculating Legendre coefficients
+    #     wfs_param = {
+    #             "dg": wfs.pitch,  # wavefront sensor pitch (m)
+    #             "fraction": fraction,  # wavefront sensor fraction
+    #             "dx": self.dxm,  # PPM pixel size
+    #             "zT": zT,  # distance between WFS and PPM
+    #             "lambda0": self.lambda0,  # beam wavelength
+    #             "fc": fc  # spatial frequency of expected peak (1/pixels)
+    #             }
+    #
+    #     # calculate Legendre coefficients
+    #     # print('getting Legendre coefficients')
+    #     # wfs_param['dg'] = wfs.x_pitch_sim
+    #     #z_x, coeff_x, x_prime, x_res, self.fit_object = self.xline.get_legendre(wfs_param,fit_object=self.fit_object)
+    #     z_x, coeff_x, x_prime, x_res, self.fit_object = self.xline.get_legendre(wfs_param)
+    #
+    #     # wfs_param['dg'] = wfs.y_pitch_sim
+    #     #z_y, coeff_y, y_prime, y_res, self.fit_object = self.yline.get_legendre(wfs_param,fit_object=self.fit_object)
+    #     z_y, coeff_y, y_prime, y_res, self.fit_object = self.yline.get_legendre(wfs_param)
+    #
+    #     # print('found Legendre coefficients')
+    #
+    #     # pixel size for retrieved wavefront
+    #     dx_prime = x_prime[1] - x_prime[0]
+    #     dy_prime = y_prime[1] - y_prime[0]
+    #
+    #     # re-center residual phase coordinates on beam center
+    #     x_prime += (x_center-self.M/2) * dx_prime
+    #     y_prime += (y_center-self.N/2) * dy_prime
+    #
+    #     # convert coordinates to microns
+    #     x_prime = x_prime * 1e6
+    #     y_prime = y_prime * 1e6
+    #
+    #     # print calculated distance to focus
+    #     # print('Distance to source: '+str(z_x))
+    #     # print('Distance to source: '+str(z_y))
+    #
+    #     # output. See method docstring for descriptions.
+    #     wfs_data = {
+    #             'x_res': x_res,
+    #             'x_prime': x_prime,
+    #             'y_res': y_res,
+    #             'y_prime': y_prime,
+    #             'coeff_x': coeff_x,
+    #             'coeff_y': coeff_y,
+    #             'z2x': z_x,
+    #             'z2y': z_y
+    #             }
+    #
+    #     return wfs_data, wfs_param
 
     def retrieve_wavefront(self, wfs):
         """
@@ -3065,46 +3212,21 @@ class PPM_Device(PPM):
         # number of pixels to sum across to get lineout
         lineout_width = int(wfs.pitch / self.dxm * 5 * mag)
 
-        # lineout boundaries in pixels (distance from center)
-        x_lim = int(self.wx/self.dx)
-        y_lim = int(self.wy/self.dx)
-
-        # calculated beam center in pixels
-        x_center = Util.coordinate_to_pixel(self.cx, self.dx, self.M)
-        y_center = Util.coordinate_to_pixel(self.cy, self.dx, self.N)
-
-        #im1 = self.get_dummy_image()
-        #im1, ts = self.get_image()
         im1 = self.profile
 
-        x_center = Util.coordinate_to_pixel(0, self.dx, self.M)
-        y_center = Util.coordinate_to_pixel(0, self.dx, self.N)
-
-        #lineout_x = Util.get_horizontal_lineout(im1, x_center=x_center, y_center=y_center, half_length=x_lim, half_width=50)
-        #lineout_y = Util.get_vertical_lineout(im1, x_center=x_center,y_center=y_center,half_length=y_lim,half_width=50)
-        lineout_x = Util.get_horizontal_lineout(im1)
-        lineout_y = Util.get_vertical_lineout(im1)
-
-        # get lineouts from 2d profile
-        #lineout_x = Util.get_horizontal_lineout(im1, x_center=x_center, y_center=y_center,
-        #                                        half_length=x_lim, half_width=lineout_width / 2)
-        #lineout_y = Util.get_vertical_lineout(im1, x_center=x_center, y_center=y_center,
-        #                                      half_length=y_lim, half_width=lineout_width / 2)
-
         # expected spatial frequency of Talbot pattern (1/m)
-        peak = 1. / mag / wfs.pitch * fraction
+        peak = 1. / mag / wfs.pitch
 
-        # spatial frequency now in units of (1/pixels)
         fc = peak * self.dxm
 
-        # calculate pitch from lineouts. See pitch module.
-        # print('getting lineouts')
-        try:
-            self.xline = TalbotLineout(lineout_x, fc, fraction, pad=True)
-            self.yline = TalbotLineout(lineout_y, fc, fraction, pad=True)
-        except:
-            print('lineout was empty')
-            pass
+        x_mask = ((self.f_x - fc / self.dxm) ** 2 + self.f_y ** 2) < (fc / 4 / self.dxm) ** 2
+        x_mask = x_mask * (((self.f_x - fc / self.dxm) ** 2 + self.f_y ** 2) >
+                           (fc / 4. / self.dxm - 2. / self.M / self.dxm) ** 2)
+        x_mask = x_mask.astype(float)
+        y_mask = ((self.f_x) ** 2 + (self.f_y - fc / self.dxm) ** 2) < (fc / 4 / self.dxm) ** 2
+        y_mask = y_mask * (((self.f_x) ** 2 + (self.f_y - fc / self.dxm) ** 2) >
+                           (fc / 4. / self.dxm - 2. / self.N / self.dxm) ** 2)
+        y_mask = y_mask.astype(float)
 
         # parameters for calculating Legendre coefficients
         wfs_param = {
@@ -3113,36 +3235,40 @@ class PPM_Device(PPM):
                 "dx": self.dxm,  # PPM pixel size
                 "zT": zT,  # distance between WFS and PPM
                 "lambda0": self.lambda0,  # beam wavelength
-                "fc": fc  # spatial frequency of expected peak (1/pixels)
+                "downsample": 3, # Fourier downsampling power of 2
+                "zf": wfs.f0  # nominal distance from focus to grating
                 }
 
-        # calculate Legendre coefficients
-        # print('getting Legendre coefficients')
-        # wfs_param['dg'] = wfs.x_pitch_sim
-        #z_x, coeff_x, x_prime, x_res, self.fit_object = self.xline.get_legendre(wfs_param,fit_object=self.fit_object)
-        z_x, coeff_x, x_prime, x_res, self.fit_object = self.xline.get_legendre(wfs_param)
+        talbot_image = TalbotImage(im1, fc, fraction)
+        recovered_beam, wfs_param = talbot_image.get_legendre(self.fit_object, wfs_param, threshold=.1)
 
-        # wfs_param['dg'] = wfs.y_pitch_sim
-        #z_y, coeff_y, y_prime, y_res, self.fit_object = self.yline.get_legendre(wfs_param,fit_object=self.fit_object)
-        z_y, coeff_y, y_prime, y_res, self.fit_object = self.yline.get_legendre(wfs_param)
+        wave = self.fit_object.wavefront_fit(wfs_param['coeff'])
+        mask = np.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
+                      256 - int(self.Md / 2):256 + int(self.Md / 2)]) > 0
+        wave *= mask
 
-        # print('found Legendre coefficients')
+        mask_x = mask[int(self.Nd / 2), :]
+        mask_y = mask[:, int(self.Md / 2)]
 
-        # pixel size for retrieved wavefront
-        dx_prime = x_prime[1] - x_prime[0]
-        dy_prime = y_prime[1] - y_prime[0]
+        x_prime = recovered_beam.x[256, 256 - int(self.Md / 2):256 + int(self.Md / 2)] * 1e6
+        y_prime = recovered_beam.y[256 - int(self.Nd / 2):256 + int(self.Nd / 2), 256] * 1e6
+        x_prime = x_prime[mask_x]
+        y_prime = y_prime[mask_y]
+        x_res = wave[int(self.Nd / 2), :][mask_x]
+        y_res = wave[:, int(self.Md / 2)][mask_y]
+        # print('x_res: %d' % np.size(x_res))
 
-        # re-center residual phase coordinates on beam center
-        x_prime += (x_center-self.M/2) * dx_prime
-        y_prime += (y_center-self.N/2) * dy_prime
+        x_width = np.std(x_res)
+        y_width = np.std(y_res)
 
-        # convert coordinates to microns
-        x_prime = x_prime * 1e6
-        y_prime = y_prime * 1e6
+        zf_x = -(recovered_beam.zx - zT - wfs.f0) * 1e3
+        zf_y = -(recovered_beam.zy - zT - wfs.f0) * 1e3
 
-        # print calculated distance to focus
-        # print('Distance to source: '+str(z_x))
-        # print('Distance to source: '+str(z_y))
+        # annotated Fourier transform
+        F0 = wfs_param['F0']
+
+        F0 = F0 / np.max(F0)
+        F0 += x_mask + y_mask
 
         # output. See method docstring for descriptions.
         wfs_data = {
@@ -3150,13 +3276,87 @@ class PPM_Device(PPM):
                 'x_prime': x_prime,
                 'y_res': y_res,
                 'y_prime': y_prime,
-                'coeff_x': coeff_x,
-                'coeff_y': coeff_y,
-                'z2x': z_x,
-                'z2y': z_y
+                'z2x': zf_x,
+                'z2y': zf_y,
+                'F0': F0
                 }
 
         return wfs_data, wfs_param
+
+    def retrieve_wavefront2D(self, basis_file, wfs):
+        """
+        Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
+        :param basis_file: string
+            Path to file containing pickled Legendre basis object.
+        :param wfs: WFS object
+            Grating structure that generates Talbot interferometry patterns. Passed to this method to gain access
+            to its attributes.
+        :return wfs_data: dict
+            Includes the following entries
+            x_prime: (M,) ndarray
+                Horizontal coordinates for retrieved high-order phase
+            y_prime: (N,) ndarray
+                Vertical coordinates for retrieved high-order phase
+            x_res: (M,) ndarray
+                Horizontal residual phase (>2nd order) at points in x_prime
+            y_res: (N,) ndarray
+                Vertical residual phase (>2nd order) at points in y_prime
+            coeff_x: (k,) ndarray
+                Legendre coefficients for horizontal phase lineout
+            coeff_y: (k,) ndarray
+                Legendre coefficients for vertical phase lineout
+            z2x: float
+                Distance to horizontal focus
+            z2y: float
+                Distance to vertical focus
+        """
+
+        print('retrieving wavefront')
+
+        # go ahead and retrieve 1D wavefront first
+        wfs_data, wfs_param = self.retrieve_wavefront(wfs)
+
+        # get Talbot fraction that we're using (fractional Talbot effect)
+        fraction = wfs.fraction
+
+        # Talbot image processing
+        # load basis
+        with open(basis_file, 'rb') as f:
+            fit_object = pickle.load(f)
+
+        # initialize Talbot image processing
+        image_calc = TalbotImage(self.profile, wfs_param['fc'], fraction)
+
+        # add parameters for calculating Legendre coefficients
+        wfs_param['downsample'] = 3
+        wfs_param['zf'] = wfs.f0
+        wfs_param['dg'] = wfs.x_pitch_sim
+
+        # calculate 2D legendre coefficients
+        print('getting 2D Legendre coefficients')
+        recovered_beam, fit_params = image_calc.get_legendre(fit_object, wfs_param)
+
+        # get complete wavefront with defocus
+        x = fit_params['x']
+        y = fit_params['y']
+        px = fit_params['px']
+        py = fit_params['py']
+        coeff = fit_params['coeff']
+
+        # add defocus to wavefront fit
+        full_wave = fit_object.wavefront_fit(coeff) + px * x**2 + py * y**2
+
+        # output. See method docstring for descriptions.
+        wfs_data2D = {
+                'recovered': recovered_beam,
+                'wave': full_wave
+                }
+
+        wfs_data.update(fit_params)
+
+        wfs_data.update(wfs_data2D)
+
+        return wfs_data
 
     def stop(self):
         self.running = False
@@ -3408,7 +3608,7 @@ class WFS_Device(WFS):
         z_dict = {
             'PF1K0': 731.5855078,
             'PF1L0': 735.6817413,
-            'PF1K4': 763.666,
+            'PF1K4': 763.515,
             'PF2K4': 768.583,
             'PF1K2': 786.918,
         }
@@ -3432,7 +3632,8 @@ class WFS_Device(WFS):
             self.state = 0
 
         try:
-            self.pitch = pitch_dict[self.name][self.state] * 1e-6
+            # account for Talbot fraction here
+            self.pitch = pitch_dict[self.name][self.state] * 1e-6 / self.fraction
             self.z = z_dict[self.name]
             self.f0 = f0_dict[self.name]
             print(self.pitch)
