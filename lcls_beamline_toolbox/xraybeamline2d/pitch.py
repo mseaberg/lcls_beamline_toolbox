@@ -11,7 +11,7 @@ import numpy as np
 from ..polyprojection.legendre import LegendreFit1D
 from .beam import Beam
 from .util import Util
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from skimage.restoration import unwrap_phase
 
 
@@ -119,7 +119,18 @@ class TalbotLineout:
         # print('zf: '+str(zf))
 
         # residual phase gradient
-        grad = -self.residual * dg / fraction / lambda0 / zT
+        #grad = -self.residual * dg / fraction / lambda0 / zT
+        grad, params = self.calc_gradients(param)
+
+        xcoord = params['x1']
+
+        zero_order = np.abs(grad)
+
+        grad = np.unwrap(np.angle(grad)) * dg / fraction / lambda0 / zT
+
+        zeroMask = zero_order > (0.1 * np.max(zero_order))
+
+        grad -= np.mean(grad[zeroMask])
 
         if fit_object is None:
             # generate the Legendre polynomial basis
@@ -128,7 +139,8 @@ class TalbotLineout:
             # print('basis generated')
 
         # get Legendre coefficients. Nothing is masked out for now.
-        W = fit_object.coeff_from_grad(grad, dx2, np.ones(np.size(grad), dtype=bool)).flatten()
+        #W = fit_object.coeff_from_grad(grad, dx2, np.ones(np.size(grad), dtype=bool)).flatten()
+        W = fit_object.coeff_from_grad(grad, dx2, zeroMask).flatten()
 
         # second order coefficient based on distance to focus
         max_x = dx2*np.size(xcoord)/2
@@ -145,7 +157,9 @@ class TalbotLineout:
 
         # updated distance to focus
         # z_x = 2 * np.pi / (3. * lambda0 * C2) * np.max(xcoord) ** 2
-        z_x = 2 * np.pi / (3. * lambda0 * C2) * max_x**2
+        #z_x = 2 * np.pi / (3. * lambda0 * C2) * max_x**2
+        px = params['p0x'] + np.pi / lambda0 / zT
+        z_x = np.pi/lambda0/px
 
         # now set first and second order coefficients to zero to only get high order phase
         W[1] = 0
@@ -290,8 +304,8 @@ class TalbotLineout:
         down = (2**downsample) * 2
 
         # crop out the center of the Fourier space pattern. Size is based on amount of downsampling.
-        h_fourier = h_fourier[int(N / 2 - N / down):int(N / 2 + N / down)]
-        zero_fourier = zero_fourier[int(N / 2 - N / down):int(N / 2 + N / down)]
+        h_fourier = h_fourier[int(np.floor(N / 2 - N / down)):int(np.floor(N / 2 + N / down))]
+        zero_fourier = zero_fourier[int(np.floor(N / 2 - N / down)):int(np.floor(N / 2 + N / down))]
 
         # downsampled array size
         N2 = np.size(h_fourier)
@@ -675,6 +689,9 @@ class TalbotImage:
         h_masked = fourier_plane * h_mask
         v_masked = fourier_plane * v_mask
 
+        #plt.figure()
+        #plt.imshow(np.abs(h_masked))
+
         # thresholding of masked Fourier peaks to calculate peak location
         h_thresh = Util.threshold_array(h_masked, .2)
         v_thresh = Util.threshold_array(v_masked, .2)
@@ -814,7 +831,7 @@ class TalbotImage:
         N,M = np.shape(recovered)        
 
         recovered2 = np.zeros((512,512),dtype=complex)
-        recovered2[256-N/2:256+N/2,256-M/2:256+M/2] = recovered
+        recovered2[int(256-N/2):int(256+N/2),int(256-M/2):int(256+M/2)] = recovered
 
         recovered_beam = Beam(initial_beam=recovered2, beam_params=beam_parameters)
 

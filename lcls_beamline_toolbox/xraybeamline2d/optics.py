@@ -2278,10 +2278,13 @@ class PPM:
         self.cy_beam = 0
         self.x_lineout = np.zeros(self.M)
         self.y_lineout = np.zeros(self.N)
+        self.amp_x = 0
+        self.amp_y = 0
         self.cx = 0
         self.cy = 0
         self.wx = 0
         self.wy = 0
+        self.xbin = 1
         self.lambda0 = 0.0
 
     def beam_analysis(self, line_x, line_y):
@@ -2304,6 +2307,9 @@ class PPM:
         :return fwy_guess: float
             Calculated vertical FWHM (m) based on calculation of second moment.
         """
+
+        self.amp_x = np.max(line_x)-np.min(line_x)
+        self.amp_y = np.max(line_y)-np.min(line_y)
 
         # normalize lineouts
         if np.max(line_x) > 0:
@@ -2526,7 +2532,7 @@ class PPM:
         wfs_param = {
                 "dg": wfs.pitch,  # wavefront sensor pitch (m)
                 "fraction": fraction,  # wavefront sensor fraction
-                "dx": self.dx,  # PPM pixel size
+                "dx": self.dx*self.xbin,  # PPM pixel size
                 "zT": zT,  # distance between WFS and PPM
                 "lambda0": self.lambda0,  # beam wavelength
                 "fc": fc  # spatial frequency of expected peak (1/pixels)
@@ -2853,6 +2859,7 @@ class PPM_Device(PPM):
             self.acquisition_period = PV(self.imager_prefix + 'AcquirePeriod_RBV').get()
         
 
+        self.orientation = 'action0'
 
         print(self.epics_name)
 
@@ -2937,10 +2944,7 @@ class PPM_Device(PPM):
             print('pixel size not calibrated. units are pixels.')
             self.dx = 1
 
-            
         print(self.dx)
-        # pixel size in meters
-        self.dxm = self.dx * 1e-6
 
         # if len(sys.argv)>1:
         #     self.cam_name = sys.argv[1]
@@ -2960,6 +2964,9 @@ class PPM_Device(PPM):
         # get array size
         self.xsize = PV(self.epics_name + 'ROI:ArraySizeX_RBV').get()
         self.ysize = PV(self.epics_name + 'ROI:ArraySizeY_RBV').get()
+
+        # pixel size in meters, per pixel so need to take binning into account
+        self.dxm = self.dx * 1e-6 * self.xbin
 
         print(self.xsize)
         if self.xsize == 0:
@@ -2994,7 +3001,15 @@ class PPM_Device(PPM):
         self.profile = np.zeros_like(self.xx)
         self.x_lineout = np.zeros(self.M)
         self.y_lineout = np.zeros(self.N)
-        self.lambda0 = 1239.8/1000*1e-9
+        self.x_projection = np.zeros(self.M)
+        self.y_projection = np.zeros(self.N)
+        if 'K' in self.epics_name:
+            self.photon_energy = PV('PMPS:KFE:PE:UND:CurrentPhotonEnergy_RBV').get()
+        else:
+            self.photon_energy = PV('PMPS:LFE:PE:UND:CurrentPhotonEnergy_RBV').get()
+
+        print('photon energy: %.2f' % self.photon_energy)
+        self.lambda0 = 1239.8/self.photon_energy*1e-9
         self.time_stamp = 0.0
         self.cx = 0
         self.cy = 0
@@ -3006,6 +3021,9 @@ class PPM_Device(PPM):
 
         # load in dummy image
         self.dummy_image = np.load('/reg/neh/home/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
+
+    def set_orientation(self, orientation):
+        self.orientation = orientation
 
     def retrieve_wavefront(self, wfs):
         """
@@ -3062,8 +3080,8 @@ class PPM_Device(PPM):
         x_center = Util.coordinate_to_pixel(0, self.dx, self.M)
         y_center = Util.coordinate_to_pixel(0, self.dx, self.N)
 
-        #lineout_x = Util.get_horizontal_lineout(im1, x_center=x_center, y_center=y_center, half_length=self.M/2, half_width=50)
-        #lineout_y = Util.get_vertical_lineout(im1, x_center=x_center,y_center=y_center,half_length=self.N/2,half_width=50)
+        #lineout_x = Util.get_horizontal_lineout(im1, x_center=x_center, y_center=y_center, half_length=x_lim, half_width=50)
+        #lineout_y = Util.get_vertical_lineout(im1, x_center=x_center,y_center=y_center,half_length=y_lim,half_width=50)
         lineout_x = Util.get_horizontal_lineout(im1)
         lineout_y = Util.get_vertical_lineout(im1)
 
@@ -3081,8 +3099,12 @@ class PPM_Device(PPM):
 
         # calculate pitch from lineouts. See pitch module.
         # print('getting lineouts')
-        self.xline = TalbotLineout(lineout_x, fc, fraction, pad=True)
-        self.yline = TalbotLineout(lineout_y, fc, fraction, pad=True)
+        try:
+            self.xline = TalbotLineout(lineout_x, fc, fraction, pad=True)
+            self.yline = TalbotLineout(lineout_y, fc, fraction, pad=True)
+        except:
+            print('lineout was empty')
+            pass
 
         # parameters for calculating Legendre coefficients
         wfs_param = {
@@ -3097,9 +3119,13 @@ class PPM_Device(PPM):
         # calculate Legendre coefficients
         # print('getting Legendre coefficients')
         # wfs_param['dg'] = wfs.x_pitch_sim
-        z_x, coeff_x, x_prime, x_res, self.fit_object = self.xline.get_legendre(wfs_param,fit_object=self.fit_object)
+        #z_x, coeff_x, x_prime, x_res, self.fit_object = self.xline.get_legendre(wfs_param,fit_object=self.fit_object)
+        z_x, coeff_x, x_prime, x_res, self.fit_object = self.xline.get_legendre(wfs_param)
+
         # wfs_param['dg'] = wfs.y_pitch_sim
-        z_y, coeff_y, y_prime, y_res, self.fit_object = self.yline.get_legendre(wfs_param,fit_object=self.fit_object)
+        #z_y, coeff_y, y_prime, y_res, self.fit_object = self.yline.get_legendre(wfs_param,fit_object=self.fit_object)
+        z_y, coeff_y, y_prime, y_res, self.fit_object = self.yline.get_legendre(wfs_param)
+
         # print('found Legendre coefficients')
 
         # pixel size for retrieved wavefront
@@ -3177,17 +3203,38 @@ class PPM_Device(PPM):
             # img = np.array(image_data.shaped_image,dtype='float')
             # img = np.array(self.gige.image2.image,dtype='float')
             #img = Util.threshold_array(img, self.threshold)
-            self.profile = np.fliplr(img)
+
+            if self.orientation == 'action0':
+                self.profile = img
+            elif self.orientation == 'action90':
+                self.profile = np.rot90(img)
+            elif self.orientation == 'action180':
+                self.profile = np.rot90(img,2)
+            elif self.orientation == 'action270':
+                self.profile = np.rot90(img,3)
+            elif self.orientation == 'action0_flip':
+                self.profile = np.fliplr(img)
+            elif self.orientation == 'action90_flip':
+                self.profile = np.rot90(np.fliplr(img))
+            elif self.orientation == 'action180_flip':
+                self.profile = np.rot90(np.fliplr(img),2)
+            elif self.orientation == 'action270_flip':
+                self.profile = np.rot90(np.fliplr(img),3)
 
             temp_profile = Util.threshold_array(self.profile, self.threshold)
 
             self.intensity = np.mean(temp_profile)
-
-            self.x_lineout = np.sum(temp_profile, axis=0)
-            self.y_lineout = np.sum(temp_profile, axis=1)
+            self.x_projection = np.mean(temp_profile, axis=0)
+            self.y_projection = np.mean(temp_profile, axis=1)
 
             # get beam statistics
-            self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
+            self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.x_projection, self.y_projection)
+
+            x_center = Util.coordinate_to_pixel(self.cx, self.dx*self.xbin, self.M)
+            y_center = Util.coordinate_to_pixel(self.cy, self.dx*self.ybin, self.N)
+
+            self.x_lineout = temp_profile[int(y_center), :]
+            self.y_lineout = temp_profile[:, int(x_center)]
 
             self.time_stamp = time_stamp
             return img, time_stamp
@@ -3353,7 +3400,7 @@ class WFS_Device(WFS):
         pitch_dict = {
             'PF1K0': [39.6, 41],
             'PF1L0': [28.4, 29.9, 31.7, 33.9, 36.6],
-            'PF1K4': [34.6, 35.8],
+            'PF1K4': [0, 0, 0, 35.8, 34.6],
             'PF2K4': [33.3],
             'PF1K2': [32, 36.4]
         }
@@ -3378,7 +3425,8 @@ class WFS_Device(WFS):
         self.z_pv = EpicsSignal(self.epics_name+'MMS:Z', name='omitted')
 
         # state 0 is OUT, need to subtract 1 to align with target positions
-        self.state = state_rbv - 1
+        self.state = state_rbv - 2
+        print(self.state)
         # for testing purposes we will set OUT to state 0
         if self.state < 0:
             self.state = 0
