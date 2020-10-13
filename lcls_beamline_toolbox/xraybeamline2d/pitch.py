@@ -644,7 +644,7 @@ class TalbotImage:
         # calculate expected magnification
         mag = R2 / (R2 - zT)
 
-        print('magnification: %.1f' % mag)
+        #print('magnification: %.1f' % mag)
 
         # get image dimensions
         N, M = np.shape(self.image)
@@ -828,8 +828,8 @@ class TalbotImage:
             'photonEnergy': 1239.8/(lambda0*1e9)
         }
 
-        print(beam_parameters['z0x'])
-        print(beam_parameters['z0y'])
+        #print(beam_parameters['z0x'])
+        #print(beam_parameters['z0y'])
 
         N,M = np.shape(recovered)        
 

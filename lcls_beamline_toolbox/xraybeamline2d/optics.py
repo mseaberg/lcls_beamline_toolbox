@@ -2916,7 +2916,7 @@ class PPM_Device(PPM):
             'IM2K4': 755.32096,
             'IM3K4': 758.889,
             'IM4K4': 761.101,
-            'IM5K4': 764.485
+            'IM5K4': 764.313
         }
 
         try:
@@ -3019,7 +3019,7 @@ class PPM_Device(PPM):
         self.intensity = 0
 
         f_x = np.linspace(-self.M / 2., self.M / 2. - 1., self.M) / self.M / self.dxm
-        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
+        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dxm
 
         self.f_x, self.f_y = np.meshgrid(f_x, f_y)
 
@@ -3205,6 +3205,7 @@ class PPM_Device(PPM):
 
         # Distance from wavefront sensor to PPM
         zT = self.z - wfs.z
+        #print('zT: %.2f' % zT)
 
         # magnification of Talbot pattern
         mag = (zT + wfs.f0) / wfs.f0
@@ -3270,6 +3271,15 @@ class PPM_Device(PPM):
         F0 = F0 / np.max(F0)
         F0 += x_mask + y_mask
 
+        # propagate to focus
+        recovered_beam.beam_prop(-zT-wfs.f0)
+        focus = recovered_beam.wave
+        dx_focus = recovered_beam.dx
+        dy_focus = recovered_beam.dy
+        print('dx: %.2e' % dx_focus)
+        print('dy: %.2e' % dy_focus)
+        focus = np.abs(focus)**2/np.max(np.abs(focus)**2)
+
         # output. See method docstring for descriptions.
         wfs_data = {
                 'x_res': x_res,
@@ -3278,7 +3288,10 @@ class PPM_Device(PPM):
                 'y_prime': y_prime,
                 'z2x': zf_x,
                 'z2y': zf_y,
-                'F0': F0
+                'F0': F0,
+                'focus': focus,
+                'dxf': dx_focus,
+                'dyf': dy_focus
                 }
 
         return wfs_data, wfs_param
@@ -3600,7 +3613,7 @@ class WFS_Device(WFS):
         pitch_dict = {
             'PF1K0': [39.6, 41],
             'PF1L0': [28.4, 29.9, 31.7, 33.9, 36.6],
-            'PF1K4': [0, 0, 0, 35.8, 34.6],
+            'PF1K4': [35.8, 35.8, 35.8, 35.8, 34.6],
             'PF2K4': [33.3],
             'PF1K2': [32, 36.4]
         }
@@ -3633,10 +3646,12 @@ class WFS_Device(WFS):
 
         try:
             # account for Talbot fraction here
-            self.pitch = pitch_dict[self.name][self.state] * 1e-6 / self.fraction
+            self.pitch = pitch_dict[self.name][self.state] * 1.e-6
+            print(self.pitch)
+            self.pitch *= 1/self.fraction
             self.z = z_dict[self.name]
             self.f0 = f0_dict[self.name]
-            print(self.pitch)
+            print('pitch: %.4e' % self.pitch)
         except:
             self.pitch = 30.0
             self.z = z_dict['PF1L0']
