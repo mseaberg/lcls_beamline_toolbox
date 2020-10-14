@@ -3172,7 +3172,7 @@ class PPM_Device(PPM):
     #
     #     return wfs_data, wfs_param
 
-    def retrieve_wavefront(self, wfs):
+    def retrieve_wavefront(self, wfs, focusFOV=10):
         """
         Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
         :param wfs: WFS object
@@ -3280,6 +3280,14 @@ class PPM_Device(PPM):
         print('dy: %.2e' % dy_focus)
         focus = np.abs(focus)**2/np.max(np.abs(focus)**2)
 
+        x_focus = recovered_beam.x[0, :]
+        y_focus = recovered_beam.y[:, 0]
+        x_interp = np.linspace(-256, 255, 512, dtype=float)*focusFOV*1e-6/512
+        f = interpolation.interp2d(x_focus, y_focus, focus, fill_value=0)
+        focus = f(x_interp, x_interp)
+        focus_horizontal = np.sum(focus, axis=0)
+        focus_vertical = np.sum(focus, axis=1)
+
         # output. See method docstring for descriptions.
         wfs_data = {
                 'x_res': x_res,
@@ -3290,6 +3298,10 @@ class PPM_Device(PPM):
                 'z2y': zf_y,
                 'F0': F0,
                 'focus': focus,
+                'xf': x_interp*1e6,
+                'focus_horizontal': focus_horizontal,
+                'focus_vertical': focus_vertical,
+                'wave': wave,
                 'dxf': dx_focus,
                 'dyf': dy_focus
                 }
