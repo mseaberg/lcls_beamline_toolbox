@@ -3404,7 +3404,7 @@ class PPM_Device(PPM):
     def get_dummy_image(self):
         return self.dummy_image
 
-    def get_image(self):
+    def get_image(self, angle=0):
         try:
             # do averaging
             if hasattr(self, 'average'):
@@ -3448,6 +3448,11 @@ class PPM_Device(PPM):
                 self.profile = np.rot90(np.fliplr(img),2)
             elif self.orientation == 'action270_flip':
                 self.profile = np.rot90(np.fliplr(img),3)
+
+            #angle = -0.2
+            self.profile = ndimage.rotate(self.profile, angle, reshape=False)
+
+            print(angle)
 
             temp_profile = Util.threshold_array(self.profile, self.threshold)
 
