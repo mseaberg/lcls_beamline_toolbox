@@ -678,8 +678,12 @@ class TalbotImage:
         v_thresh = Util.threshold_array(v_masked, .2)
 
         # find peaks in Fourier space
-        h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
-        v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
+        if np.sum(np.abs(h_thresh)) > 0 and np.sum(np.abs(v_thresh)) > 0:
+            h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
+            v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
+        else:
+            h_peak = fG/mag
+            v_peak = fG/mag
 
         # define new masks centered on calculated peaks
         h_mask = Util.fourier_mask((fx, fy), (h_peak, 0), fG/mag/4, cosine_mask=True)
@@ -697,8 +701,9 @@ class TalbotImage:
         v_thresh = Util.threshold_array(v_masked, .2)
 
         # find peaks in Fourier space (centroid)
-        h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
-        v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
+        if np.sum(np.abs(h_thresh)) > 0 and np.sum(np.abs(v_thresh)) > 0:
+            h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
+            v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
 
         # find peak widths in Fourier space (second moments centered on centroids)
         h_width = np.sqrt(np.sum(h_thresh * (fx - h_peak) ** 2) / np.sum(np.abs(h_thresh)))

@@ -2938,12 +2938,27 @@ class PPM_Device(PPM):
         try:
             with open('/reg/neh/home/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
                 data = json.load(json_file)
-            self.dx = float(data[self.epics_name[0:5]]['pixel'])
+            
+            imager_data = data[self.epics_name[0:5]]
+            self.dx = float(imager_data['pixel'])
+            self.distance = float(imager_data['FOV']) * 1e3
+            self.z = float(imager_data['z'])
+
+            try:
+                self.cx_target = imager_data['cx']
+                self.cy_target = imager_data['cy']
+            except KeyError:
+                self.cx_target = 0
+                self.cy_target = 0
+
         except json.decoder.JSONDecodeError:
             self.dx = 5.5/1.2
         except KeyError:
             print('pixel size not calibrated. units are pixels.')
             self.dx = 1
+
+        self.cx_target = 0
+        self.cy_target = 0
 
         print(self.dx)
 
@@ -3451,8 +3466,6 @@ class PPM_Device(PPM):
 
             #angle = -0.2
             self.profile = ndimage.rotate(self.profile, angle, reshape=False)
-
-            print(angle)
 
             temp_profile = Util.threshold_array(self.profile, self.threshold)
 
