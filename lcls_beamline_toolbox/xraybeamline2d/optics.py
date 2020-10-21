@@ -2279,6 +2279,8 @@ class PPM:
         self.cy_beam = 0
         self.x_lineout = np.zeros(self.M)
         self.y_lineout = np.zeros(self.N)
+        self.fit_x = np.zeros(self.M)
+        self.fit_y = np.zeros(self.N)
         self.amp_x = 0
         self.amp_y = 0
         self.cx = 0
@@ -3475,6 +3477,8 @@ class PPM_Device(PPM):
 
             # get beam statistics
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.x_projection, self.y_projection)
+
+
 
             x_center = Util.coordinate_to_pixel(self.cx, self.dx*self.xbin, self.M)
             y_center = Util.coordinate_to_pixel(self.cy, self.dx*self.ybin, self.N)
