@@ -2528,8 +2528,8 @@ class PPM:
 
         # calculate pitch from lineouts. See pitch module.
         # print('getting lineouts')
-        self.xline = TalbotLineout(lineout_x, fc, fraction, pad=True)
-        self.yline = TalbotLineout(lineout_y, fc, fraction, pad=True)
+        xline = TalbotLineout(lineout_x, fc, fraction, pad=True)
+        yline = TalbotLineout(lineout_y, fc, fraction, pad=True)
 
         # parameters for calculating Legendre coefficients
         wfs_param = {
@@ -2544,9 +2544,9 @@ class PPM:
         # calculate Legendre coefficients
         # print('getting Legendre coefficients')
         wfs_param['dg'] = wfs.x_pitch_sim
-        z_x, coeff_x, x_prime, x_res, fit_object = self.xline.get_legendre(wfs_param)
+        z_x, coeff_x, x_prime, x_res, fit_object = xline.get_legendre(wfs_param)
         wfs_param['dg'] = wfs.y_pitch_sim
-        z_y, coeff_y, y_prime, y_res, fit_object = self.yline.get_legendre(wfs_param)
+        z_y, coeff_y, y_prime, y_res, fit_object = yline.get_legendre(wfs_param)
         # print('found Legendre coefficients')
 
         # pixel size for retrieved wavefront
@@ -2561,6 +2561,9 @@ class PPM:
         x_prime = x_prime * 1e6
         y_prime = y_prime * 1e6
 
+        rms_x = np.std(x_res)
+        rms_y = np.std(y_res)
+
         # print calculated distance to focus
         # print('Distance to source: '+str(z_x))
         # print('Distance to source: '+str(z_y))
@@ -2573,8 +2576,8 @@ class PPM:
                 'y_prime': y_prime,
                 'coeff_x': coeff_x,
                 'coeff_y': coeff_y,
-                'z2x': z_x,
-                'z2y': z_y
+                'z_x': z_x,
+                'z_y': z_y
                 }
 
         return wfs_data, wfs_param
@@ -3308,14 +3311,19 @@ class PPM_Device(PPM):
         focus_horizontal = np.sum(focus, axis=0)
         focus_vertical = np.sum(focus, axis=1)
 
+        rms_x = np.std(x_res)
+        rms_y = np.std(y_res)
+
         # output. See method docstring for descriptions.
         wfs_data = {
                 'x_res': x_res,
                 'x_prime': x_prime,
                 'y_res': y_res,
                 'y_prime': y_prime,
-                'z2x': zf_x,
-                'z2y': zf_y,
+                'z_x': zf_x,
+                'z_y': zf_y,
+                'rms_x': rms_x,
+                'rms_y': rms_y,
                 'F0': F0,
                 'focus': focus,
                 'xf': x_interp*1e6,
@@ -3472,8 +3480,8 @@ class PPM_Device(PPM):
             temp_profile = Util.threshold_array(self.profile, self.threshold)
 
             self.intensity = np.mean(temp_profile)
-            self.x_projection = np.mean(temp_profile, axis=0)
-            self.y_projection = np.mean(temp_profile, axis=1)
+            self.projection_x = np.mean(temp_profile, axis=0)
+            self.projection_y = np.mean(temp_profile, axis=1)
 
             # get beam statistics
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.x_projection, self.y_projection)
@@ -3483,8 +3491,23 @@ class PPM_Device(PPM):
             x_center = Util.coordinate_to_pixel(self.cx, self.dx*self.xbin, self.M)
             y_center = Util.coordinate_to_pixel(self.cy, self.dx*self.ybin, self.N)
 
-            self.x_lineout = temp_profile[int(y_center), :]
-            self.y_lineout = temp_profile[:, int(x_center)]
+            self.lineout_x = temp_profile[int(y_center), :]
+            self.lineout_y = temp_profile[:, int(x_center)]
+
+            # gaussian fits
+            try:
+                fit_x = self.amp_x * np.exp(
+                    -(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
+            except RuntimeWarning:
+                fit_x = np.zeros_like(self.lineout_x)
+            try:
+                fit_y = self.amp_y * np.exp(
+                    -(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
+            except RuntimeWarning:
+                fit_y = np.zeros_like(self.lineout_y)
+
+            self.fit_x = fit_x
+            self.fit_y = fit_y
 
             self.time_stamp = time_stamp
             return img, time_stamp
