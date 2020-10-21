@@ -3286,7 +3286,7 @@ class PPM_Device(PPM):
         zf_y = -(recovered_beam.zy - zT - wfs.f0) * 1e3
 
         # annotated Fourier transform
-        F0 = wfs_param['F0']
+        F0 = np.abs(wfs_param['F0'])
 
         F0 = F0 / np.max(F0)
         F0 += x_mask + y_mask
@@ -3705,7 +3705,7 @@ class WFS_Device(WFS):
         }
 
         state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()
-        self.z_pv = EpicsSignal(self.epics_name+'MMS:Z', name='omitted')
+        #self.z_pv = EpicsSignalRO(self.epics_name+'MMS:Z', name='omitted')
 
         # state 0 is OUT, need to subtract 1 to align with target positions
         self.state = state_rbv - 2

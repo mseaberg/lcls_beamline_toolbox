@@ -315,10 +315,10 @@ class LegendreFit2D:
         print('calculating Legendre polynomials')
         # calculate Legendre polynomials on this grid
         self.get_legendre()
-        print('calculated Legendre polynomials')
 
         # calculate Legendre derivatives
         self.make_A()
+        print('calculated Legendre polynomials')
 
     def get_legendre(self):
         """
