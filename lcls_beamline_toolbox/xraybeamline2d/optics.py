@@ -3419,10 +3419,20 @@ class PPM_Device(PPM):
         except AttributeError:
             pass
 
+    def check_rate(self):
+        rate = PV(self.cam_name+'ArrayRate_RBV').get()
+
+        return rate
+
     def reset_camera(self):
+        
         try:
-            self.gige.cam.acquire.put(0, wait=True)
-            self.gige.cam.acquire.put(1)
+            if self.check_rate()>0:
+                print('camera is acquiring')
+            else:
+                print('resetting camera')
+                self.gige.cam.acquire.put(0, wait=True)
+                self.gige.cam.acquire.put(1)
         except:
             print('no camera')
 
