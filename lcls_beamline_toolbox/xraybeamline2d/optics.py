@@ -3484,7 +3484,7 @@ class PPM_Device(PPM):
             self.projection_y = np.mean(temp_profile, axis=1)
 
             # get beam statistics
-            self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.x_projection, self.y_projection)
+            self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
 
 
 
