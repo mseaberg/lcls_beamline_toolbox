@@ -8,6 +8,7 @@ Currently implements the single class TalbotLineout.
 """
 
 import numpy as np
+import scipy.ndimage as ndimage
 from ..polyprojection.legendre import LegendreFit1D
 from .beam import Beam
 from .util import Util
@@ -677,13 +678,30 @@ class TalbotImage:
         h_thresh = Util.threshold_array(h_masked, .2)
         v_thresh = Util.threshold_array(v_masked, .2)
 
+        # initialize centroids for finding if the image is at an angle
+        h_peak_y = 0
+        v_peak_x = 0
+
         # find peaks in Fourier space
         if np.sum(np.abs(h_thresh)) > 0 and np.sum(np.abs(v_thresh)) > 0:
             h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
             v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
+
+            # find centroid off-axis
+            h_peak_y = np.sum(h_thresh * fy) / np.sum(np.abs(h_thresh))
+            v_peak_x = np.sum(v_thresh * fx) / np.sum(np.abs(v_thresh))
         else:
             h_peak = fG/mag
             v_peak = fG/mag
+
+        angle_h = np.arctan(h_peak_y/h_peak)
+        angle_v = np.arctan(-v_peak_x/v_peak)
+
+        # calculate tilt angle in degrees
+        tilt_angle = (angle_h+angle_v)/2*180/np.pi
+
+        if np.abs(tilt_angle) > 0.05:
+            fourier_plane = Util.nfft(ndimage.rotate(self.image,tilt_angle,reshape=False))
 
         # define new masks centered on calculated peaks
         h_mask = Util.fourier_mask((fx, fy), (h_peak, 0), fG/mag/4, cosine_mask=True)
@@ -704,6 +722,9 @@ class TalbotImage:
         if np.sum(np.abs(h_thresh)) > 0 and np.sum(np.abs(v_thresh)) > 0:
             h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
             v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
+
+        print('h_angle: %.3f' % (angle_h*180/np.pi))
+        print('v_angle: %.3f' % (angle_v*180/np.pi))
 
         # find peak widths in Fourier space (second moments centered on centroids)
         h_width = np.sqrt(np.sum(h_thresh * (fx - h_peak) ** 2) / np.sum(np.abs(h_thresh)))
@@ -760,7 +781,8 @@ class TalbotImage:
                   'p0x': p0x,
                   'p0y': p0y,
                   'p0': p0,
-                  'fourier': fourier_plane}
+                  'fourier': fourier_plane,
+                  'tilt_angle': tilt_angle}
 
         # output
         return h_grad, v_grad, params
@@ -777,6 +799,8 @@ class TalbotImage:
 
         # 2D fourier transform
         F0 = grad_param['fourier']
+
+        tilt = grad_param['tilt_angle']
 
         # new pixel size
         dx2 = grad_param['dx']
@@ -876,7 +900,8 @@ class TalbotImage:
             'px': px,
             'py': py,
             'coeff': legendre_coeff,
-            'F0': F0
+            'F0': F0,
+            'tilt': tilt
             # 'xf': xf,
             # 'yf': yf
         }
