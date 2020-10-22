@@ -2850,6 +2850,16 @@ class PPM_Device(PPM):
             if key in allowed_arguments:
                 setattr(self, key, value)
 
+        # get Y motor state
+        self.state = EpicsSignalRO(self.imager_prefix+'MMS:STATE:GET_RBV', auto_monitor=True)
+        # define possible states depending on imager type
+        if 'XTES' in self.imager_prefix:
+            self.states_list = ['Unknown', 'OUT', 'YAG', 'DIAMOND', 'RETICLE']
+        elif 'PPM' in self.imager_prefix:
+            self.states_list = ['Unknown', 'OUT', 'POWERMETER', 'YAG1', 'YAG2']
+        else:
+            self.state_list = []
+
         self.cam_name = self.imager_prefix + 'CAM:'
         self.epics_name = self.cam_name + 'IMAGE3:'
         # get acquisition info (this is in seconds)
@@ -2975,6 +2985,8 @@ class PPM_Device(PPM):
         except KeyError:
             print('pixel size not calibrated. units are pixels.')
             self.dx = 1
+
+        
 
         self.cx_target = 0
         self.cy_target = 0
@@ -3282,8 +3294,11 @@ class PPM_Device(PPM):
         validity = ((np.abs(wfs_param_out['h_peak'] - peak) < (peak/8)) and
                     (np.abs(wfs_param_out['v_peak'] - peak) < (peak/8)))
 
+        # check target is in
+        target_in = 'TARGET' in wfs.check_state()
+
         # for now require that centroid data is also valid
-        self.wavefront_is_valid = self.centroid_is_valid and validity
+        self.wavefront_is_valid = self.centroid_is_valid and validity and target_in
 
         wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
         mask = np.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
@@ -3518,7 +3533,10 @@ class PPM_Device(PPM):
             # get beam statistics
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
 
-
+            # add imager state to validity
+            imager_state = self.states_list[self.state.value]
+            imager_in = 'YAG' in imager_state or 'DIAMOND' in imager_state
+            self.centroid_is_valid = self.centroid_is_valid and imager_in
 
             x_center = Util.coordinate_to_pixel(self.cx, self.dx*self.xbin, self.M)
             y_center = Util.coordinate_to_pixel(self.cy, self.dx*self.ybin, self.N)
@@ -3690,8 +3708,6 @@ class WFS_Device(WFS):
     def __init__(self, name, **kwargs):
         super().__init__(name, **kwargs)
 
-        self.state = 0
-
         # set allowed kwargs
         allowed_arguments = ['state']
 
@@ -3701,6 +3717,9 @@ class WFS_Device(WFS):
                 setattr(self, key, value)
 
         self.epics_name = self.name + ':WFS:'
+
+        self.state = EpicsSignalRO(self.epics_name+'MMS:STATE:GET_RBV', auto_monitor=True)
+        self.states_list = ['Unknown', 'OUT', 'TARGET1', 'TARGET2', 'TARGET3', 'TARGET4', 'TARGET5']
 
         pitch_dict = {
             'PF1K0': [39.6, 41],
@@ -3726,19 +3745,20 @@ class WFS_Device(WFS):
             'PF1K2': 1.668
         }
 
-        state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()
+        #state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()
         #self.z_pv = EpicsSignalRO(self.epics_name+'MMS:Z', name='omitted')
 
         # state 0 is OUT, need to subtract 1 to align with target positions
-        self.state = state_rbv - 2
-        print(self.state)
+        #self.state = state_rbv - 2
+        state = self.state.value
+        print(state)
         # for testing purposes we will set OUT to state 0
-        if self.state < 0:
-            self.state = 0
+        if state < 0:
+            state = 0
 
         try:
             # account for Talbot fraction here
-            self.pitch = pitch_dict[self.name][self.state] * 1.e-6
+            self.pitch = pitch_dict[self.name][state] * 1.e-6
             print(self.pitch)
             self.pitch *= 1/self.fraction
             self.z = z_dict[self.name]
@@ -3748,3 +3768,7 @@ class WFS_Device(WFS):
             self.pitch = 30.0
             self.z = z_dict['PF1L0']
             self.f0 = 100
+
+    def check_state(self):
+
+        return self.states_list[self.state.value]
