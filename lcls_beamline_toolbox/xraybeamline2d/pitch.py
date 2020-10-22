@@ -902,7 +902,7 @@ class TalbotImage:
             'coeff': legendre_coeff,
             'F0': F0,
             'tilt': tilt,
-            'h_peak': grad_param['h_peak']
+            'h_peak': grad_param['h_peak'],
             'v_peak': grad_param['v_peak']
             # 'xf': xf,
             # 'yf': yf
