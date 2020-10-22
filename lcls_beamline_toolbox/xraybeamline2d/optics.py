@@ -2289,6 +2289,8 @@ class PPM:
         self.wy = 0
         self.xbin = 1
         self.lambda0 = 0.0
+        self.centroid_is_valid = 0
+        self.wavefront_is_valid = 0
 
     def beam_analysis(self, line_x, line_y):
         """
@@ -2368,6 +2370,8 @@ class PPM:
         guessx = [cx * 1e6, sx]
         guessy = [cy * 1e6, sy]
 
+        fit_validity = 1
+
         # Gaussian fitting. Using try/except to deal with any fitting errors
         try:
             # only fit in the region where we have signal
@@ -2377,8 +2381,10 @@ class PPM:
             # set sx to sigma from the fit if successful.
             sx = px[1]
         except ValueError:
+            fit_validity = 0
             print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
+            fit_validity = 0
             print('Least squares minimization failed. Using second moment for width.')
 
         try:
@@ -2389,13 +2395,21 @@ class PPM:
             # set sy to sigma from the fit if successful.
             sy = py[1]
         except ValueError:
+            fit_validity = 0
             print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
+            fit_validity = 0
             print('Least squares minimization failed. Using second moment for width.')
 
         # conversion factor from sigma to FWHM. Also convert back to meters.
         fwhm_x = sx * 2.355 / 1e6
         fwhm_y = sy * 2.355 / 1e6
+
+        # check validity
+        validity = ((self.amp_x > 100) and (self.amp_y > 100) and fit_validity and
+                    (fwhm_x < np.max(2*self.x)) and (fwhm_y < np.max(2*self.y)))
+
+        self.centroid_is_valid = validity
 
         return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
 
@@ -3261,9 +3275,17 @@ class PPM_Device(PPM):
                 }
 
         talbot_image = TalbotImage(im1, fc, fraction)
-        recovered_beam, wfs_param = talbot_image.get_legendre(self.fit_object, wfs_param, threshold=.1)
+        recovered_beam, wfs_param_out = talbot_image.get_legendre(self.fit_object, wfs_param, threshold=.1)
 
-        wave = self.fit_object.wavefront_fit(wfs_param['coeff'])
+        # check validity
+        # right now this is requiring that the peak is within half of the masked radius in the Fourier plane
+        validity = ((np.abs(wfs_param_out['h_peak'] - peak) < (peak/8)) and
+                    (np.abs(wfs_param_out['v_peak'] - peak) < (peak/8)))
+
+        # for now require that centroid data is also valid
+        self.wavefront_is_valid = self.centroid_is_valid and validity
+
+        wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
         mask = np.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
                       256 - int(self.Md / 2):256 + int(self.Md / 2)]) > 0
         wave *= mask
@@ -3286,7 +3308,7 @@ class PPM_Device(PPM):
         zf_y = -(recovered_beam.zy - zT - wfs.f0) * 1e3
 
         # annotated Fourier transform
-        F0 = np.abs(wfs_param['F0'])
+        F0 = np.abs(wfs_param_out['F0'])
 
         F0 = F0 / np.max(F0)
         F0 += x_mask + y_mask
@@ -3334,7 +3356,7 @@ class PPM_Device(PPM):
                 'dyf': dy_focus
                 }
 
-        return wfs_data, wfs_param
+        return wfs_data, wfs_param_out
 
     def retrieve_wavefront2D(self, basis_file, wfs):
         """
