@@ -2975,8 +2975,8 @@ class PPM_Device(PPM):
             self.z = float(imager_data['z'])
 
             try:
-                self.cx_target = imager_data['cx']
-                self.cy_target = imager_data['cy']
+                self.cx_target = float(imager_data['cx'])
+                self.cy_target = float(imager_data['cy'])
             except KeyError:
                 self.cx_target = 0
                 self.cy_target = 0
@@ -2989,8 +2989,8 @@ class PPM_Device(PPM):
 
         
 
-        self.cx_target = 0
-        self.cy_target = 0
+        #self.cx_target = 0
+        #self.cy_target = 0
 
         print(self.dx)
 
