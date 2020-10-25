@@ -2406,7 +2406,7 @@ class PPM:
         fwhm_y = sy * 2.355 / 1e6
 
         # check validity
-        validity = ((self.amp_x > 100) and (self.amp_y > 100) and fit_validity and
+        validity = ((self.amp_x > 10) and (self.amp_y > 10) and fit_validity and
                     (fwhm_x < np.max(2*self.x)) and (fwhm_y < np.max(2*self.y)))
 
         self.centroid_is_valid = validity
@@ -2945,8 +2945,8 @@ class PPM_Device(PPM):
             'IM2K4': 755.32096,
             'IM3K4': 758.889,
             'IM4K4': 761.101,
-            #'IM5K4': 764.313
-            'IM5K4': 764.48591 - 0.03
+            'IM5K4': 764.313
+            #'IM5K4': 764.45591 - 0.03
         }
 
         try:
@@ -2966,7 +2966,7 @@ class PPM_Device(PPM):
 
         # load in pixel size
         try:
-            with open('/reg/neh/home/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
+            with open('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
                 data = json.load(json_file)
             
             imager_data = data[self.epics_name[0:5]]
@@ -3078,7 +3078,7 @@ class PPM_Device(PPM):
         self.fit_object = None
 
         # load in dummy image
-        self.dummy_image = np.load('/reg/neh/home/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
+        self.dummy_image = np.load('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
 
     def set_orientation(self, orientation):
         self.orientation = orientation
@@ -3185,12 +3185,14 @@ class PPM_Device(PPM):
         # print('x_res: %d' % np.size(x_res))
 
         # going to try getting the third order Legendre polynomial here and try to get it to zero using benders
-        leg_x = np.polynomial.legendre.legfit(x_prime, x_res, 3)
-        leg_y = np.polynomial.legendre.legfit(y_prime, y_res, 3)
+        #leg_x = np.polynomial.legendre.legfit(x_prime, x_res, 3)
+        #leg_y = np.polynomial.legendre.legfit(y_prime, y_res, 3)
 
         # setting rms_x/rms_y to third order Legendre coefficient for now.
-        rms_x = leg_x[3]
-        rms_y = leg_y[3]
+        #rms_x = leg_x[3]
+        #rms_y = leg_y[3]
+        rms_x = np.std(x_res)
+        rms_y = np.std(y_res)
 
         x_width = np.std(x_res)
         y_width = np.std(y_res)
@@ -3610,8 +3612,8 @@ class WFS_Device(WFS):
         z_dict = {
             'PF1K0': 731.5855078,
             'PF1L0': 735.6817413,
-            #'PF1K4': 763.515,
-            'PF1K4': 763.66694 - .0093
+            'PF1K4': 763.515,
+            #'PF1K4': 763.66694 - .0093,
             'PF2K4': 768.583,
             'PF1K2': 786.918,
         }
@@ -3619,8 +3621,8 @@ class WFS_Device(WFS):
         f0_dict = {
             'PF1K0': 100,
             'PF1L0': 100,
-            #'PF1K4': 1.772,
-            'PF1K4': 763.66694-.0093 - 761.89013,
+            'PF1K4': 1.772,
+            #'PF1K4': 763.66694-.0093 - 761.89013,
             'PF2K4': 0.996,
             'PF1K2': 1.668
         }
@@ -3629,8 +3631,8 @@ class WFS_Device(WFS):
         #self.z_pv = EpicsSignalRO(self.epics_name+'MMS:Z', name='omitted')
 
         # state 0 is OUT, need to subtract 1 to align with target positions
-        #self.state = state_rbv - 2
-        state = self.state.value
+        state = self.state.value - 2
+        #state = self.state.value
         print(state)
         # for testing purposes we will set OUT to state 0
         if state < 0:
