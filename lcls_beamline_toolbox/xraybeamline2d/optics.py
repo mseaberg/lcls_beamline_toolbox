@@ -3185,12 +3185,17 @@ class PPM_Device(PPM):
         # print('x_res: %d' % np.size(x_res))
 
         # going to try getting the third order Legendre polynomial here and try to get it to zero using benders
-        #leg_x = np.polynomial.legendre.legfit(x_prime, x_res, 3)
-        #leg_y = np.polynomial.legendre.legfit(y_prime, y_res, 3)
+        try:
+            leg_x = np.polynomial.legendre.legfit(x_prime, x_res, 3)
+            leg_y = np.polynomial.legendre.legfit(y_prime, y_res, 3)
+            coma_x = leg_x[3]
+            coma_y = leg_y[3]
+        except:
+            self.wavefront_is_valid = False
+            coma_x = 0
+            coma_y = 0
 
         # setting rms_x/rms_y to third order Legendre coefficient for now.
-        #rms_x = leg_x[3]
-        #rms_y = leg_y[3]
         rms_x = np.std(x_res)
         rms_y = np.std(y_res)
 
@@ -3241,6 +3246,8 @@ class PPM_Device(PPM):
                 'z_y': zf_y,
                 'rms_x': rms_x,
                 'rms_y': rms_y,
+                'coma_x': coma_x,
+                'coma_y': coma_y,
                 'F0': F0,
                 'focus': focus,
                 'xf': x_interp*1e6,
