@@ -2406,7 +2406,7 @@ class PPM:
         fwhm_y = sy * 2.355 / 1e6
 
         # check validity
-        validity = ((self.amp_x > 10) and (self.amp_y > 10) and fit_validity and
+        validity = ((self.amp_x > 30) and (self.amp_y > 30) and fit_validity and
                     (fwhm_x < np.max(2*self.x)) and (fwhm_y < np.max(2*self.y)))
 
         self.centroid_is_valid = validity
@@ -3117,12 +3117,18 @@ class PPM_Device(PPM):
         # get Talbot fraction that we're using (fractional Talbot effect)
         fraction = wfs.fraction
 
-        # Distance from wavefront sensor to PPM
-        zT = self.z - wfs.z
+        # Distance from wavefront sensor to PPM, 
+        # including correction based on z stage
+        zT = self.z - wfs.z - wfs.zPos()
+        
+        # include correction to f0 (distance between focus and grating)
+        # based on z stage
+        f0 = wfs.f0 + wfs.zPos()
+        print('f0: %.3f' % f0)
         #print('zT: %.2f' % zT)
 
         # magnification of Talbot pattern
-        mag = (zT + wfs.f0) / wfs.f0
+        mag = (zT + f0) / f0
 
         # number of pixels to sum across to get lineout
         lineout_width = int(wfs.pitch / self.dxm * 5 * mag)
@@ -3151,7 +3157,7 @@ class PPM_Device(PPM):
                 "zT": zT,  # distance between WFS and PPM
                 "lambda0": self.lambda0,  # beam wavelength
                 "downsample": 3, # Fourier downsampling power of 2
-                "zf": wfs.f0  # nominal distance from focus to grating
+                "zf": f0  # nominal distance from focus to grating
                 }
 
         talbot_image = TalbotImage(im1, fc, fraction)
@@ -3186,8 +3192,8 @@ class PPM_Device(PPM):
 
         # going to try getting the third order Legendre polynomial here and try to get it to zero using benders
         try:
-            leg_x = np.polynomial.legendre.legfit(x_prime, x_res, 3)
-            leg_y = np.polynomial.legendre.legfit(y_prime, y_res, 3)
+            leg_x = np.polynomial.legendre.legfit(x_prime*1e-6, x_res, 3)
+            leg_y = np.polynomial.legendre.legfit(y_prime*1e-6, y_res, 3)
             coma_x = leg_x[3]
             coma_y = leg_y[3]
         except:
@@ -3202,8 +3208,8 @@ class PPM_Device(PPM):
         x_width = np.std(x_res)
         y_width = np.std(y_res)
 
-        zf_x = -(recovered_beam.zx - zT - wfs.f0) * 1e3
-        zf_y = -(recovered_beam.zy - zT - wfs.f0) * 1e3
+        zf_x = -(recovered_beam.zx - zT - f0) * 1e3
+        zf_y = -(recovered_beam.zy - zT - f0) * 1e3
 
         # annotated Fourier transform
         F0 = np.abs(wfs_param_out['F0'])
@@ -3215,7 +3221,7 @@ class PPM_Device(PPM):
         z_plane = focus_z*1e-3
 
         # propagate to focus
-        recovered_beam.beam_prop(-zT-wfs.f0 + z_plane)
+        recovered_beam.beam_prop(-zT-f0 + z_plane)
         focus = recovered_beam.wave
         dx_focus = recovered_beam.dx
         dy_focus = recovered_beam.dy
@@ -3306,7 +3312,7 @@ class PPM_Device(PPM):
 
         # add parameters for calculating Legendre coefficients
         wfs_param['downsample'] = 3
-        wfs_param['zf'] = wfs.f0
+        wfs_param['zf'] = f0
         wfs_param['dg'] = wfs.x_pitch_sim
 
         # calculate 2D legendre coefficients
@@ -3606,7 +3612,11 @@ class WFS_Device(WFS):
         self.epics_name = self.name + ':WFS:'
 
         self.state = EpicsSignalRO(self.epics_name+'MMS:STATE:GET_RBV', auto_monitor=True)
+        self.z_motor = EpicsSignalRO(self.epics_name+'MMS:Z.RBV', auto_monitor=True)
         self.states_list = ['Unknown', 'OUT', 'TARGET1', 'TARGET2', 'TARGET3', 'TARGET4', 'TARGET5']
+
+        # define z offset (in mm)
+        self.z_offset = 31.0
 
         pitch_dict = {
             'PF1K0': [39.6, 41],
@@ -3661,3 +3671,8 @@ class WFS_Device(WFS):
     def check_state(self):
 
         return self.states_list[self.state.value]
+
+    def zPos(self):
+        # z position in meters
+        zPos = (self.z_motor.value - self.z_offset)*1e-3
+        return zPos
