@@ -3227,15 +3227,27 @@ class PPM_Device(PPM):
         dy_focus = recovered_beam.dy
         print('dx: %.2e' % dx_focus)
         print('dy: %.2e' % dy_focus)
-        focus = np.abs(focus)**2/np.max(np.abs(focus)**2)
+        #focus = np.abs(focus)**2/np.max(np.abs(focus)**2)
 
-        x_focus = recovered_beam.x[0, :]
-        y_focus = recovered_beam.y[:, 0]
-        x_interp = np.linspace(-256, 255, 512, dtype=float)*focusFOV*1e-6/512
-        f = interpolation.interp2d(x_focus, y_focus, focus, fill_value=0)
-        focus = f(x_interp, x_interp)
-        focus_horizontal = np.sum(focus, axis=0)
-        focus_vertical = np.sum(focus, axis=1)
+        focus_PPM = PPM('focus', FOV=focusFOV*1e-6, N=256)
+        focus_PPM.propagate(recovered_beam)
+        
+       
+        focus = focus_PPM.profile/np.max(focus_PPM.profile)
+        focus_horizontal = focus_PPM.x_lineout/np.max(focus_PPM.x_lineout)
+        focus_vertical = focus_PPM.y_lineout/np.max(focus_PPM.y_lineout)
+        focus_fwhm_horizontal = focus_PPM.wx
+        focus_fwhm_vertical = focus_PPM.wy
+
+        xf = focus_PPM.x * 1e6
+
+        #x_focus = recovered_beam.x[0, :]
+        #y_focus = recovered_beam.y[:, 0]
+        #x_interp = np.linspace(-256, 255, 512, dtype=float)*focusFOV*1e-6/512
+        #f = interpolation.interp2d(x_focus, y_focus, focus, fill_value=0)
+        #focus = f(x_interp, x_interp)
+        #focus_horizontal = np.sum(focus, axis=0)
+        #focus_vertical = np.sum(focus, axis=1)
 
 
 
@@ -3256,7 +3268,10 @@ class PPM_Device(PPM):
                 'coma_y': coma_y,
                 'F0': F0,
                 'focus': focus,
-                'xf': x_interp*1e6,
+                #'xf': x_interp*1e6,
+                'xf': xf,
+                'focus_fwhm_horizontal': focus_fwhm_horizontal,
+                'focus_fwhm_vertical': focus_fwhm_vertical,
                 'focus_horizontal': focus_horizontal,
                 'focus_vertical': focus_vertical,
                 'wave': wave,
