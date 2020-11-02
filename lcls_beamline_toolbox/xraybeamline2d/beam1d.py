@@ -792,7 +792,7 @@ class Pulse:
     """
 
     def __init__(self, beam_params=None, tau=None, time_window=None, SASE=False, num_spikes=3, unit_spectrum=False,
-                 spectral_width=0, N=0):
+                 spectral_width=0, N=0, GDD=0):
         """
         Create a Pulse object
         :param beam_params: same parameters as given for Beam
@@ -849,11 +849,16 @@ class Pulse:
 
             # frequencies
             self.f = self.energy / 4.136
+            self.f0 = self.E0 / 4.136
+
+            # add in optional spectral chirp
+            self.spectral_phase = np.exp(1j * GDD / 2 * (2 * np.pi) ** 2 * (self.f - self.f0) ** 2)
 
             if SASE:
                 self.envelope = self.generate_SASE()
             else:
                 self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
+            self.envelope = self.envelope.astype(complex) * self.spectral_phase
 
         self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
         # calculate wavelengths
