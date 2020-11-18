@@ -3621,13 +3621,14 @@ class EXS_Device(PPM):
                 self.cy_target = 0
 
         except json.decoder.JSONDecodeError:
+            print('file error')
             self.dx = 5.5 / 1.2
         except KeyError:
             print('pixel size not calibrated. units are pixels.')
             self.dx = 1
 
-        # self.cx_target = 0
-        # self.cy_target = 0
+        self.cx_target = 0
+        self.cy_target = 0
 
         print(self.dx)
 
