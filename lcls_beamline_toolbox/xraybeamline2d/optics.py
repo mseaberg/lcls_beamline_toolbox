@@ -3605,7 +3605,7 @@ class EXS_Device(PPM):
 
         # load in pixel size
         try:
-            with open('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
+            with open('/cds/home/s/seaberg/Python/slit_alignment/PPM_centroid/imagers.db') as json_file:
                 data = json.load(json_file)
 
             imager_data = data[self.epics_name[0:5]]
