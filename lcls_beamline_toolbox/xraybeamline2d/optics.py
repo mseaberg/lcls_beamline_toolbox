@@ -4201,9 +4201,9 @@ class EXS_Device(PPM):
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
 
             # add imager state to validity
-            imager_state = self.states_list[self.state.value]
-            imager_in = 'YAG' in imager_state or 'DIAMOND' in imager_state
-            self.centroid_is_valid = self.centroid_is_valid and imager_in
+            # imager_state = self.states_list[self.state.value]
+            # imager_in = 'YAG' in imager_state or 'DIAMOND' in imager_state
+            # self.centroid_is_valid = self.centroid_is_valid and imager_in
 
             x_center = Util.coordinate_to_pixel(self.cx, self.dx * self.xbin, self.M)
             y_center = Util.coordinate_to_pixel(self.cy, self.dx * self.ybin, self.N)
