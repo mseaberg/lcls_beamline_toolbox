@@ -3474,6 +3474,761 @@ class PPM_Device(PPM):
             return np.zeros((2048, 2048))
 
 
+class EXS_Device(PPM):
+    """
+    Child class of PPM that is used for a physical PPM, rather than simulated.
+    """
+
+    def __init__(self, name, **kwargs):
+        super().__init__(name, **kwargs)
+
+        self.imager_prefix = name
+        self.threshold = 0.0001
+
+        # set allowed kwargs
+        allowed_arguments = ['average', 'threshold', 'fit_object']
+
+        # update attributes based on kwargs
+        for key, value in kwargs.items():
+            if key in allowed_arguments:
+                setattr(self, key, value)
+
+        # get Y motor state
+        self.state = EpicsSignalRO(self.imager_prefix + 'MMS:STATE:GET_RBV', auto_monitor=True)
+        # define possible states depending on imager type
+        if 'XTES' in self.imager_prefix:
+            self.states_list = ['Unknown', 'OUT', 'YAG', 'DIAMOND', 'RETICLE']
+        elif 'PPM' in self.imager_prefix:
+            self.states_list = ['Unknown', 'OUT', 'POWERMETER', 'YAG1', 'YAG2']
+        else:
+            self.state_list = []
+
+        self.cam_name = self.imager_prefix
+        self.epics_name = self.cam_name + 'IMAGE3:'
+        # get acquisition info (this is in seconds)
+        self.acquisition_period = PV(self.epics_name[:-7] + 'AcquirePeriod_RBV').get()
+
+        # check if Image3 is available
+        port = PV(self.epics_name + 'PortName_RBV').get()
+        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
+
+        if port is None or array_rate == 0:
+            self.epics_name = self.imager_prefix + 'IMAGE1:'
+            self.acquisition_period = PV(self.imager_prefix + 'CAM:AcquirePeriod_RBV').get()
+
+        port = PV(self.epics_name + 'PortName_RBV').get()
+
+        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
+
+        if port is None or array_rate == 0:
+            self.epics_name = self.imager_prefix + 'CAM:IMAGE2:'
+            self.acquisition_period = PV(self.imager_prefix + 'CAM:AcquirePeriod_RBV').get()
+
+        port = PV(self.epics_name + 'PortName_RBV').get()
+
+        if port is None:
+            self.epics_name = self.imager_prefix + 'DATA1:'
+            self.acquisition_period = PV(self.imager_prefix + 'AcquirePeriod_RBV').get()
+
+        self.orientation = 'action0'
+
+        print(self.epics_name)
+
+        FOV_dict = {
+            'IM2K4': 8.5,
+            'IM3K4': 8.5,
+            'IM4K4': 5.0,
+            'IM5K4': 8.5,
+            'IM6K4': 8.5,
+            'IM1K1': 8.5,
+            'IM2K1': 8.5,
+            'IM1K2': 8.5,
+            'IM2K2': 18.5,
+            'IM3K2': 18.5,
+            'IM4K2': 8.5,
+            'IM5K2': 8.5,
+            'IM6K2': 5.0,
+            'IM7K2': 5.0,
+            'IM1L1': 8.5,
+            'IM2L1': 8.5,
+            'IM3L1': 8.5,
+            'IM4L1': 8.5,
+            'IM1K3': 8.5,
+            'IM2K3': 8.5,
+            'IM3K3': 8.5,
+            'IM3L0': 5.0
+        }
+
+        z_dict = {
+            'IM1L0': 699.5576832,
+            'IM2L0': 736.50848,
+            'IM3L0': 746.0000167,
+            'IM4L0': 753.5587416,
+            'IM1K0': 699.4677942,
+            'IM2K0': 732.3403281,
+            'IM1K1': 738.0279162,
+            'IM2K1': 742.15,
+            'IM1K2': 777.93,
+            'IM2K2': 780.425,
+            'IM3K2': 781.9,
+            'IM4K2': 783.455,
+            'IM5K2': 787.417,
+            'IM6K2': 792.167,
+            'IM7K2': 798.5,
+            'IM1L1': 745.4046250,
+            'IM2L1': 759.02,
+            'IM3L1': 778.96,
+            'IM4L1': 778.96,
+            'IM1K3': 740.804,
+            'IM2K3': 750,
+            'IM3K3': 778.66,
+            'IM2K4': 755.32096,
+            'IM3K4': 758.889,
+            'IM4K4': 761.101,
+            'IM5K4': 764.313
+            # 'IM5K4': 764.45591 - 0.03
+        }
+
+        try:
+            self.distance = FOV_dict[self.epics_name[0:5]] * 1e3
+            self.z = z_dict[self.epics_name[0:5]]
+        except:
+            self.distance = 8500.0
+            self.z = z_dict['IM1L0']
+
+        try:
+            self.gige = PCDSAreaDetector(self.cam_name, name='gige')
+            self.reset_camera()
+        except Exception:
+            print('\nSomething wrong with camera server')
+            self.gige = None
+
+        # load in pixel size
+        try:
+            with open('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
+                data = json.load(json_file)
+
+            imager_data = data[self.epics_name[0:5]]
+            self.dx = float(imager_data['pixel'])
+            self.distance = float(imager_data['FOV']) * 1e3
+            self.z = float(imager_data['z'])
+
+            try:
+                self.cx_target = float(imager_data['cx'])
+                self.cy_target = float(imager_data['cy'])
+            except KeyError:
+                self.cx_target = 0
+                self.cy_target = 0
+
+        except json.decoder.JSONDecodeError:
+            self.dx = 5.5 / 1.2
+        except KeyError:
+            print('pixel size not calibrated. units are pixels.')
+            self.dx = 1
+
+        # self.cx_target = 0
+        # self.cy_target = 0
+
+        print(self.dx)
+
+        # if len(sys.argv)>1:
+        #     self.cam_name = sys.argv[1]
+        #     self.epics_name = sys.argv[1] + 'IMAGE2:'
+
+        self.image_pv = PV(self.epics_name + 'ArrayData')
+
+        # get ROI info
+        xmin = PV(self.epics_name + 'ROI:MinX_RBV').get()
+        xmax = xmin + PV(self.epics_name + 'ROI:SizeX_RBV').get() - 1
+        ymin = PV(self.epics_name + 'ROI:MinY_RBV').get()
+        ymax = ymin + PV(self.epics_name + 'ROI:SizeY_RBV').get() - 1
+        # get binning
+        self.xbin = PV(self.epics_name + 'ROI:BinX_RBV').get()
+        self.ybin = PV(self.epics_name + 'ROI:BinY_RBV').get()
+
+        # get array size
+        self.xsize = PV(self.epics_name + 'ROI:ArraySizeX_RBV').get()
+        self.ysize = PV(self.epics_name + 'ROI:ArraySizeY_RBV').get()
+
+        # pixel size in meters, per pixel so need to take binning into account
+        self.dxm = self.dx * 1e-6 * self.xbin
+
+        print(self.xsize)
+        if self.xsize == 0:
+            self.xsize = PV(self.epics_name + 'ArraySize0_RBV').get()
+            self.ysize = PV(self.epics_name + 'ArraySize1_RBV').get()
+            xmin = 0
+            ymin = 0
+            xmax = self.xsize - 1
+            ymax = self.ysize - 1
+
+        # self.x = np.linspace(0, self.xsize - 1, self.xsize, dtype=float)
+        # self.x -= self.xsize/2
+        # self.y = np.linspace(0, self.ysize - 1, self.ysize, dtype=float)
+        # self.y -= self.ysize/2
+
+        self.x = np.linspace(xmin, xmax - (self.xbin - 1), self.xsize, dtype=float)
+        self.x -= (xmax + 1) / 2
+        self.y = np.linspace(ymin, ymax - (self.ybin - 1), self.ysize, dtype=float)
+        self.y -= (ymax + 1) / 2
+
+        self.x *= self.dx
+        self.y *= self.dx
+        self.xx, self.yy = np.meshgrid(self.x, self.y)
+
+        print(self.epics_name)
+        print(self.xsize)
+
+        self.FOV = np.max(self.x) - np.min(self.x)
+
+        self.N, self.M = np.shape(self.xx)
+
+        self.profile = np.zeros_like(self.xx)
+        self.x_lineout = np.zeros(self.M)
+        self.y_lineout = np.zeros(self.N)
+        self.x_projection = np.zeros(self.M)
+        self.y_projection = np.zeros(self.N)
+        if 'K' in self.epics_name:
+            self.photon_energy = PV('PMPS:KFE:PE:UND:CurrentPhotonEnergy_RBV').get()
+        else:
+            self.photon_energy = PV('PMPS:LFE:PE:UND:CurrentPhotonEnergy_RBV').get()
+
+        print('photon energy: %.2f' % self.photon_energy)
+        self.lambda0 = 1239.8 / self.photon_energy * 1e-9
+        self.time_stamp = 0.0
+        self.cx = 0
+        self.cy = 0
+        self.wx = 0
+        self.wy = 0
+        self.intensity = 0
+
+        f_x = np.linspace(-self.M / 2., self.M / 2. - 1., self.M) / self.M / self.dxm
+        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dxm
+
+        self.f_x, self.f_y = np.meshgrid(f_x, f_y)
+
+        self.downsample = 3
+
+        self.Nd = int(self.N / (2 ** self.downsample))
+        self.Md = int(self.M / (2 ** self.downsample))
+
+        self.fit_object = None
+
+        # load in dummy image
+        self.dummy_image = np.load('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
+
+    def beam_analysis(self, line_x, line_y):
+        """
+        Method for analyzing image of the beam.
+        :param line_x: (N,) ndarray
+            Horizontal lineout. Could be summed across full image or from an ROI.
+        :param line_y: (N,) ndarray
+            Vertical lineout. Could be summed across full image or from an ROI.
+        :return cx: float
+            Calculated horizontal centroid (m)
+        :return cy: float
+            Calculated vertical centroid (m)
+        :return fwhm_x: float
+            Calculated horizontal FWHM (m). Based on Gaussian fit (or calculated from second moment if fit fails).
+        :return fwhm_y: float
+            Calculated vertical FWHM (m). Based on Gaussian fit (or calculated from second moment if fit fails).
+        :return fwx_guess: float
+            Calculated horizontal FWHM (m) based on calculation of second moment.
+        :return fwy_guess: float
+            Calculated vertical FWHM (m) based on calculation of second moment.
+        """
+
+        self.amp_x = np.max(line_x) - np.min(line_x)
+        self.amp_y = np.max(line_y) - np.min(line_y)
+
+        # normalize lineouts
+        if np.max(line_x) > 0:
+            line_x -= np.min(line_x)
+            line_x = line_x / np.max(line_x)
+
+        if np.max(line_y) > 0:
+            line_y -= np.min(line_y)
+            line_y = line_y / np.max(line_y)
+
+        # set 20% threshold
+        thresh_x = np.max(line_x) * self.threshold
+        thresh_y = np.max(line_y) * self.threshold
+        # subtract threshold and set everything below to zero
+        norm_x = line_x - thresh_x
+        norm_x[norm_x < 0] = 0
+        # re-normalize
+
+        if np.max(norm_x) > 0:
+            norm_x = norm_x / np.max(norm_x)
+
+        # subtract threshold and set everything below to zero
+        norm_y = line_y - thresh_y
+        norm_y[norm_y < 0] = 0
+        # re-normalize
+        if np.max(norm_y) > 0:
+            norm_y = norm_y / np.max(norm_y)
+
+        # calculate centroids
+
+        if np.sum(norm_x) > 0:
+            cx = np.sum(norm_x * self.x) / np.sum(norm_x)
+            # calculate second moments. Converted to microns to help with fitting
+            sx = np.sqrt(np.sum(norm_x * (self.x - cx) ** 2) / np.sum(norm_x)) * 1e6
+
+        else:
+            cx = 0
+            sx = 0
+        if np.sum(norm_y) > 0:
+            cy = np.sum(norm_y * self.y) / np.sum(norm_y)
+            # calculate second moments. Converted to microns to help with fitting
+            sy = np.sqrt(np.sum(norm_y * (self.y - cy) ** 2) / np.sum(norm_y)) * 1e6
+
+        else:
+            cy = 0
+            sy = 0
+
+        # conversion factor from sigma to fwhm
+        fwx_guess = sx * 2.355
+        fwy_guess = sy * 2.355
+
+        # initial guess for Gaussian fit
+        guessx = [cx * 1e6, sx]
+        guessy = [cy * 1e6, sy]
+
+        fit_validity = 1
+
+        # Gaussian fitting. Using try/except to deal with any fitting errors
+        try:
+            # only fit in the region where we have signal
+            mask = line_x > .1
+            # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
+            px, pcovx = optimize.curve_fit(Util.fit_sinc_squared, self.x[mask] * 1e6, line_x[mask], p0=guessx)
+            # set sx to sigma from the fit if successful.
+            sx = px[1]
+        except ValueError:
+            fit_validity = 0
+            print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
+        except RuntimeError:
+            fit_validity = 0
+            print('Least squares minimization failed. Using second moment for width.')
+
+        try:
+            # only fit in the region where we have signal
+            mask = line_y > .1
+            # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
+            py, pcovy = optimize.curve_fit(Util.fit_sinc_squared, self.y[mask] * 1e6, line_y[mask], p0=guessy)
+            # set sy to sigma from the fit if successful.
+            sy = py[1]
+        except ValueError:
+            fit_validity = 0
+            print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
+        except RuntimeError:
+            fit_validity = 0
+            print('Least squares minimization failed. Using second moment for width.')
+
+        # conversion factor from sigma to FWHM. Also convert back to meters.
+        fwhm_x = sx * 2.355 / 1e6
+        fwhm_y = sy * 2.355 / 1e6
+
+        # check validity
+        validity = ((self.amp_x > 30) and (self.amp_y > 30) and fit_validity and
+                    (fwhm_x < np.max(2 * self.x)) and (fwhm_y < np.max(2 * self.y)))
+
+        self.centroid_is_valid = validity
+
+        return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
+
+    def set_orientation(self, orientation):
+        self.orientation = orientation
+
+    def add_fit_object(self, fit_object):
+        self.fit_object = fit_object
+
+    def retrieve_wavefront(self, wfs, focusFOV=10, focus_z=0):
+        """
+        Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
+        :param wfs: WFS object
+            Grating structure that generates Talbot interferometry patterns. Passed to this method to gain access
+            to its attributes.
+        :return wfs_data: dict
+            Includes the following entries
+            x_prime: (M,) ndarray
+                Horizontal coordinates for retrieved high-order phase
+            y_prime: (N,) ndarray
+                Vertical coordinates for retrieved high-order phase
+            x_res: (M,) ndarray
+                Horizontal residual phase (>2nd order) at points in x_prime
+            y_res: (N,) ndarray
+                Vertical residual phase (>2nd order) at points in y_prime
+            coeff_x: (k,) ndarray
+                Legendre coefficients for horizontal phase lineout
+            coeff_y: (k,) ndarray
+                Legendre coefficients for vertical phase lineout
+            z2x: float
+                Distance to horizontal focus
+            z2y: float
+                Distance to vertical focus
+        """
+
+        # print('retrieving wavefront')
+
+        # get Talbot fraction that we're using (fractional Talbot effect)
+        fraction = wfs.fraction
+
+        # Distance from wavefront sensor to PPM,
+        # including correction based on z stage
+        zT = self.z - wfs.z - wfs.zPos()
+
+        # include correction to f0 (distance between focus and grating)
+        # based on z stage
+        f0 = wfs.f0 + wfs.zPos()
+        print('f0: %.3f' % f0)
+        # print('zT: %.2f' % zT)
+
+        # magnification of Talbot pattern
+        mag = (zT + f0) / f0
+
+        # number of pixels to sum across to get lineout
+        lineout_width = int(wfs.pitch / self.dxm * 5 * mag)
+
+        im1 = self.profile
+
+        # expected spatial frequency of Talbot pattern (1/m)
+        peak = 1. / mag / wfs.pitch
+
+        fc = peak * self.dxm
+
+        x_mask = ((self.f_x - fc / self.dxm) ** 2 + self.f_y ** 2) < (fc / 4 / self.dxm) ** 2
+        x_mask = x_mask * (((self.f_x - fc / self.dxm) ** 2 + self.f_y ** 2) >
+                           (fc / 4. / self.dxm - 2. / self.M / self.dxm) ** 2)
+        x_mask = x_mask.astype(float)
+        y_mask = ((self.f_x) ** 2 + (self.f_y - fc / self.dxm) ** 2) < (fc / 4 / self.dxm) ** 2
+        y_mask = y_mask * (((self.f_x) ** 2 + (self.f_y - fc / self.dxm) ** 2) >
+                           (fc / 4. / self.dxm - 2. / self.N / self.dxm) ** 2)
+        y_mask = y_mask.astype(float)
+
+        # parameters for calculating Legendre coefficients
+        wfs_param = {
+            "dg": wfs.pitch,  # wavefront sensor pitch (m)
+            "fraction": fraction,  # wavefront sensor fraction
+            "dx": self.dxm,  # PPM pixel size
+            "zT": zT,  # distance between WFS and PPM
+            "lambda0": self.lambda0,  # beam wavelength
+            "downsample": 3,  # Fourier downsampling power of 2
+            "zf": f0  # nominal distance from focus to grating
+        }
+
+        talbot_image = TalbotImage(im1, fc, fraction)
+        recovered_beam, wfs_param_out = talbot_image.get_legendre(self.fit_object, wfs_param, threshold=.1)
+
+        # check validity
+        # right now this is requiring that the peak is within half of the masked radius in the Fourier plane
+        validity = ((np.abs(wfs_param_out['h_peak'] - peak) < (peak / 8)) and
+                    (np.abs(wfs_param_out['v_peak'] - peak) < (peak / 8)))
+
+        # check target is in
+        target_in = 'TARGET' in wfs.check_state()
+
+        # for now require that centroid data is also valid
+        self.wavefront_is_valid = self.centroid_is_valid and validity and target_in
+
+        wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
+        mask = np.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
+                      256 - int(self.Md / 2):256 + int(self.Md / 2)]) > 0
+        wave *= mask
+
+        mask_x = mask[int(self.Nd / 2), :]
+        mask_y = mask[:, int(self.Md / 2)]
+
+        x_prime = recovered_beam.x[256, 256 - int(self.Md / 2):256 + int(self.Md / 2)] * 1e6
+        y_prime = recovered_beam.y[256 - int(self.Nd / 2):256 + int(self.Nd / 2), 256] * 1e6
+        x_prime = x_prime[mask_x]
+        y_prime = y_prime[mask_y]
+        x_res = wave[int(self.Nd / 2), :][mask_x]
+        y_res = wave[:, int(self.Md / 2)][mask_y]
+        # print('x_res: %d' % np.size(x_res))
+
+        # going to try getting the third order Legendre polynomial here and try to get it to zero using benders
+        try:
+            leg_x = np.polynomial.legendre.legfit(x_prime * 1e-6, x_res, 3)
+            leg_y = np.polynomial.legendre.legfit(y_prime * 1e-6, y_res, 3)
+            coma_x = leg_x[3]
+            coma_y = leg_y[3]
+        except:
+            self.wavefront_is_valid = False
+            coma_x = 0
+            coma_y = 0
+
+        # setting rms_x/rms_y to third order Legendre coefficient for now.
+        rms_x = np.std(x_res)
+        rms_y = np.std(y_res)
+
+        x_width = np.std(x_res)
+        y_width = np.std(y_res)
+
+        zf_x = -(recovered_beam.zx - zT - f0) * 1e3
+        zf_y = -(recovered_beam.zy - zT - f0) * 1e3
+
+        # annotated Fourier transform
+        F0 = np.abs(wfs_param_out['F0'])
+
+        F0 = F0 / np.max(F0)
+        F0 += x_mask + y_mask
+
+        # plane to propagate to relative to IP (focus_z is given in mm)
+        z_plane = focus_z * 1e-3
+
+        # propagate to focus
+        recovered_beam.beam_prop(-zT - f0 + z_plane)
+        focus = recovered_beam.wave
+        dx_focus = recovered_beam.dx
+        dy_focus = recovered_beam.dy
+        print('dx: %.2e' % dx_focus)
+        print('dy: %.2e' % dy_focus)
+        # focus = np.abs(focus)**2/np.max(np.abs(focus)**2)
+
+        focus_PPM = PPM('focus', FOV=focusFOV * 1e-6, N=256)
+        focus_PPM.propagate(recovered_beam)
+
+        focus = focus_PPM.profile / np.max(focus_PPM.profile)
+        focus_horizontal = focus_PPM.x_lineout / np.max(focus_PPM.x_lineout)
+        focus_vertical = focus_PPM.y_lineout / np.max(focus_PPM.y_lineout)
+        focus_fwhm_horizontal = focus_PPM.wx
+        focus_fwhm_vertical = focus_PPM.wy
+
+        xf = focus_PPM.x * 1e6
+
+        # x_focus = recovered_beam.x[0, :]
+        # y_focus = recovered_beam.y[:, 0]
+        # x_interp = np.linspace(-256, 255, 512, dtype=float)*focusFOV*1e-6/512
+        # f = interpolation.interp2d(x_focus, y_focus, focus, fill_value=0)
+        # focus = f(x_interp, x_interp)
+        # focus_horizontal = np.sum(focus, axis=0)
+        # focus_vertical = np.sum(focus, axis=1)
+
+        # rms_x = np.std(x_res)
+        # rms_y = np.std(y_res)
+
+        # output. See method docstring for descriptions.
+        wfs_data = {
+            'x_res': x_res,
+            'x_prime': x_prime,
+            'y_res': y_res,
+            'y_prime': y_prime,
+            'z_x': zf_x,
+            'z_y': zf_y,
+            'rms_x': rms_x,
+            'rms_y': rms_y,
+            'coma_x': coma_x,
+            'coma_y': coma_y,
+            'F0': F0,
+            'focus': focus,
+            # 'xf': x_interp*1e6,
+            'xf': xf,
+            'focus_fwhm_horizontal': focus_fwhm_horizontal,
+            'focus_fwhm_vertical': focus_fwhm_vertical,
+            'focus_horizontal': focus_horizontal,
+            'focus_vertical': focus_vertical,
+            'wave': wave,
+            'dxf': dx_focus,
+            'dyf': dy_focus
+        }
+
+        return wfs_data, wfs_param_out
+
+    def retrieve_wavefront2D(self, basis_file, wfs):
+        """
+        Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
+        :param basis_file: string
+            Path to file containing pickled Legendre basis object.
+        :param wfs: WFS object
+            Grating structure that generates Talbot interferometry patterns. Passed to this method to gain access
+            to its attributes.
+        :return wfs_data: dict
+            Includes the following entries
+            x_prime: (M,) ndarray
+                Horizontal coordinates for retrieved high-order phase
+            y_prime: (N,) ndarray
+                Vertical coordinates for retrieved high-order phase
+            x_res: (M,) ndarray
+                Horizontal residual phase (>2nd order) at points in x_prime
+            y_res: (N,) ndarray
+                Vertical residual phase (>2nd order) at points in y_prime
+            coeff_x: (k,) ndarray
+                Legendre coefficients for horizontal phase lineout
+            coeff_y: (k,) ndarray
+                Legendre coefficients for vertical phase lineout
+            z2x: float
+                Distance to horizontal focus
+            z2y: float
+                Distance to vertical focus
+        """
+
+        print('retrieving wavefront')
+
+        # go ahead and retrieve 1D wavefront first
+        wfs_data, wfs_param = self.retrieve_wavefront(wfs)
+
+        # get Talbot fraction that we're using (fractional Talbot effect)
+        fraction = wfs.fraction
+
+        # Talbot image processing
+        # load basis
+        with open(basis_file, 'rb') as f:
+            fit_object = pickle.load(f)
+
+        # initialize Talbot image processing
+        image_calc = TalbotImage(self.profile, wfs_param['fc'], fraction)
+
+        # add parameters for calculating Legendre coefficients
+        wfs_param['downsample'] = 3
+        wfs_param['zf'] = f0
+        wfs_param['dg'] = wfs.x_pitch_sim
+
+        # calculate 2D legendre coefficients
+        print('getting 2D Legendre coefficients')
+        recovered_beam, fit_params = image_calc.get_legendre(fit_object, wfs_param)
+
+        # get complete wavefront with defocus
+        x = fit_params['x']
+        y = fit_params['y']
+        px = fit_params['px']
+        py = fit_params['py']
+        coeff = fit_params['coeff']
+
+        # add defocus to wavefront fit
+        full_wave = fit_object.wavefront_fit(coeff) + px * x ** 2 + py * y ** 2
+
+        # output. See method docstring for descriptions.
+        wfs_data2D = {
+            'recovered': recovered_beam,
+            'wave': full_wave
+        }
+
+        wfs_data.update(fit_params)
+
+        wfs_data.update(wfs_data2D)
+
+        return wfs_data
+
+    def stop(self):
+        self.running = False
+        try:
+            pass
+            # self.gige.cam.acquire.put(0, wait=True)
+        except AttributeError:
+            pass
+
+    def check_rate(self):
+        rate = PV(self.cam_name + 'ArrayRate_RBV').get()
+
+        return rate
+
+    def reset_camera(self):
+
+        try:
+            if self.check_rate() > 0:
+                print('camera is acquiring')
+            else:
+                print('resetting camera')
+                self.gige.cam.acquire.put(0, wait=True)
+                self.gige.cam.acquire.put(1)
+        except:
+            print('no camera')
+
+    def get_dummy_image(self):
+        return self.dummy_image
+
+    def get_image(self, angle=0):
+        try:
+            # do averaging
+            if hasattr(self, 'average'):
+                numImages = getattr(self, 'average').get_numImages()
+            else:
+                numImages = 1
+
+            image_data = self.image_pv.get_with_metadata()
+
+            img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+            if numImages > 1:
+                for i in range(numImages - 1):
+                    # wait for the next image
+                    sleep(self.acquisition_period)
+                    image_data = self.image_pv.get_with_metadata()
+                    imgTemp = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+                    img += imgTemp
+
+            img = img / numImages
+
+            time_stamp = image_data['timestamp']
+            # time_stamp = image_data.time_stamp
+            # img = np.array(image_data.shaped_image,dtype='float')
+            # img = np.array(self.gige.image2.image,dtype='float')
+            # img = Util.threshold_array(img, self.threshold)
+
+            if self.orientation == 'action0':
+                self.profile = img
+            elif self.orientation == 'action90':
+                self.profile = np.rot90(img)
+            elif self.orientation == 'action180':
+                self.profile = np.rot90(img, 2)
+            elif self.orientation == 'action270':
+                self.profile = np.rot90(img, 3)
+            elif self.orientation == 'action0_flip':
+                self.profile = np.fliplr(img)
+            elif self.orientation == 'action90_flip':
+                self.profile = np.rot90(np.fliplr(img))
+            elif self.orientation == 'action180_flip':
+                self.profile = np.rot90(np.fliplr(img), 2)
+            elif self.orientation == 'action270_flip':
+                self.profile = np.rot90(np.fliplr(img), 3)
+
+            # angle = -0.2
+            self.profile = ndimage.rotate(self.profile, angle, reshape=False)
+
+            temp_profile = Util.threshold_array(self.profile, self.threshold)
+
+            self.intensity = np.mean(temp_profile)
+            self.projection_x = np.mean(temp_profile, axis=0)
+            self.projection_y = np.mean(temp_profile, axis=1)
+
+            # get beam statistics
+            self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
+
+            # add imager state to validity
+            imager_state = self.states_list[self.state.value]
+            imager_in = 'YAG' in imager_state or 'DIAMOND' in imager_state
+            self.centroid_is_valid = self.centroid_is_valid and imager_in
+
+            x_center = Util.coordinate_to_pixel(self.cx, self.dx * self.xbin, self.M)
+            y_center = Util.coordinate_to_pixel(self.cy, self.dx * self.ybin, self.N)
+
+            self.lineout_x = temp_profile[int(y_center), :]
+            self.lineout_y = temp_profile[:, int(x_center)]
+
+            # gaussian fits
+            try:
+                fit_x = self.amp_x * np.sinc((self.x-self.cx)/self.wx)**2
+                #fit_x = self.amp_x * np.exp(
+                #    -(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
+            except RuntimeWarning:
+                fit_x = np.zeros_like(self.lineout_x)
+            try:
+                fit_y  = self.amp_y * np.sinc((self.y - self.cy)/self.wy)**2
+                #fit_y = self.amp_y * np.exp(
+                #    -(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
+            except RuntimeWarning:
+                fit_y = np.zeros_like(self.lineout_y)
+
+            self.fit_x = fit_x
+            self.fit_y = fit_y
+
+            self.time_stamp = time_stamp
+            return img, time_stamp
+        except:
+            print('no image')
+            return np.zeros((2048, 2048))
+
 class WFS:
     """
     Class to represent Talbot wavefront sensor gratings/pinhole arrays.

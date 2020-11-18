@@ -83,6 +83,31 @@ class Util:
         return fft.fftshift(fft.ifft(fft.ifftshift(a)))
 
     @staticmethod
+    def fit_sinc_squared(x, x0, w):
+        """
+        Method for fitting to a sinc squared function. This method is a parameter to Scipy's optimize.curve_fit routine.
+        Parameters
+        ----------
+        x: array_like
+            Copied from Scipy docs: "The independent variable where the data is measured. Should usually be an
+            M-length sequence or an (k,M)-shaped array for functions with k predictors, but can actually be any
+            object." Units are meters.
+        x0: float
+            Initial guess for beam center (m).
+        w: float
+            Initial guess for sinc width (m).
+
+        Returns
+        -------
+        array_like with same shape as x
+            Function evaluated at all points in x.
+        """
+        if w == 0:
+            return np.zeros_like(x)
+        else:
+            return np.sinc((x-x0)/w)**2
+
+    @staticmethod
     def fit_gaussian(x, x0, w):
         """
         Method for fitting to a Gaussian function. This method is a parameter to Scipy's optimize.curve_fit routine.
