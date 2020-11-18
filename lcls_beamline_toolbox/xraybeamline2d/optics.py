@@ -3839,6 +3839,8 @@ class EXS_Device(PPM):
 
         self.centroid_is_valid = validity
 
+        print("found beam parameters")
+
         return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
 
     def set_orientation(self, orientation):
