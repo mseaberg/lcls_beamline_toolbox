@@ -3470,6 +3470,8 @@ class PPM_Device(PPM):
             self.time_stamp = time_stamp
             return img, time_stamp
         except:
+            self.lineout_x = np.zeros_like(self.x_lineout)
+            self.lineout_y = np.zeros_like(self.y_lineout)
             print('no image')
             return np.zeros((2048, 2048))
 
@@ -4226,6 +4228,8 @@ class EXS_Device(PPM):
             self.time_stamp = time_stamp
             return img, time_stamp
         except:
+            self.lineout_x = np.zeros_like(self.x_lineout)
+            self.lineout_y = np.zeros_like(self.y_lineout)
             print('no image')
             return np.zeros((2048, 2048))
 
