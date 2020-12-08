@@ -118,6 +118,11 @@ class Beam:
             else:
                 setattr(self, key, 0.0)
 
+        # set photon energy and calculate wavelength, wavenumber
+        self.photonEnergy = beam_params['photonEnergy']
+        self.lambda0 = 1239.8 / beam_params['photonEnergy'] * 1e-9
+        self.k0 = 2.0 * np.pi / self.lambda0
+
         # check if rangeFactor was provided, or default to 10.
         if 'rangeFactor' in beam_params.keys():
             self.rangeFactor = beam_params['rangeFactor']
@@ -149,8 +154,16 @@ class Beam:
             else:
                 self.zy = 0.0
             # set ranges to zero for now, see if this works.
-            self.zRx = 0
-            self.zRy = 0
+            # try to calculate rayleigh ranges
+            # calculate Rayleigh ranges (m)
+            N,M = np.shape(self.wave)
+            sigma_x = self.dx*M/8
+            sigma_y = self.dx*N/8
+            self.zRx = np.pi * sigma_x ** 2 / self.lambda0 * self.rangeFactor
+            self.zRy = np.pi * sigma_y ** 2 / self.lambda0 * self.rangeFactor
+
+            # self.zRx = 0
+            # self.zRy = 0
 
         # if initial_beam not provided, create GaussianSource from beam parameters
         else:
@@ -167,10 +180,7 @@ class Beam:
             self.zRx = b1.zRx * self.rangeFactor * (2/1.18)**2
             self.zRy = b1.zRy * self.rangeFactor * (2/1.18)**2
 
-        # set photon energy and calculate wavelength, wavenumber
-        self.photonEnergy = beam_params['photonEnergy']
-        self.lambda0 = 1239.8 / beam_params['photonEnergy'] * 1e-9
-        self.k0 = 2.0 * np.pi / self.lambda0
+
 
         # get array shape
         self.N, self.M = self.wave.shape
@@ -201,10 +211,17 @@ class Beam:
 
         # if we're already inside the focal range, we need to multiply by quadratic phase in order for
         # propagation to work properly.
-        if self.focused_x:
-            self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
-        if self.focused_y:
-            self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+        if initial_beam is None:
+            if self.focused_x:
+                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+            if self.focused_y:
+                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+
+        else:
+            if not self.focused_x:
+                self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+            if not self.focused_y:
+                self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
 
     def update_parameters(self, dz):
         """
