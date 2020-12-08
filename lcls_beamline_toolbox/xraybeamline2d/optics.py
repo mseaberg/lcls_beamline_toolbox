@@ -2406,7 +2406,7 @@ class PPM:
         fwhm_y = sy * 2.355 / 1e6
 
         # check validity
-        validity = ((self.amp_x > 30) and (self.amp_y > 30) and fit_validity and
+        validity = ((self.amp_x > 0) and (self.amp_y > 0) and fit_validity and
                     (fwhm_x < np.max(2*self.x)) and (fwhm_y < np.max(2*self.y)))
 
         self.centroid_is_valid = validity
@@ -2858,9 +2858,11 @@ class PPM_Device(PPM):
         elif 'PPM' in self.imager_prefix:
             self.states_list = ['Unknown', 'OUT', 'POWERMETER', 'YAG1', 'YAG2']
         else:
-            self.state_list = []
+            self.states_list = []
 
         self.cam_name = self.imager_prefix + 'CAM:'
+        if 'MONO' in self.imager_prefix:
+            self.cam_name = self.imager_prefix
         self.epics_name = self.cam_name + 'IMAGE3:'
         # get acquisition info (this is in seconds)
         self.acquisition_period = PV(self.epics_name[:-7] + 'AcquirePeriod_RBV').get()
@@ -2968,8 +2970,16 @@ class PPM_Device(PPM):
         try:
             with open('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
                 data = json.load(json_file)
-            
-            imager_data = data[self.epics_name[0:5]]
+           
+            key_name = self.epics_name[0:5]
+            if 'MONO' in self.epics_name:
+                if '3' in self.epics_name:
+                    key_name = 'MONO_03'
+                elif '4' in self.epics_name:
+                    key_name = 'MONO_04'
+
+            imager_data = data[key_name]
+            #imager_data = data[self.epics_name[0:5]]
             self.dx = float(imager_data['pixel'])
             self.distance = float(imager_data['FOV']) * 1e3
             self.z = float(imager_data['z'])
@@ -2983,9 +2993,13 @@ class PPM_Device(PPM):
 
         except json.decoder.JSONDecodeError:
             self.dx = 5.5/1.2
+            self.cx_target = 0.0
+            self.cy_target = 0.0
         except KeyError:
             print('pixel size not calibrated. units are pixels.')
             self.dx = 1
+            self.cx_target = 0.0
+            self.cy_target = 0.0
 
         
 
@@ -3039,8 +3053,12 @@ class PPM_Device(PPM):
         self.y *= self.dx
         self.xx, self.yy = np.meshgrid(self.x, self.y)
 
+        self.x0 = np.copy(self.x)
+        self.y0 = np.copy(self.y)
+
         print(self.epics_name)
         print(self.xsize)
+        print(self.ysize)
 
         self.FOV = np.max(self.x) - np.min(self.x)
 
@@ -3414,20 +3432,39 @@ class PPM_Device(PPM):
 
             if self.orientation == 'action0':
                 self.profile = img
+                self.x = self.x0
+                self.y = self.y0
             elif self.orientation == 'action90':
                 self.profile = np.rot90(img)
+                self.x = self.y0
+                self.y = self.x0
             elif self.orientation == 'action180':
                 self.profile = np.rot90(img,2)
+                self.x = self.x0
+                self.y = self.y0
             elif self.orientation == 'action270':
                 self.profile = np.rot90(img,3)
+                self.x = self.y0
+                self.y = self.x0
             elif self.orientation == 'action0_flip':
                 self.profile = np.fliplr(img)
+                self.x = self.x0
+                self.y = self.y0
             elif self.orientation == 'action90_flip':
                 self.profile = np.rot90(np.fliplr(img))
+                self.x = self.y0
+                self.y = self.x0
             elif self.orientation == 'action180_flip':
                 self.profile = np.rot90(np.fliplr(img),2)
+                self.x = self.x0
+                self.y = self.y0
             elif self.orientation == 'action270_flip':
                 self.profile = np.rot90(np.fliplr(img),3)
+                self.x = self.y0
+                self.y = self.x0
+
+            self.N = np.size(self.y)
+            self.M = np.size(self.x)
 
             #angle = -0.2
             self.profile = ndimage.rotate(self.profile, angle, reshape=False)
@@ -3442,8 +3479,12 @@ class PPM_Device(PPM):
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
 
             # add imager state to validity
-            imager_state = self.states_list[self.state.value]
+            if 'MONO' in self.imager_prefix:
+                imager_state = 'YAG'
+            else:
+                imager_state = self.states_list[self.state.value]
             imager_in = 'YAG' in imager_state or 'DIAMOND' in imager_state
+
             self.centroid_is_valid = self.centroid_is_valid and imager_in
 
             x_center = Util.coordinate_to_pixel(self.cx, self.dx*self.xbin, self.M)
@@ -3805,7 +3846,7 @@ class EXS_Device(PPM):
             # only fit in the region where we have signal
             mask = line_x > .1
             # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
-            px, pcovx = optimize.curve_fit(Util.fit_sinc_squared, self.x[mask] * 1e6, line_x[mask], p0=guessx)
+            px, pcovx = optimize.curve_fit(Util.fit_gaussian, self.x[mask] * 1e6, line_x[mask], p0=guessx)
             # set sx to sigma from the fit if successful.
             sx = px[1]
         except ValueError:
@@ -3819,7 +3860,7 @@ class EXS_Device(PPM):
             # only fit in the region where we have signal
             mask = line_y > .1
             # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
-            py, pcovy = optimize.curve_fit(Util.fit_sinc_squared, self.y[mask] * 1e6, line_y[mask], p0=guessy)
+            py, pcovy = optimize.curve_fit(Util.fit_gaussian, self.y[mask] * 1e6, line_y[mask], p0=guessy)
             # set sy to sigma from the fit if successful.
             sy = py[1]
         except ValueError:
@@ -3838,8 +3879,6 @@ class EXS_Device(PPM):
                     (fwhm_x < np.max(2 * self.x)) and (fwhm_y < np.max(2 * self.y)))
 
         self.centroid_is_valid = validity
-
-        print("found beam parameters")
 
         return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
 
@@ -4213,15 +4252,15 @@ class EXS_Device(PPM):
 
             # gaussian fits
             try:
-                fit_x = self.amp_x * np.sinc((self.x-self.cx)/self.wx)**2
-                #fit_x = self.amp_x * np.exp(
-                #    -(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
+                #fit_x = self.amp_x * np.sinc((self.x-self.cx)/self.wx)**2
+                fit_x = self.amp_x * np.exp(
+                    -(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
             except RuntimeWarning:
                 fit_x = np.zeros_like(self.lineout_x)
             try:
-                fit_y  = self.amp_y * np.sinc((self.y - self.cy)/self.wy)**2
-                #fit_y = self.amp_y * np.exp(
-                #    -(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
+                #fit_y  = self.amp_y * np.sinc((self.y - self.cy)/self.wy)**2
+                fit_y = self.amp_y * np.exp(
+                    -(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
             except RuntimeWarning:
                 fit_y = np.zeros_like(self.lineout_y)
 
