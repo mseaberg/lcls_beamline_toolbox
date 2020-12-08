@@ -157,8 +157,15 @@ class Beam:
             # try to calculate rayleigh ranges
             # calculate Rayleigh ranges (m)
             N,M = np.shape(self.wave)
-            sigma_x = self.dx*M/8
-            sigma_y = self.dx*N/8
+            if 'sigma_x' in beam_params.keys():
+                sigma_x = beam_params['sigma_x']
+                if 'sigma_y' in beam_params.keys():
+                    sigma_y = beam_params['sigma_y']
+                else:
+                    sigma_y = sigma_x
+            else:
+                sigma_x = self.dx*M/8
+                sigma_y = self.dx*N/8
             self.zRx = np.pi * sigma_x ** 2 / self.lambda0 * self.rangeFactor
             self.zRy = np.pi * sigma_y ** 2 / self.lambda0 * self.rangeFactor
 
