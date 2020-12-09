@@ -219,16 +219,18 @@ class Beam:
 
         # if we're already inside the focal range, we need to multiply by quadratic phase in order for
         # propagation to work properly.
-        # if initial_beam is None:
-        #     if self.focused_x:
-        #         self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
-        #     if self.focused_y:
-        #         self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+        if initial_beam is None:
+            if self.focused_x:
+                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+            if self.focused_y:
+                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
 
-        if self.focused_x:
-            self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx) ** 2)
-        if self.focused_y:
-            self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy) ** 2)
+
+        # else:
+        #     if not self.focused_x:
+        #         self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+        #     if not self.focused_y:
+        #         self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
 
         # else:
         #     if not self.focused_x:
@@ -497,7 +499,7 @@ class Beam:
                         y_prop_limit = dz_remaining
 
                 # distance to propagate during this step. Pick the more restrictive case.
-                prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
+                prop_step = np.min([x_prop_limit, y_prop_limit])
 
                 # print the current step size
                 print('current step size: %.2f microns' % (prop_step*1e6))
