@@ -19,6 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 from time import sleep
+import time
 from .pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolation
 import scipy.ndimage as ndimage
@@ -3409,10 +3410,7 @@ class PPM_Device(PPM):
                 numImages = getattr(self, 'average').get_numImages()
             else:
                 numImages = 1
-            t0 = time.time() 
             image_data = self.image_pv.get_with_metadata()
-            t1 = time.time()
-            print(t1-t0)
             img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
             if numImages > 1:
                 for i in range(numImages-1):
@@ -3479,10 +3477,11 @@ class PPM_Device(PPM):
             self.projection_x = np.mean(temp_profile, axis=0)
             self.projection_y = np.mean(temp_profile, axis=1)
 
+            t0 = time.time()
             # get beam statistics
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
-
-            #print('found statistics')
+            t1 = time.time()
+            print(t1-t0)
 
             # add imager state to validity
             if 'MONO' in self.imager_prefix or 'SL' in self.imager_prefix:
