@@ -3477,11 +3477,8 @@ class PPM_Device(PPM):
             self.projection_x = np.mean(temp_profile, axis=0)
             self.projection_y = np.mean(temp_profile, axis=1)
 
-            t0 = time.time()
             # get beam statistics
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
-            t1 = time.time()
-            print(t1-t0)
 
             # add imager state to validity
             if 'MONO' in self.imager_prefix or 'SL' in self.imager_prefix:
