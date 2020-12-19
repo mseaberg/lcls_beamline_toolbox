@@ -3409,9 +3409,10 @@ class PPM_Device(PPM):
                 numImages = getattr(self, 'average').get_numImages()
             else:
                 numImages = 1
-            
+            t0 = time.time() 
             image_data = self.image_pv.get_with_metadata()
-
+            t1 = time.time()
+            print(t1-t0)
             img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
             if numImages > 1:
                 for i in range(numImages-1):
