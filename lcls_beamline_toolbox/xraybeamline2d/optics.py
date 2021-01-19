@@ -3411,9 +3411,7 @@ class PPM_Device(PPM):
                 numImages = getattr(self, 'average').get_numImages()
             else:
                 numImages = 1
-            
             image_data = self.image_pv.get_with_metadata()
-
             img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
             if numImages > 1:
                 for i in range(numImages-1):
@@ -3468,6 +3466,9 @@ class PPM_Device(PPM):
             self.N = np.size(self.y)
             self.M = np.size(self.x)
 
+            #print(self.M)
+            #print(self.N)
+
             #angle = -0.2
             self.profile = ndimage.rotate(self.profile, angle, reshape=False)
 
@@ -3481,7 +3482,7 @@ class PPM_Device(PPM):
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
 
             # add imager state to validity
-            if 'MONO' in self.imager_prefix:
+            if 'MONO' in self.imager_prefix or 'SL' in self.imager_prefix:
                 imager_state = 'YAG'
             else:
                 imager_state = self.states_list[self.state.value]
@@ -3492,8 +3493,20 @@ class PPM_Device(PPM):
             x_center = Util.coordinate_to_pixel(self.cx, self.dx*self.xbin, self.M)
             y_center = Util.coordinate_to_pixel(self.cy, self.dx*self.ybin, self.N)
 
-            self.lineout_x = temp_profile[int(y_center), :]
-            self.lineout_y = temp_profile[:, int(x_center)]
+            #print(self.cx)
+            #print(self.cy)
+
+            #print(x_center)
+            #print(y_center)
+
+            try:
+                self.lineout_x = temp_profile[int(y_center), :]
+                self.lineout_y = temp_profile[:, int(x_center)]
+            except:
+                self.lineout_x = self.projection_x
+                self.lineout_y = self.projection_y
+
+            #print('got lineouts')
 
             # gaussian fits
             try:
@@ -3507,10 +3520,13 @@ class PPM_Device(PPM):
             except RuntimeWarning:
                 fit_y = np.zeros_like(self.lineout_y)
 
+
+
             self.fit_x = fit_x
             self.fit_y = fit_y
 
             self.time_stamp = time_stamp
+
             return img, time_stamp
         except:
             self.lineout_x = np.zeros_like(self.x_lineout)
