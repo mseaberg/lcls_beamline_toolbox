@@ -4317,6 +4317,7 @@ class WFS:
             Nominal distance to focus
         :param phase: bool
             If True, make a phase grating instead of an amplitude grating.
+            For now this is limited to a checkerboard grating.
         :param enabled: bool
             If True, wavefront sensor influences the beam, otherwise it is effectively "moved out" of the beam.
         :param fraction: int
@@ -4414,19 +4415,36 @@ class WFS:
         y_width = int(self.y_pitch/2*self.duty_cycle)
 
         # loop through periods in the grating
-        for i in range(int(Mg)):
-            for j in range(int(Ng)):
-                minY = int(self.y_pitch) * (j+1) - y_width
-                maxY = int(self.y_pitch) * (j + 1) + y_width
-                minX = int(self.x_pitch) * (i + 1) - x_width
-                maxX = int(self.x_pitch) * (i + 1) + x_width
-                self.grating[minY:maxY, minX:maxX] = (1 + (-1)**(i+j) / 2)
+        # for i in range(int(Mg)):
+        #     for j in range(int(Ng)):
+        #         minY = int(self.y_pitch) * (j+1) - y_width
+        #         maxY = int(self.y_pitch) * (j + 1) + y_width
+        #         minX = int(self.x_pitch) * (i + 1) - x_width
+        #         maxX = int(self.x_pitch) * (i + 1) + x_width
+        #         self.grating[minY:maxY, minX:maxX] = (1 + (-1)**(i+j) / 2)
 
         # convert to checkerboard pi phase grating if desired
         if self.phase:
 
+            # loop through periods in the grating
+            for i in range(int(Mg)):
+                for j in range(int(Ng)):
+                    minY = int(self.y_pitch) * (j + 1) - y_width
+                    maxY = int(self.y_pitch) * (j + 1) + y_width
+                    minX = int(self.x_pitch) * (i + 1) - x_width
+                    maxX = int(self.x_pitch) * (i + 1) + x_width
+                    self.grating[minY:maxY, minX:maxX] = (1 + (-1) ** (i + j) / 2)
             self.grating = np.exp(1j*np.pi*self.grating)
-
+        # otherwise make a pinhole array
+        else:
+            # loop through periods in the grating
+            for i in range(int(Mg)):
+                for j in range(int(Ng)):
+                    minY = int(self.y_pitch) * (j + 1) - y_width
+                    maxY = int(self.y_pitch) * (j + 1) + y_width
+                    minX = int(self.x_pitch) * (i + 1) - x_width
+                    maxX = int(self.x_pitch) * (i + 1) + x_width
+                    self.grating[minY:maxY, minX:maxX] = 1
         # multiply beam by grating
         beam.wave *= self.grating
 
