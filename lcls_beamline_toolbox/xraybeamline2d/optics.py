@@ -2596,7 +2596,7 @@ class PPM:
 
         return wfs_data, wfs_param
 
-    def retrieve_wavefront2D(self, basis_file, wfs):
+    def retrieve_wavefront2D(self, basis_file, wfs, threshold=0.01):
         """
         Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
         :param basis_file: string
@@ -2604,6 +2604,8 @@ class PPM:
         :param wfs: WFS object
             Grating structure that generates Talbot interferometry patterns. Passed to this method to gain access
             to its attributes.
+        :param threshold: float
+            Optional, controls how much to threshold the intensity when recovering the wavefront
         :return wfs_data: dict
             Includes the following entries
             x_prime: (M,) ndarray
@@ -2647,7 +2649,7 @@ class PPM:
 
         # calculate 2D legendre coefficients
         print('getting 2D Legendre coefficients')
-        recovered_beam, fit_params = image_calc.get_legendre(fit_object, wfs_param)
+        recovered_beam, fit_params = image_calc.get_legendre(fit_object, wfs_param, threshold=threshold)
 
         # get complete wavefront with defocus
         x = fit_params['x']
