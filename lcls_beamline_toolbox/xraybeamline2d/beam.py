@@ -123,6 +123,9 @@ class Beam:
         self.lambda0 = 1239.8 / beam_params['photonEnergy'] * 1e-9
         self.k0 = 2.0 * np.pi / self.lambda0
 
+        # boolean to remember whether the initial beam input was provided
+        self.beam_provided = initial_beam is not None
+
         # check if rangeFactor was provided, or default to 10.
         if 'rangeFactor' in beam_params.keys():
             self.rangeFactor = beam_params['rangeFactor']
@@ -132,8 +135,17 @@ class Beam:
             # add this to the dictionary
             beam_params['rangeFactor'] = self.rangeFactor
 
+        # check if rangeFactor was provided, or default to 8.
+        if 'scaleFactor' in beam_params.keys():
+            self.scaleFactor = beam_params['scaleFactor']
+        else:
+            # default value is 8
+            self.scaleFactor = 8
+            # add this to the dictionary
+            beam_params['scaleFactor'] = self.scaleFactor
+
         # take in manual input of initial wavefront/amplitude
-        if initial_beam is not None:
+        if self.beam_provided:
             # initialize wave with initial_beam array
             self.wave = np.copy(initial_beam).astype(complex)
             # set pixel size
@@ -182,7 +194,8 @@ class Beam:
             self.zx = b1.z0x
             self.zy = b1.z0y
             self.dx = b1.dx
-            self.dy = np.copy(self.dx)
+            # self.dy = np.copy(self.dx)
+            self.dy = b1.dy
             # multiply rayleigh range by rangeFactor, and multiply by factor to make it consistent with
             # other calculations
             self.zRx = b1.zRx * self.rangeFactor * (2/1.18)**2
@@ -201,6 +214,12 @@ class Beam:
         # offset coordinates by beam center
         self.x = self.x + self.cx
         self.y = self.y + self.cy
+
+        # initialize global z
+        self.z_source = beam_params['z_source']
+        self.global_z = beam_params['z_source'] + (self.zx + self.zy) / 2
+        self.z = self.global_z
+
 
         # calculate spatial frequencies at initial plane
         fx_max = 1.0 / (2.0 * self.dx)
@@ -242,6 +261,13 @@ class Beam:
         #         self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
         #     if self.focused_y:
         #         self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+        # set beam parameters as attribute
+        self.beam_params = beam_params
+
+    def reinitialize(self, dz):
+        self.beam_params['z0x'] = dz
+        self.beam_params['z0y'] = dz
+        self.__init__(beam_params=self.beam_params)
 
     def update_parameters(self, dz):
         """
@@ -1306,15 +1332,26 @@ class GaussianSource:
         self.sigma_x = beam_params['sigma_x']
         self.sigma_y = beam_params['sigma_y']
         self.N = int(beam_params['N'])
-        if beam_params['z0x']:
+        self.photonEnergy = beam_params['photonEnergy']
+        # calculate wavelength (m)
+        self.wavelength = 1239.8 / self.photonEnergy * 1e-9
+        # calculate Rayleigh ranges (m)
+        self.zRx = np.pi * self.sigma_x ** 2 / self.wavelength
+        self.zRy = np.pi * self.sigma_y ** 2 / self.wavelength
+
+        if 'z0x' in beam_params.keys():
             self.z0x = beam_params['z0x']
         else:
-            self.z0x = 0.0
-        if beam_params['z0y']:
+            self.z0x = self.zRx
+        if 'z0y' in beam_params.keys():
             self.z0y = beam_params['z0y']
         else:
-            self.z0y = 0.0
-        self.photonEnergy = beam_params['photonEnergy']
+            if 'z0x' in beam_params.keys():
+                self.z0y = np.copy(self.z0x)
+                beam_params['z0y'] = self.z0y
+            else:
+                self.z0y = self.zRy
+
         if 'dx' in beam_params.keys():
             self.dx = beam_params['dx']
             self.dy = np.copy(self.dx)
@@ -1322,19 +1359,13 @@ class GaussianSource:
             self.dx = None
             self.dy = None
         
-        # calculate wavelength (m)
-        self.wavelength = 1239.8/self.photonEnergy*1e-9
-        # calculate Rayleigh ranges (m)
-        self.zRx = np.pi*self.sigma_x**2/self.wavelength
-        self.zRy = np.pi*self.sigma_y**2/self.wavelength
-        
         # calculate beam widths
         self.wx = self.sigma_x*np.sqrt(1+(self.z0x/self.zRx)**2)
         self.wy = self.sigma_y*np.sqrt(1+(self.z0y/self.zRy)**2)
 
         # calculate divergence
-        divergence_x = self.wx / self.z0x
-        divergence_y = self.wy / self.z0y
+        divergence_x = self.wavelength / np.pi / self.sigma_x
+        divergence_y = self.wavelength / np.pi / self.sigma_y
 
         # print beam width and divergence
         print('FWHM in x: '+str(1.18*self.wx*1e6)+' microns')
@@ -1344,6 +1375,8 @@ class GaussianSource:
 
         # factor to multiply by Rayleigh range to check if the beam is inside the focal range
         factor = beam_params['rangeFactor']*(2/1.18)**2
+
+        scale = beam_params['scaleFactor']
 
         # check if we're inside this range
         focused_x = -self.zRx*factor <= self.z0x < self.zRx*factor
@@ -1360,18 +1393,18 @@ class GaussianSource:
             # set field of view
             if focused_x:
                 # set it so that it will be 8 times the FWHM at the boundary of the focal range
-                FOV_x = np.abs(self.zRx * factor/self.z0x) * 8 * fwhm_x
+                FOV_x = np.abs(self.zRx * factor/self.z0x) * scale * fwhm_x
                 print('x is focused')
             else:
                 # if out of focus, just set to 8 times the FWHM
-                FOV_x = 8*fwhm_x
+                FOV_x = scale*fwhm_x
             if focused_y:
                 # set it so that it will be 8 times the FWHM at the boundary of the focal range
                 print('y is focused')
-                FOV_y = np.abs(self.zRy * factor/self.z0y) * 8 * fwhm_y
+                FOV_y = np.abs(self.zRy * factor/self.z0y) * scale * fwhm_y
             else:
                 # if out of focus, just set to 8 times the FWHM
-                FOV_y = 8*fwhm_y
+                FOV_y = scale*fwhm_y
 
             # calculate the resulting pixel size
             self.dx = FOV_x/self.N

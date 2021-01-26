@@ -137,11 +137,11 @@ class Beam:
             # add this to the dictionary
             beam_params['rangeFactor'] = self.rangeFactor
 
-        # check if rangeFactor was provided, or default to 10.
+        # check if rangeFactor was provided, or default to 8.
         if 'scaleFactor' in beam_params.keys():
             self.scaleFactor = beam_params['scaleFactor']
         else:
-            # default value is 10
+            # default value is 8
             self.scaleFactor = 8
             # add this to the dictionary
             beam_params['scaleFactor'] = self.scaleFactor

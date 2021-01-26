@@ -136,6 +136,15 @@ class Beamline:
         # make a full copy of the beam input so that we don't modify the input
         beam = copy.deepcopy(beam_in)
 
+        if beam.beam_provided:
+            # add a drift between the beam input and the first device
+            drift0 = Drift(upstream_component=beam, downstream_component=self.full_list[0])
+            # propagate through the drift
+            drift0.propagate(beam)
+        else:
+            dz = self.full_list[0].z - beam.z_source
+            beam.reinitialize(dz)
+
         # loop through all devices including drifts
         for device in self.full_list:
             # print name
