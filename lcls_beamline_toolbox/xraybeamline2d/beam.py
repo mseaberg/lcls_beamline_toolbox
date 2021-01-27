@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from .util import Util
 from skimage.restoration import unwrap_phase
+import scipy.optimize as optimize
 
 
 class Beam:
@@ -888,6 +889,126 @@ class Pulse:
         return dat
 
     @staticmethod
+    def beam_analysis(x, y, line_x, line_y, threshold=0.1):
+        """
+        Method for analyzing image of the beam.
+        :param line_x: (N,) ndarray
+            Horizontal lineout. Could be summed across full image or from an ROI.
+        :param line_y: (N,) ndarray
+            Vertical lineout. Could be summed across full image or from an ROI.
+        :return cx: float
+            Calculated horizontal centroid (m)
+        :return cy: float
+            Calculated vertical centroid (m)
+        :return fwhm_x: float
+            Calculated horizontal FWHM (m). Based on Gaussian fit (or calculated from second moment if fit fails).
+        :return fwhm_y: float
+            Calculated vertical FWHM (m). Based on Gaussian fit (or calculated from second moment if fit fails).
+        :return fwx_guess: float
+            Calculated horizontal FWHM (m) based on calculation of second moment.
+        :return fwy_guess: float
+            Calculated vertical FWHM (m) based on calculation of second moment.
+        """
+
+        amp_x = np.max(line_x) - np.min(line_x)
+        amp_y = np.max(line_y) - np.min(line_y)
+
+        # normalize lineouts
+        if np.max(line_x) > 0:
+            line_x -= np.min(line_x)
+            line_x = line_x / np.max(line_x)
+
+        if np.max(line_y) > 0:
+            line_y -= np.min(line_y)
+            line_y = line_y / np.max(line_y)
+
+        # set 20% threshold
+        thresh_x = np.max(line_x) * threshold
+        thresh_y = np.max(line_y) * threshold
+        # subtract threshold and set everything below to zero
+        norm_x = line_x - thresh_x
+        norm_x[norm_x < 0] = 0
+        # re-normalize
+
+        if np.max(norm_x) > 0:
+            norm_x = norm_x / np.max(norm_x)
+
+        # subtract threshold and set everything below to zero
+        norm_y = line_y - thresh_y
+        norm_y[norm_y < 0] = 0
+        # re-normalize
+        if np.max(norm_y) > 0:
+            norm_y = norm_y / np.max(norm_y)
+
+        # calculate centroids
+
+        if np.sum(norm_x) > 0:
+            cx = np.sum(norm_x * x) / np.sum(norm_x)
+            # calculate second moments. Converted to microns to help with fitting
+            sx = np.sqrt(np.sum(norm_x * (x - cx) ** 2) / np.sum(norm_x)) * 1e6
+
+        else:
+            cx = 0
+            sx = 0
+        if np.sum(norm_y) > 0:
+            cy = np.sum(norm_y * y) / np.sum(norm_y)
+            # calculate second moments. Converted to microns to help with fitting
+            sy = np.sqrt(np.sum(norm_y * (y - cy) ** 2) / np.sum(norm_y)) * 1e6
+
+        else:
+            cy = 0
+            sy = 0
+
+        # conversion factor from sigma to fwhm
+        fwx_guess = sx * 2.355
+        fwy_guess = sy * 2.355
+
+        # initial guess for Gaussian fit
+        guessx = [cx * 1e6, sx]
+        guessy = [cy * 1e6, sy]
+
+        fit_validity = 1
+
+        # Gaussian fitting. Using try/except to deal with any fitting errors
+        try:
+            # only fit in the region where we have signal
+            mask = line_x > .1
+            # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
+            px, pcovx = optimize.curve_fit(Util.fit_gaussian, x[mask] * 1e6, line_x[mask], p0=guessx)
+            # set sx to sigma from the fit if successful.
+            sx = px[1]
+        except ValueError:
+            fit_validity = 0
+            print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
+        except RuntimeError:
+            fit_validity = 0
+            print('Least squares minimization failed. Using second moment for width.')
+
+        try:
+            # only fit in the region where we have signal
+            mask = line_y > .1
+            # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
+            py, pcovy = optimize.curve_fit(Util.fit_gaussian, y[mask] * 1e6, line_y[mask], p0=guessy)
+            # set sy to sigma from the fit if successful.
+            sy = py[1]
+        except ValueError:
+            fit_validity = 0
+            print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
+        except RuntimeError:
+            fit_validity = 0
+            print('Least squares minimization failed. Using second moment for width.')
+
+        # conversion factor from sigma to FWHM. Also convert back to meters.
+        fwhm_x = sx * 2.355 / 1e6
+        fwhm_y = sy * 2.355 / 1e6
+
+        # check validity
+        validity = ((amp_x > 0) and (amp_y > 0) and fit_validity and
+                    (fwhm_x < np.max(2 * x)) and (fwhm_y < np.max(2 * y)))
+
+        return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
+
+    @staticmethod
     def dfl_to_E(dfl, ncar, dgrid):
         """
         This function takes a dfl (from parsers.parse_genesis_dfl) ncar, and dgrid, and returns the electric field (in SI units, V/m)
@@ -1024,6 +1145,9 @@ class Pulse:
         x_lineout = np.sum(profile, axis=0)
         y_lineout = np.sum(profile, axis=1)
 
+        cx, cy, wx, wy, fwx_guess, fwy_guess = Pulse.beam_analysis(self.x[image_name],self.y[image_name],
+                                                                           x_lineout, y_lineout)
+
         # show the 2D profile
         ax_profile.imshow(np.flipud(profile),
                           extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
@@ -1033,8 +1157,16 @@ class Pulse:
         ax_profile.set_title('%s Spatial Projection' % image_name)
         # show the horizontal lineout (distance in microns)
         ax_x.plot(self.x[image_name] * 1e6, x_lineout / np.max(x_lineout))
+        ax_x.plot(self.x[image_name] * 1e6, np.exp(-(self.x[image_name] - cx) ** 2 / 2 / (wx / 2.355) ** 2))
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
+        ax_x.plot(np.exp(-(self.y[image_name] - cy) ** 2 / 2 / (wy / 2.355) ** 2), self.y[image_name] * 1e6, )
+
+        # add some annotations with beam centroid and FWHM
+        ax_y.text(.6, .1 * np.max(self.y[image_name] * 1e6), 'centroid: %.2f %s' % (cy * 1e6, '\u03BCm'), rotation=-90)
+        ax_y.text(.3, .1 * np.max(self.y[image_name] * 1e6), 'width: %.2f %s' % (wy * 1e6, '\u03BCm'), rotation=-90)
+        ax_x.text(-.9 * np.max(self.x[image_name] * 1e6), .6, 'centroid: %.2f %s' % (cx * 1e6, '\u03BCm'))
+        ax_x.text(-.9 * np.max(self.x[image_name] * 1e6), .3, 'width: %.2f %s' % (wx * 1e6, '\u03BCm'))
 
     def imshow_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
         """
