@@ -763,6 +763,7 @@ class Pulse:
             dgrid = genesis_output['dgrid']
             xlamds = 1239.8e-9 / (self.E0)
             zsep = genesis_output['zsep']
+            threshold = genesis_output['threshold']
 
             # Load wavefront
             Efield = Pulse.parse_genesis_dfl(inputfile, nx)  # Load DFL, 3D array ordered [z,x,y]
@@ -787,7 +788,27 @@ class Pulse:
             self.energy = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dE + self.E0
 
             # calculate SASE beams in energy domain
-            self.beams = np.fft.ifftshift(np.fft.ifft(np.fft.ifftshift(Efield, axes=2), axis=2), axes=2)
+            field_energy = np.fft.ifftshift(np.fft.ifft(np.fft.ifftshift(Efield, axes=2), axis=2), axes=2)
+
+            # don't bother propagating energies that have low intensity
+            if threshold>0:
+                spectrum = np.sum(np.abs(field_energy)**2,axis=(0,1))
+                mask = spectrum>threshold
+                indices = np.where(mask>0)
+                ind_min = np.min(indices)
+                ind_max = np.max(indices)
+                ind_halfwidth = int((ind_max-ind_min)/2)
+                ind_min = ind_min-ind_halfwidth
+                ind_max = ind_max+ind_halfwidth
+                self.beams = field_energy[:,:,ind_min:ind_max]
+                self.energy = self.energy[ind_min:ind_max]
+                self.N = self.energy.size
+
+                E_range = np.max(self.energy) - np.min(self.energy)
+                f_range = E_range/4.136
+                self.deltaT = 1 / f_range
+            else:
+                self.beams = field_energy
 
             self.envelope = np.ones_like(self.energy)
 
