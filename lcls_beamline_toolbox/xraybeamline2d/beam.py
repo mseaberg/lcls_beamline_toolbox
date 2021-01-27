@@ -217,9 +217,14 @@ class Beam:
         self.y = self.y + self.cy
 
         # initialize global z
-        self.z_source = beam_params['z_source']
-        self.global_z = beam_params['z_source'] + (self.zx + self.zy) / 2
-        self.z = self.global_z
+        if 'z_source' in beam_params:
+            self.z_source = beam_params['z_source']
+            self.global_z = beam_params['z_source'] + (self.zx + self.zy) / 2
+            self.z = self.global_z
+        else:
+            self.z_source = 0.0
+            self.global_z = (self.zx + self.zy) / 2
+            self.z = self.global_z
 
 
         # calculate spatial frequencies at initial plane
@@ -1160,13 +1165,15 @@ class Pulse:
         ax_x.plot(self.x[image_name] * 1e6, np.exp(-(self.x[image_name] - cx) ** 2 / 2 / (wx / 2.355) ** 2))
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
-        ax_y.plot(np.exp(-(self.y[image_name] - cy) ** 2 / 2 / (wy / 2.355) ** 2), self.y[image_name] * 1e6, )
+        ax_y.plot(np.exp(-(self.y[image_name] - cy) ** 2 / 2 / (wy / 2.355) ** 2), self.y[image_name] * 1e6 )
 
         # add some annotations with beam centroid and FWHM
         ax_y.text(.6, .1 * np.max(self.y[image_name] * 1e6), 'centroid: %.2f %s' % (cy * 1e6, '\u03BCm'), rotation=-90)
         ax_y.text(.3, .1 * np.max(self.y[image_name] * 1e6), 'width: %.2f %s' % (wy * 1e6, '\u03BCm'), rotation=-90)
         ax_x.text(-.9 * np.max(self.x[image_name] * 1e6), .6, 'centroid: %.2f %s' % (cx * 1e6, '\u03BCm'))
         ax_x.text(-.9 * np.max(self.x[image_name] * 1e6), .3, 'width: %.2f %s' % (wx * 1e6, '\u03BCm'))
+
+        plt.tight_layout()
 
     def imshow_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
         """
