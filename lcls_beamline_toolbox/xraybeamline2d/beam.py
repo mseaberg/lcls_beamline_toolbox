@@ -794,7 +794,7 @@ class Pulse:
             # don't bother propagating energies that have low intensity
             if threshold>0:
                 spectrum = np.sum(np.abs(field_energy)**2,axis=(0,1))
-                mask = spectrum>threshold
+                mask = spectrum>threshold*np.max(spectrum)
                 indices = np.where(mask>0)
                 ind_min = np.min(indices)
                 ind_max = np.max(indices)
@@ -1160,7 +1160,7 @@ class Pulse:
         ax_x.plot(self.x[image_name] * 1e6, np.exp(-(self.x[image_name] - cx) ** 2 / 2 / (wx / 2.355) ** 2))
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
-        ax_x.plot(np.exp(-(self.y[image_name] - cy) ** 2 / 2 / (wy / 2.355) ** 2), self.y[image_name] * 1e6, )
+        ax_y.plot(np.exp(-(self.y[image_name] - cy) ** 2 / 2 / (wy / 2.355) ** 2), self.y[image_name] * 1e6, )
 
         # add some annotations with beam centroid and FWHM
         ax_y.text(.6, .1 * np.max(self.y[image_name] * 1e6), 'centroid: %.2f %s' % (cy * 1e6, '\u03BCm'), rotation=-90)

@@ -138,7 +138,7 @@ class Beamline:
 
         if beam.beam_provided:
             # add a drift between the beam input and the first device
-            drift0 = Drift(upstream_component=beam, downstream_component=self.full_list[0])
+            drift0 = Drift('temp',upstream_component=beam, downstream_component=self.full_list[0])
             # propagate through the drift
             drift0.propagate(beam)
         else:
