@@ -717,7 +717,8 @@ class Pulse:
     Class to represent a collection of beams within a pulse structure.
     """
 
-    def __init__(self, beam_params=None, tau=None, time_window=None, unit_spectrum=False, spectral_width=0, N=0):
+    def __init__(self, beam_params=None, tau=None, time_window=None, unit_spectrum=False, spectral_width=0, N=0,
+                 genesis_output=None):
         """
         Create a Pulse object
         :param beam_params: same parameters as given for Beam
@@ -737,6 +738,8 @@ class Pulse:
         # hbar in eV*fs
         hbar = 0.6582
 
+        self.beams = None
+
         if unit_spectrum:
             E_range = spectral_width
             # total frequency range in petaHz (energy divided by Planck's constant (in eV * fs))
@@ -749,6 +752,44 @@ class Pulse:
             # define pulse energies and envelope
             self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
             self.envelope = np.ones(self.N)
+
+        # allow for genesis output as a Pulse input
+        elif genesis_output is not None:
+            # Constants from Sim
+            inputfile = genesis_output['filename']
+
+            # number of elements per x/y direction
+            nx = genesis_output['nx']
+            dgrid = genesis_output['dgrid']
+            xlamds = 1239.8e-9 / (self.E0)
+            zsep = genesis_output['zsep']
+
+            # Load wavefront
+            Efield = Pulse.parse_genesis_dfl(inputfile, nx)  # Load DFL, 3D array ordered [z,x,y]
+            # Process
+            Efield = Pulse.dfl_to_E(Efield, nx, dgrid)  # Convert to V/m
+            zs = np.asarray(range(Efield.shape[2])) * xlamds * zsep
+            dxy = 2 * dgrid / float(nx - 1)
+            xys = (np.asarray(range(nx)) - (nx - 1) / 2) * dxy  # ncar is odd
+            xs = xys
+            ys = xys
+
+            time_axis = zs / 3e8 * 1e15
+
+            self.beam_params['dx'] = xs[1]-xs[0]
+            self.beam_params['dy'] = ys[1]-ys[0]
+
+            self.deltaT = time_axis[1] - time_axis[0]
+            f_range = 1 / self.deltaT
+            E_range = f_range * 4.136
+            self.dE = E_range / zs.size
+            self.N = zs.size
+            self.energy = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dE + self.E0
+
+            # calculate SASE beams in energy domain
+            self.beams = np.fft.ifftshift(np.fft.ifft(np.fft.ifftshift(Efield, axes=2), axis=2), axes=2)
+
+            self.envelope = np.ones_like(self.energy)
 
         else:
 
@@ -802,6 +843,39 @@ class Pulse:
         self.cx = {}
         self.cy = {}
 
+    @staticmethod
+    def parse_genesis_dfl(fname, nx):
+        """
+        fname: filename
+        nx: grid size in x and y. Same as Genesis 'ncar'
+
+        Returns 3d numpy.array with indices as:
+            [x, y, z]
+
+        """
+        dat = np.fromfile(fname, dtype=np.complex).astype(np.complex)
+        npoints = dat.shape[0]
+
+        # Determine number of slices
+        ny = nx
+        nz = npoints / ny / nx
+        assert (nz % 1 == 0), f'Confused shape {nx} {ny} {nz}'
+        nz = int(nz)
+        dat = dat.reshape(nz, ny, nx)
+        dat = np.moveaxis(dat, [0, 1, 2], [2, 1, 0])  # z, y, x to x, y, z
+
+        return dat
+
+    @staticmethod
+    def dfl_to_E(dfl, ncar, dgrid):
+        """
+        This function takes a dfl (from parsers.parse_genesis_dfl) ncar, and dgrid, and returns the electric field (in SI units, V/m)
+        from genesis.analysis (David's LUME)
+        """
+        # compare to intensity
+        area = (dgrid * 2 / (ncar - 1)) ** 2
+        return np.sqrt(2 * 376.7) * dfl / np.sqrt(area)
+
     def propagate(self, beamline=None, screen_names=None):
         """
         Method for propagating a pulse through a beamline
@@ -836,7 +910,10 @@ class Pulse:
         for num, energy in enumerate(self.energy):
             # define beam for current energy
             self.beam_params['photonEnergy'] = energy
-            b1 = Beam(beam_params=self.beam_params)
+            if self.beams is not None:
+                b1 = Beam(initial_beam=self.beams[:,:,num], beam_params=self.beam_params)
+            else:
+                b1 = Beam(beam_params=self.beam_params)
             beamline.propagate_beamline(b1)
 
             for screen in screen_names:
@@ -922,7 +999,7 @@ class Pulse:
         ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
 
         # calculate the profile
-        profile = np.sum(np.abs(self.energy_stacks[image_name]), axis=2) ** 2
+        profile = np.sum(np.abs(self.energy_stacks[image_name])**2, axis=2)
         x_lineout = np.sum(profile, axis=0)
         y_lineout = np.sum(profile, axis=1)
 
