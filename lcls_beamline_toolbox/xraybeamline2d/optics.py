@@ -2067,7 +2067,7 @@ class CRL:
         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
     """
 
-    def __init__(self, name, diameter=300e-6, roc=50e-6, material='Be', z=0, dx=0, dy=0):
+    def __init__(self, name, diameter=300e-6, roc=50e-6, material='Be', z=0, dx=0, dy=0, shapeError=None):
         """
         Method to create a CRL object.
         :param name: str
@@ -2095,6 +2095,7 @@ class CRL:
         self.dx = dx
         self.dy = dy
         self.z = z
+        self.shapeError = shapeError
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -2113,12 +2114,54 @@ class CRL:
         :return: None
         """
 
+        xi = beam.x
+        yi = beam.y
+        xi_1d = xi[0,:]
+        yi_1d = yi[:,0]
+
+        shapeError2 = np.zeros_like(xi)
+
         # interpolate to find index of refraction at beam's energy
         delta = np.interp(beam.photonEnergy, self.energy, self.delta)
         beta = np.interp(beam.photonEnergy, self.energy, self.beta)
 
+        # check for phase error
+        if self.shapeError is not None:
+            # get shape of shape error input
+            lens_shape = np.shape(self.shapeError)
+
+            # assume this is the central line shaper error along the long axis if only 1D
+            if np.size(lens_shape) == 1:
+                # assume this is the central line and it's the same across the mirror width
+                Ms = lens_shape[0]
+                # mirror coordinates (beam coordinates)
+                max_xs = self.diameter / 2
+                # lens coordinates
+                xs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+                # 1D interpolation onto beam coordinates
+                central_line = np.interp(xi_1d - self.dx, xs, self.shapeError)
+                # tile onto mirror short axis direction
+                shapeError2 = np.tile(central_line, (np.size(yi_1d), 1))
+            # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
+            else:
+                # shape error array shape
+                Ns = lens_shape[0]
+                Ms = lens_shape[1]
+                # mirror coordinates
+                max_xs = self.diameter / 2
+                # mirror coordinates
+                xs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+                max_ys = self.diameter / 2
+                ys = np.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
+
+                # 2D interpolation onto beam coordinates
+                f = interpolation.interp2d(xs, ys, self.shapeError, fill_value=0)
+                shapeError2 = f(xi_1d - self.dx, yi_1d - self.dy)
+
         # CRL thickness (for now assuming perfect lenses but might add aberrations later)
         thickness = 2 * self.roc * (1 / 2 * ((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) / self.roc ** 2)
+
+        thickness += shapeError2
 
         # lens aperture
         mask = (((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
