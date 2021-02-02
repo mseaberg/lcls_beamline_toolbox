@@ -2757,7 +2757,7 @@ class CRL:
         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
     """
 
-    def __init__(self, name, diameter=300e-6, roc=50e-6, E0=None, f=None, material='Be', z=0, dx=0, dy=0, shapeError=None):
+    def __init__(self, name, **kwargs):
         """
         Method to create a CRL object.
         :param name: str
@@ -2779,15 +2779,23 @@ class CRL:
 
         # set some attributes
         self.name = name
-        self.diameter = diameter
-        self.roc = roc
-        self.E0 = E0
-        self.f = f
-        self.material = material
-        self.dx = dx
-        self.dy = dy
-        self.z = z
-        self.shapeError = shapeError
+        self.diameter = 300e-6
+        self.roc = 50e-6
+        self.E0 = None
+        self.f = None
+        self.material = 'Be'
+        self.dx = 0
+        self.dy = 0
+        self.z = 0
+        self.shapeError = None
+
+        # set allowed kwargs
+        allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError']
+
+        # update attributes based on kwargs
+        for key, value in kwargs.items():
+            if key in allowed_arguments:
+                setattr(self, key, value)
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -2834,7 +2842,7 @@ class CRL:
             # get shape of shape error input
             lens_shape = np.shape(self.shapeError)
 
-            # assume this is the central line shaper error along the long axis if only 1D
+            # assume this is the central line shape error along the long axis if only 1D
             if np.size(lens_shape) == 1:
                 # assume this is the central line and it's the same across the mirror width
                 Ms = lens_shape[0]
@@ -2893,7 +2901,7 @@ class CRL:
         beam.ay += p1_y * beam.lambda0 / 2 / np.pi
 
         # multiply beam by CRL transmission function and any high order phase
-        beam.wave *= transmission * np.exp(1j * phase)
+        beam.wave *= transmission
 
     def propagate(self, beam):
         """
@@ -2905,41 +2913,138 @@ class CRL:
         self.multiply(beam)
 
 
-# class CRL1D(CRL):
-#     """
-#     Class to represent parabolic compound refractive lenses (CRLs).
-# 
-#     Attributes
-#     ----------
-#     name: str
-#         Name of the device (e.g. CRL1)
-#     diameter: float
-#         Diameter beyond which the lenses absorb all photons. (meters)
-#     roc: float
-#         Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
-#     material: str
-#         Lens material. Currently only Be is implemented but may add CVD diamond in the future.
-#         Looks up downloaded data from CXRO.
-#     dx: float
-#         Lens de-centering along beam's x-axis.
-#     dy: float
-#         Lens de-centering along beam's y-axis.
-#     z: float
-#         z location of lenses along beamline.
-#     energy: (N,) ndarray
-#         List of photon energies from CXRO file (eV).
-#     delta: (N,) ndarray
-#         Real part of index of refraction. n = 1 - delta + 1j * beta
-#     beta: (N,) ndarray
-#         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
-#     orientation: int
-#         Whether or not this is a horizontal or vertical lens (0 for horizontal, 1 for vertical).
-#     """
-#     def __init__(self, name, **kwargs):
-#         super().__init__(name, **kwargs)
-# 
-#         self.orientation = orientation
+class CRL1D(CRL):
+    """
+    Class to represent parabolic compound refractive lenses (CRLs).
 
+    Attributes
+    ----------
+    name: str
+        Name of the device (e.g. CRL1)
+    diameter: float
+        Diameter beyond which the lenses absorb all photons. (meters)
+    roc: float
+        Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+    material: str
+        Lens material. Currently only Be is implemented but may add CVD diamond in the future.
+        Looks up downloaded data from CXRO.
+    dx: float
+        Lens de-centering along beam's x-axis.
+    dy: float
+        Lens de-centering along beam's y-axis.
+    z: float
+        z location of lenses along beamline.
+    energy: (N,) ndarray
+        List of photon energies from CXRO file (eV).
+    delta: (N,) ndarray
+        Real part of index of refraction. n = 1 - delta + 1j * beta
+    beta: (N,) ndarray
+        Imaginary part of index of refraction. n = 1 - delta + 1j * beta
+    orientation: int
+        Whether or not this is a horizontal or vertical lens (0 for horizontal, 1 for vertical).
+    """
+    def __init__(self, name, orientation=0, **kwargs):
+        super().__init__(name, **kwargs)
+
+        self.orientation = orientation
+
+    def multiply(self, beam):
+        """
+        Method to propagate beam through 1D CRL
+        :param beam: Beam
+            Beam object to propagate through CRL. Beam is modified by this method.
+        :return: None
+        """
+
+        xi = beam.x
+        yi = beam.y
+        xi_1d = xi[0, :]
+        yi_1d = yi[:, 0]
+
+        shapeError2 = np.zeros_like(xi)
+
+        # interpolate to find index of refraction at beam's energy
+        delta = np.interp(beam.photonEnergy, self.energy, self.delta)
+        beta = np.interp(beam.photonEnergy, self.energy, self.beta)
+
+        # check for phase error
+        if self.shapeError is not None:
+            # get shape of shape error input
+            lens_shape = np.shape(self.shapeError)
+
+            # assume this is the central line shape error along the long axis if only 1D
+            if np.size(lens_shape) == 1:
+                # assume this is the central line and it's the same across the mirror width
+                Ms = lens_shape[0]
+                # mirror coordinates (beam coordinates)
+                max_xs = self.diameter / 2
+                # lens coordinates
+                xs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+                # 1D interpolation onto beam coordinates
+                central_line = np.interp(xi_1d - self.dx, xs, self.shapeError)
+                # tile onto mirror short axis direction
+                shapeError2 = np.tile(central_line, (np.size(yi_1d), 1))
+            # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
+            else:
+                # shape error array shape
+                Ns = lens_shape[0]
+                Ms = lens_shape[1]
+                # mirror coordinates
+                max_xs = self.diameter / 2
+                # mirror coordinates
+                xs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+                max_ys = self.diameter / 2
+                ys = np.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
+
+                # 2D interpolation onto beam coordinates
+                f = interpolation.interp2d(xs, ys, self.shapeError, fill_value=0)
+                shapeError2 = f(xi_1d - self.dx, yi_1d - self.dy)
+
+        if self.orientation == 0:
+            beamx = beam.x
+            beamz = beam.zx
+            beamc = beam.cx
+            dx_lens = self.dx
+        else:
+            beamx = beam.y
+            beamz = beam.zy
+            beamc = beam.cy
+            dx_lens = self.dy
+
+        # CRL thickness (for now assuming perfect lenses but might add aberrations later)
+        thickness = 2 * self.roc * (1 / 2 * ((beamx - dx_lens) ** 2) / self.roc ** 2)
+
+        thickness += shapeError2
+
+        # lens aperture
+        mask = (((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
+
+        # subtract 2nd order and linear terms
+        phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((beamx - dx_lens) ** 2))
+
+        # 2nd order
+        p2 = -beam.k0 * delta * 2 / 2 / self.roc
+        # 1st order
+        p1_x = p2 * 2 * (beamc - self.dx)
+
+        # lens transmission based on beta and thickness profile
+        transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
+        # adjust beam properties
+        new_zx = 1 / (1 / beamz + p2 * beam.lambda0 / np.pi)
+
+        if self.orientation == 0:
+            beam.change_z(new_zx=new_zx)
+            delta_ax = p1_x * beam.lambda0 / 2 / np.pi
+            beam.rotate_beam(delta_ax=delta_ax)
+
+        else:
+            beam.change_z(new_zy=new_zx)
+            delta_ay = p1_x * beam.lambda0 / 2 / np.pi
+            beam.rotate_beam(delta_ay=delta_ay)
+
+
+        # multiply beam by CRL transmission function and any high order phase
+        beam.wave *= transmission
 
 class PPM:
     """

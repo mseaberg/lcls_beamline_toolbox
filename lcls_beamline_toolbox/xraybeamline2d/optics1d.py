@@ -3625,14 +3625,14 @@ class CRL:
             beam.rotate_beam(delta_ax=delta_ax)
             # beam.ax += p1_x * beam.lambda0 / 2 / np.pi
             # multiply beam by CRL transmission function and any high order phase
-            beam.wavex *= transmission * np.exp(1j * phase)
+            beam.wavex *= transmission
         else:
             beam.change_z(new_zy=new_zx)
             delta_ay = p1_x * beam.lambda0 / 2 / np.pi
             beam.rotate_beam(delta_ay=delta_ay)
             # beam.ay += p1_x * beam.lambda0 / 2 / np.pi
             # multiply beam by CRL transmission function and any high order phase
-            beam.wavey *= transmission * np.exp(1j * phase)
+            beam.wavey *= transmission
 
         print('focal length: %.2f' % (-1/(p2*beam.lambda0/np.pi)))
 

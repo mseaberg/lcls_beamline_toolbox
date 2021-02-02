@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from .util import Util
 from skimage.restoration import unwrap_phase
+import scipy.spatial.transform as transform
 import scipy.optimize as optimize
 
 
@@ -216,6 +217,9 @@ class Beam:
         self.x = self.x + self.cx
         self.y = self.y + self.cy
 
+        self.global_x = np.copy(self.cx)
+        self.global_y = np.copy(self.cy)
+
         # initialize global z
         if 'z_source' in beam_params:
             self.z_source = beam_params['z_source']
@@ -226,6 +230,9 @@ class Beam:
             self.global_z = (self.zx + self.zy) / 2
             self.z = self.global_z
 
+        # initialize global angles
+        self.global_azimuth = np.copy(self.ax)
+        self.global_elevation = np.copy(self.ay)
 
         # calculate spatial frequencies at initial plane
         fx_max = 1.0 / (2.0 * self.dx)
@@ -292,6 +299,53 @@ class Beam:
         # update horizontal and vertical radii of curvature by propagation distance
         self.zx = self.zx + dz
         self.zy = self.zy + dz
+
+        # update global positions
+        k_beam = self.get_k()
+        # tan(alpha) = k_beam[0]/k_beam[2]
+        # x = k_beam[0]/k_beam[2] * dz * k_beam[2]
+        # z = dz * np.cos(alpha). cos(alpha) = k[2]
+        # self.global_z += k_beam[2] * dz
+        self.global_x += k_beam[0] * dz
+        self.global_y += k_beam[1] * dz
+        self.global_z += k_beam[2] * dz
+
+    def beam_offset(self, x_offset=0, y_offset=0):
+        self.global_x += x_offset
+        self.global_y += y_offset
+
+    def rotate_nominal(self, delta_elevation=0, delta_azimuth=0):
+        self.global_elevation += delta_elevation
+        self.global_azimuth += delta_azimuth
+
+    def rotate_beam(self, delta_ax=0, delta_ay=0):
+        # first adjust "local" angles
+        self.ax += delta_ax
+        self.ay += delta_ay
+
+        self.global_elevation += delta_ay
+        self.global_azimuth += delta_ax
+
+    def get_k(self):
+        x = np.array([1, 0, 0], dtype=float)
+        y = np.array([0, 1, 0], dtype=float)
+        z = np.array([0, 0, 1], dtype=float)
+
+        r1 = transform.Rotation.from_rotvec(-x * self.global_elevation)
+        Rx = r1.as_matrix()
+        x = np.matmul(Rx, x)
+        y = np.matmul(Rx, y)
+        z = np.matmul(Rx, z)
+
+        r2 = transform.Rotation.from_rotvec(y * self.global_azimuth)
+        Ry = r2.as_matrix()
+        x = np.matmul(Ry, x)
+        y = np.matmul(Ry, y)
+        z = np.matmul(Ry, z)
+
+        # beam points in z direction
+        k = z
+        return k
 
     def rescale_x_noshift(self, factor):
         """
