@@ -973,7 +973,7 @@ class Crystal(Mirror):
         p_recentered = Util.recenter_coeff(p_int, offset)
 
         # high order phase. Multiplied by sin(beta) because integration should actually happen in beam coordinates.
-        high_order = (2 * np.pi / beam.lambda0 * Util.polyval_high_order(p_recentered, zi - cz) *
+        high_order = (2 * np.pi / beam.lambda0 * Util.polyval_high_order(p_recentered, zi_1d - cz) *
                       np.sin(beta1 - self.delta))
 
         # scaling between grating z-axis and new beam coordinates
@@ -1002,8 +1002,8 @@ class Crystal(Mirror):
         # print(p1st)
 
         # figure out aperturing due to mirror's finite size
-        z_mask = (np.abs(zi - self.dx / np.tan(total_alpha)) < self.length / 2).astype(float)
-        y_mask = (np.abs(yi - self.dy) < self.width / 2).astype(float)
+        z_mask = (np.abs(zi_1d - self.dx / np.tan(total_alpha)) < self.length / 2).astype(float)
+        y_mask = (np.abs(yi_1d - self.dy) < self.width / 2).astype(float)
 
         # 2D mirror aperture (1's and 0's)
         # mirror = z_mask * y_mask
@@ -2757,7 +2757,7 @@ class CRL:
         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
     """
 
-    def __init__(self, name, diameter=300e-6, roc=50e-6, material='Be', z=0, dx=0, dy=0, shapeError=None):
+    def __init__(self, name, diameter=300e-6, roc=50e-6, E0=None, f=None, material='Be', z=0, dx=0, dy=0, shapeError=None):
         """
         Method to create a CRL object.
         :param name: str
@@ -2781,6 +2781,8 @@ class CRL:
         self.name = name
         self.diameter = diameter
         self.roc = roc
+        self.E0 = E0
+        self.f = f
         self.material = material
         self.dx = dx
         self.dy = dy
@@ -2795,6 +2797,18 @@ class CRL:
         self.energy = cxro_data[:, 0]
         self.delta = cxro_data[:, 1]
         self.beta = cxro_data[:, 2]
+
+        # if these arguments are given then override default roc or even roc argument
+        if self.f is not None and self.E0 is not None:
+            # interpolate to find index of refraction at beam's energy
+            delta = np.interp(self.E0, self.energy, self.delta)
+            # calculate radius of curvature based on f and delta
+            self.roc = 2 * delta * self.f
+
+        elif self.E0 is not None:
+            # interpolate to find index of refraction at beam's energy
+            delta = np.interp(self.E0, self.energy, self.delta)
+            self.f = self.roc / 2 / delta
 
     def multiply(self, beam):
         """
@@ -2889,6 +2903,42 @@ class CRL:
         :return: None
         """
         self.multiply(beam)
+
+
+# class CRL1D(CRL):
+#     """
+#     Class to represent parabolic compound refractive lenses (CRLs).
+# 
+#     Attributes
+#     ----------
+#     name: str
+#         Name of the device (e.g. CRL1)
+#     diameter: float
+#         Diameter beyond which the lenses absorb all photons. (meters)
+#     roc: float
+#         Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
+#     material: str
+#         Lens material. Currently only Be is implemented but may add CVD diamond in the future.
+#         Looks up downloaded data from CXRO.
+#     dx: float
+#         Lens de-centering along beam's x-axis.
+#     dy: float
+#         Lens de-centering along beam's y-axis.
+#     z: float
+#         z location of lenses along beamline.
+#     energy: (N,) ndarray
+#         List of photon energies from CXRO file (eV).
+#     delta: (N,) ndarray
+#         Real part of index of refraction. n = 1 - delta + 1j * beta
+#     beta: (N,) ndarray
+#         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
+#     orientation: int
+#         Whether or not this is a horizontal or vertical lens (0 for horizontal, 1 for vertical).
+#     """
+#     def __init__(self, name, **kwargs):
+#         super().__init__(name, **kwargs)
+# 
+#         self.orientation = orientation
 
 
 class PPM:
