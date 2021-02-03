@@ -421,15 +421,52 @@ class Beam:
             new_zy = self.zy
 
         # update Rayleigh range
-        self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
-                    self.rangeFactor)
-        self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
-                    self.rangeFactor)
+        if new_zx is not None:
+            # if self.focused_x:
+            #     xWidth = np.abs(self.x[0] - self.x[-1])
+            #
+            #     # need to handle zx=0 appropriately
+            #     beamRef = xWidth / self.scaleFactor
+            #     w0 = np.sqrt(self.lambda0*self.zRx/np.pi)
+            #     w = w0 * np.sqrt(1 + (self.zx/self.zRx)**2)
+            #     xWidth *= np.abs(self.zx / (self.zRx * self.rangeFactor))
+            # else:
+            #     xWidth = np.abs(self.x[0] - self.x[-1])self.x[0, 1]
+            xWidth = np.abs(self.x[0,0] - self.x[0,-1])
+
+            # self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
+            #             self.rangeFactor)
+            self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (new_zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
+                        self.rangeFactor)
+            # self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
+            #         self.rangeFactor)
+        if new_zy is not None:
+            # if self.focused_y:
+            #     yWidth = np.abs(self.y[0] - self.y[-1])
+            #     yWidth *= np.abs(self.zy / (self.zRy * self.rangeFactor))
+            # else:
+            #     yWidth = np.abs(self.y[0] - self.y[-1])
+            yWidth = np.abs(self.y[0,0] - self.y[-1,0])
+
+            # self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
+            #             self.rangeFactor)
+            self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (new_zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
+                        self.rangeFactor)
+            # self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
+            #         self.rangeFactor)
+
+        # update Rayleigh range
+        # self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
+        #             self.rangeFactor)
+        # self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
+        #             self.rangeFactor)
 
         # check if beam should change state. This only needs to happen if beam is already focused because if unfocused
         # the beam_prop method will check anyway.
         x_focused = -self.zRx <= new_zx < self.zRx
         y_focused = -self.zRy <= new_zy < self.zRy
+        print('zRx: %.2e' % self.zRx)
+        print('zRy: %.2e' % self.zRy)
 
         # check if transitioning to unfocused
         if self.focused_x:
@@ -475,11 +512,14 @@ class Beam:
 
             # if we're not focused and this is the first step, calculate current Rayleigh length estimate
             if not self.focused_x and index == 0:
-                self.zRx = (8 ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
+
+                xWidth = np.abs(self.x[0,0] - self.x[0,-1])
+                self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
                             self.rangeFactor)
             # if we're not focused and this is the first step, calculate current Rayleigh length estimate
             if not self.focused_y and index == 0:
-                self.zRy = (8 ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
+                yWidth = np.abs(self.y[0,0] - self.y[-1,0])
+                self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
                             self.rangeFactor)
 
             # print current focal ranges
@@ -585,7 +625,7 @@ class Beam:
                         y_prop_limit = dz_remaining
 
                 # distance to propagate during this step. Pick the more restrictive case.
-                prop_step = np.min([x_prop_limit, y_prop_limit])
+                prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
 
                 # print the current step size
                 print('current step size: %.2f microns' % (prop_step*1e6))
@@ -889,8 +929,9 @@ class Pulse:
             self.N = int(self.time_window / self.deltaT)
 
             # define pulse energies and envelope
-            self.energy = np.linspace(-3*self.bandwidth, 3*self.bandwidth, self.N) + self.E0
+            self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
             self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
+            self.envelope = self.envelope.astype(complex)
 
         # calculate wavelengths
         self.wavelength = 1239.8/self.energy*1e-9

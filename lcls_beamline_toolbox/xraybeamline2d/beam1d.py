@@ -357,10 +357,14 @@ class Beam:
         """
 
         # phase to multiply by in Fourier plane
-        phi_prop_x = (self.k0 * dz_real - self.k0 / 2 *
+
+        ### putting in kind of a terrible hack where I account for half of the constant propagation phase
+        ### for both x and y, so that they add up to the correct thing when horizontal and vertical phases
+        ### are multiplied together. This causes 1D and 2D codes to agree...
+        phi_prop_x = (self.k0 * dz_real/2 - self.k0 / 2 *
                     (self.lambda0 * self.fx) ** 2 * dz_x)
 
-        phi_prop_y = (self.k0 * dz_real - self.k0 / 2 *
+        phi_prop_y = (self.k0 * dz_real/2 - self.k0 / 2 *
                     (self.lambda0 * self.fy) ** 2 * dz_y)
 
         # calculate Fourier plane of beam

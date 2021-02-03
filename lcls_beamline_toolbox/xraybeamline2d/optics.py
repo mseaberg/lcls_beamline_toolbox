@@ -100,6 +100,7 @@ class Mirror:
         self.length = 1.
         self.width = 25.e-3
         self.alpha = 1.e-3
+        self.beta0 = 1.e-3
         self.z = None
         self.orientation = 0
         self.shapeError = None
@@ -108,6 +109,9 @@ class Mirror:
         self.yaw = 0.
         self.dx = 0.
         self.dy = 0.
+        self.global_x = 0
+        self.global_y = 0
+        self.global_alpha = 0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
@@ -116,6 +120,8 @@ class Mirror:
         for key, value in kwargs.items():
             if key in allowed_arguments:
                 setattr(self, key, value)
+
+        self.beta0 = self.alpha
 
         # set some calculated attributes
         self.projectWidth = np.abs(self.length * (self.alpha + self.delta))
@@ -2465,6 +2471,8 @@ class Collimator:
         self.name = name
         self.diameter = diameter
         self.z = z
+        self.global_x = 0
+        self.global_y = 0
         self.dx = dx
         self.dy = dy
 
@@ -2532,6 +2540,8 @@ class Slit:
         self.dx = dx
         self.dy = dy
         self.z = z
+        self.global_x = 0
+        self.global_y = 0
 
     def multiply(self, beam):
         """
@@ -2595,9 +2605,16 @@ class Drift:
         self.name = name
         self.upstream_component = upstream_component
         self.downstream_component = downstream_component
+
         # calculate distance-related attributes
-        self.dz = downstream_component.z - upstream_component.z
+        dx = downstream_component.global_x - upstream_component.global_x
+        dy = downstream_component.global_y - upstream_component.global_y
+        dz = downstream_component.z - upstream_component.z
+        self.dz = np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
+
         self.z = (downstream_component.z + upstream_component.z) / 2.
+        self.global_x = 0
+        self.global_y = 0
 
     def propagate(self, beam):
         """
@@ -2607,6 +2624,55 @@ class Drift:
         :return: None
         """
         # propagate the beam along the full length of the Drift.
+
+        # can put re-calculation of distance here
+        # get beam k
+        k = beam.get_k()
+        print('global_x %.2f' % beam.global_x)
+        print('global_y %.2f' % beam.global_y)
+
+        if issubclass(type(self.downstream_component), Mirror):
+            # beam global coordinates are currently on surface of upstream component
+            # get global alpha for mirror
+            alpha = self.downstream_component.global_alpha
+            z_m = self.downstream_component.z
+            x_m = self.downstream_component.global_x
+            y_m = self.downstream_component.global_y
+            # find z location where two lines intersect
+            if self.downstream_component.orientation == 0:
+                z_intersect = ((-k[0]/k[2]*beam.global_z + beam.global_x + np.tan(alpha)*z_m - x_m)/
+                               (np.tan(alpha) - k[0]/k[2]))
+
+            elif self.downstream_component.orientation == 1:
+                z_intersect = ((-k[1]/k[2]*beam.global_z + beam.global_y + np.tan(alpha)*z_m - y_m)/
+                               (np.tan(alpha) - k[1]/k[2]))
+
+            elif self.downstream_component.orientation == 2:
+                z_intersect = ((-k[0] / k[2] * beam.global_z + beam.global_x + np.tan(alpha) * z_m - x_m) /
+                               (np.tan(alpha) - k[0] / k[2]))
+
+            else:
+                z_intersect = ((-k[1] / k[2] * beam.global_z + beam.global_y + np.tan(alpha) * z_m - y_m) /
+                               (np.tan(alpha) - k[1] / k[2]))
+
+        else:
+            z_intersect = self.downstream_component.z
+
+        x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
+        print('x intersect: %.4e' % x_intersect)
+        print('component x: %.4e' % self.downstream_component.global_x)
+        y_intersect = k[1] / k[2] * (z_intersect - beam.global_z) + beam.global_y
+        print('y intersect: %.4e' % y_intersect)
+        print('component y: %.4e' % self.downstream_component.global_y)
+        dx = x_intersect - beam.global_x
+        dy = y_intersect - beam.global_y
+        dz = z_intersect - beam.global_z
+        # re-calculate propagation distance
+        old_z = np.copy(self.dz)
+
+        self.dz = np.sqrt(dx**2 + dy**2 + dz**2)
+        print('delta z: %.2f' % ((self.dz - old_z)*1e6))
+
         beam.beam_prop(self.dz)
 
 
@@ -2787,6 +2853,8 @@ class CRL:
         self.dx = 0
         self.dy = 0
         self.z = 0
+        self.global_x = 0
+        self.global_y = 0
         self.shapeError = None
 
         # set allowed kwargs
@@ -3122,6 +3190,8 @@ class PPM:
         # set defaults
         self.FOV = 10e-3
         self.z = None
+        self.global_x = 0
+        self.global_y = 0
         self.N = 2048
         self.blur = False
         self.view_angle_x = 90
@@ -5285,6 +5355,8 @@ class WFS:
         self.duty_cycle = 0.1
         self.f0 = 100
         self.z = None
+        self.global_x = 0
+        self.global_y = 0
         self.phase = False
         self.enabled = True
         self.fraction = 1

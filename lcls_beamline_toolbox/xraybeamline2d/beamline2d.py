@@ -9,10 +9,11 @@ Currently implements the following classes:
 Beamline: stores list of optics devices, and interfaces with Beam to propagate through beamline sections.
 """
 
-from .optics import Drift, Mono
+from .optics import Drift, Mono, Mirror
 # import matplotlib.pyplot as plt
 import copy
 import numpy as np
+from .util import Util
 
 
 class Beamline:
@@ -27,7 +28,7 @@ class Beamline:
         A list of all the devices contained along a given beamline (including Drifts).
     """
 
-    def __init__(self, device_list):
+    def __init__(self, device_list, ordered=False):
         """
         Initialize a Beamline object.
         :param device_list: list of optics objects (see optics module)
@@ -36,6 +37,9 @@ class Beamline:
 
         # set device_list as an attribute
         self.device_list = device_list
+
+        # set attribute for whether devices are in correct order
+        self.ordered = ordered
 
         # initialize full array without drifts
         self.full_list = self.device_list.copy()
@@ -53,11 +57,23 @@ class Beamline:
         :return: None
         """
 
-        # sort device list based on z
-        self.device_list.sort(key=lambda device: device.z)
+        if not self.ordered:
+            # sort device list based on z
+            self.device_list.sort(key=lambda device: device.z)
 
         # initialize drift list
         drift_list = []
+
+        # initialize coordinates
+        x = 0
+        y = 0
+
+        # initialize angles
+        elevation = 0
+        azimuth = 0
+
+        # beam direction
+        k = Util.get_k(elevation, azimuth)
 
         # initialize drift number
         i = 0
@@ -66,22 +82,64 @@ class Beamline:
         for device in self.device_list:
             # don't need any drifts upstream of first device
             if i > 0:
+
+                # z difference between devices
+                dz = device.z - prev_device.z
+
+                # figure out device location
+                x += k[0] / k[2] * dz
+                y += k[1] / k[2] * dz
+                # x += k[0] * dz
+                # y += k[1] * dz
+                # update device
+                device.global_x = x
+                device.global_y = y
+
                 # set drift name
                 name = 'drift%d' % i
                 if isinstance(prev_device, Mono):
                     prev_device = prev_device.grating
                 drift_list.append(Drift(name, upstream_component=prev_device,
                                         downstream_component=device))
+
+            # update global orientation
+            if issubclass(type(device), Mirror):
+                # update global alpha
+                if device.orientation == 0:
+                    device.global_alpha = device.alpha + azimuth
+                    azimuth += device.alpha + device.beta0
+                    print('after %s: %.4f' % (device.name, azimuth))
+                elif device.orientation == 1:
+                    device.global_alpha = device.alpha + elevation
+                    elevation += device.alpha + device.beta0
+                    print('after %s: %.4f' % (device.name, elevation))
+                elif device.orientation == 2:
+                    device.global_alpha = azimuth - device.alpha
+                    azimuth -= (device.alpha + device.beta0)
+                    print('after %s: %.4f' % (device.name, azimuth))
+
+                elif device.orientation == 3:
+                    device.global_alpha = elevation - device.alpha
+                    elevation -= (device.alpha + device.beta0)
+                    print('after %s: %.4f' % (device.name, elevation))
+
+                # update k
+                k = Util.get_k(elevation, azimuth)
             # update previous device
             prev_device = device
             # increment drift number
             i += 1
 
-        # add drifts to full_list
-        self.full_list.extend(drift_list)
+        if not self.ordered:
+            # add drifts to full list
+            self.full_list.extend(drift_list)
 
-        # sort list based on z
-        self.full_list.sort(key=lambda device: device.z)
+            # sort list based on z
+            self.full_list.sort(key=lambda device: device.z)
+        else:
+            # keep everything in the same order, interleave drifts in between devices
+            for num, drift in enumerate(drift_list):
+                self.full_list.insert(2 * num + 1, drift)
 
     def update_devices(self):
         """
@@ -148,9 +206,12 @@ class Beamline:
         # loop through all devices including drifts
         for device in self.full_list:
             # print name
-            print(device.name)
+            print('\033[1m' +device.name+'\033[0m')
             # propagate through device. beam is modified directly.
             device.propagate(beam)
+            print('zx: %.6f' % beam.zx)
+            print('zy: %.6f' % beam.zy)
+            print('azimuth %.2f mrad' % (beam.global_azimuth * 1e3))
             # print some beam info
             # print('zy: %.2f' % beam.zy)
             # print('ay: %.2f microrad' % (beam.ay*1e6))
