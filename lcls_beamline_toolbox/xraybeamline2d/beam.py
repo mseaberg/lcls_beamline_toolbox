@@ -818,7 +818,7 @@ class Pulse:
     """
 
     def __init__(self, beam_params=None, tau=None, time_window=None, unit_spectrum=False, spectral_width=0, N=0,
-                 genesis_output=None):
+                 GDD=0, genesis_output=None):
         """
         Create a Pulse object
         :param beam_params: same parameters as given for Beam
@@ -930,8 +930,16 @@ class Pulse:
 
             # define pulse energies and envelope
             self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
+
+            # frequencies
+            self.f = self.energy / 4.136
+            self.f0 = self.E0 / 4.136
+
+            # add in optional spectral chirp
+            self.spectral_phase = np.exp(1j * GDD / 2 * (2 * np.pi) ** 2 * (self.f - self.f0) ** 2)
+
             self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
-            self.envelope = self.envelope.astype(complex)
+            self.envelope = self.envelope.astype(complex) * self.spectral_phase
 
         # calculate wavelengths
         self.wavelength = 1239.8/self.energy*1e-9
