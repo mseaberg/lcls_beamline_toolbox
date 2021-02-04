@@ -852,6 +852,7 @@ class Pulse:
             # define pulse energies and envelope
             self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
             self.envelope = np.ones(self.N)
+            self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
 
         # allow for genesis output as a Pulse input
         elif genesis_output is not None:
@@ -911,6 +912,7 @@ class Pulse:
                 self.beams = field_energy
 
             self.envelope = np.ones_like(self.energy)
+            self.pulse = Efield[int(nx/2), int(nx/2), :]
 
         else:
 
@@ -940,6 +942,8 @@ class Pulse:
 
             self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
             self.envelope = self.envelope.astype(complex) * self.spectral_phase
+            self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
+
 
         # calculate wavelengths
         self.wavelength = 1239.8/self.energy*1e-9
@@ -956,6 +960,9 @@ class Pulse:
 
         # initialize time stacks with dictionary. Keys are profile monitor names
         self.time_stacks = {}
+
+        # initialize list of screens
+        self.screens = []
 
         # initialize coordinates for profile monitors
         self.x = {}
@@ -1140,6 +1147,8 @@ class Pulse:
         None
         """
 
+        self.screens = screen_names
+
         # add screens to energy stacks
         for screen in screen_names:
             screen_obj = getattr(beamline, screen)
@@ -1220,6 +1229,100 @@ class Pulse:
         time_stack = np.fft.fftshift(np.fft.fft(np.fft.fftshift(energy_stack, axes=2), axis=2), axes=2)
 
         return time_stack
+
+    def add_pulse(self, another_pulse, time_shift):
+        """
+        Method to combine two pulses. For the moment it is assumed that the two pulses have the same time/energy
+        sampling, and have been evaluated at the same screens.
+        Parameters
+        ----------
+        another_pulse: Pulse
+            The pulse to add to the current one
+        time_shift: float
+            relative delay to shift pulses (in fs).
+
+        Returns
+        -------
+        A new Pulse that is the coherent sum of the two pulses.
+        """
+        beam_params = self.beam_params
+        tau = self.tau
+        time_window = self.time_window
+        new_pulse = Pulse(beam_params=beam_params, tau=tau, time_window=time_window)
+
+        time_stacks = {}
+        energy_stacks = {}
+        x = {}
+        y = {}
+        new_pulse.screens = self.screens.copy()
+        new_pulse.xx = self.xx.copy()
+        new_pulse.yy = self.yy.copy()
+
+        # print(another_pulse.energy_stacks.keys())
+
+        time_pixels = time_shift/self.deltaT
+
+        energy_phase = np.exp(1j*2*np.pi*time_shift*self.f)
+
+        # convert to time domain
+        for screen in self.screens:
+            # deal with quadratic phase
+            # subtract mean
+            qx_mean1 = np.mean(self.qx[screen])
+            qx_mean2 = np.mean(another_pulse.qx[screen])
+            qy_mean1 = np.mean(self.qy[screen])
+            qy_mean2 = np.mean(another_pulse.qy[screen])
+
+            qx_mean = (np.mean(self.qx[screen]) + np.mean(another_pulse.qx[screen]))/2
+            qy_mean = (np.mean(self.qy[screen]) + np.mean(another_pulse.qy[screen]))/2
+
+            energy_stacks[screen] = np.zeros_like(self.energy_stacks[screen],dtype=complex)
+            x[screen] = self.x[screen]
+            y[screen] = self.y[screen]
+
+            new_pulse.qx[screen] = np.zeros(self.N)
+            new_pulse.qy[screen] = np.zeros(self.N)
+
+            for num in range(self.N):
+                qx = self.qx[screen][num]
+                qy = self.qy[screen][num]
+                # cx = self.cx[screen][num]
+                # cy = self.cy[screen][num]
+                # subtract off mean quadratic phase
+                # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
+                # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
+                # x_phase1 = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
+                x_phase1 = np.pi / self.wavelength[num] * (qx_mean - qx_mean1) * self.xx[screen] ** 2
+                # y_phase1 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
+                y_phase1 = np.pi / self.wavelength[num] * (qy_mean - qy_mean1) * self.yy[screen] ** 2
+
+                qx = another_pulse.qx[screen][num]
+                qy = another_pulse.qy[screen][num]
+                # cx = another_pulse.cx[screen][num]
+                # cy = another_pulse.cy[screen][num]
+                # subtract off mean quadratic phase
+                # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
+                # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
+                # x_phase2 = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
+                x_phase2 = np.pi / self.wavelength[num] * (qx_mean - qx_mean2) * self.xx[screen] ** 2
+                # y_phase2 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
+                y_phase2 = np.pi / self.wavelength[num] * (qy_mean - qy_mean2) * self.yy[screen] ** 2
+                energy_stacks[screen][:, :, num] = (self.energy_stacks[screen][:,:,num] *
+                                                    np.exp(1j * (x_phase1 + y_phase1))*energy_phase[num] +
+                                                    another_pulse.energy_stacks[screen][:,:,num] *
+                                                    np.exp(1j*(x_phase2 + y_phase2)))
+
+                new_pulse.qx[screen][num] = (self.qx[screen][num] + another_pulse.qx[screen][num])/2
+                new_pulse.qy[screen][num] = (self.qy[screen][num] + another_pulse.qy[screen][num])/2
+
+            time_stacks[screen] = Pulse.energy_to_time(energy_stacks[screen])
+
+        new_pulse.time_stacks = time_stacks
+        new_pulse.energy_stacks = energy_stacks
+        new_pulse.x = x
+        new_pulse.y = y
+
+        return new_pulse
 
     def imshow_projection(self, image_name):
         """
@@ -1355,7 +1458,7 @@ class Pulse:
         # ax_profile.set_title('%s Energy Slice' % image_name)
         ax_profile.set_title(title)
 
-    def imshow_time_slice(self, image_name, dim='x', slice_pos=0):
+    def imshow_time_slice(self, image_name, dim='x', slice_pos=0, shift=None):
         """
         Method to show a slice along space and time
         Parameters
@@ -1384,7 +1487,9 @@ class Pulse:
         plt.figure(figsize=(6, 6))
 
         # generate the axes, in a grid
-        ax_profile = plt.subplot2grid((1, 1), (0, 0))
+        # ax_profile = plt.subplot2grid((1, 1), (0, 0))
+        ax_profile = plt.subplot2grid((5, 8), (0, 0), colspan=7, rowspan=5)
+        ax_colorbar = plt.subplot2grid((5, 8), (1, 7), colspan=1, rowspan=3)
 
         # horizontal slice
         if dim == 'x':
@@ -1416,9 +1521,18 @@ class Pulse:
             ylabel = ''
             aspect_ratio = 1
 
+        # normalize
+        profile = profile / np.max(profile)
+
+        if shift is not None:
+            profile = np.roll(profile, int(shift/self.deltaT), axis=1)
+
         # show the 2D profile
-        ax_profile.imshow(np.flipud(profile), aspect=aspect_ratio,
+        im_profile = ax_profile.imshow(np.flipud(profile), aspect=aspect_ratio,
                           extent=extent, cmap=plt.get_cmap('gnuplot'))
+        cbar_label = 'Intensity (normalized)'
+        plt.colorbar(im_profile, cax=ax_colorbar, label=cbar_label)
+
         # label coordinates
         ax_profile.set_xlabel('Time (fs)')
         ax_profile.set_ylabel(ylabel)
@@ -1489,7 +1603,43 @@ class Pulse:
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
 
-    def plot_spectrum(self, image_name, x_pos=0, y_pos=0):
+    def plot_1d_projection(self, image_name, dim='x'):
+        """
+        Method to show an image of the total integrated intensity
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        dim: str
+            dimension for the lineout
+
+        Returns
+        -------
+
+        """
+
+        # generate the figure
+        plt.figure()
+
+        # generate the axes, in a grid
+        ax = plt.subplot2grid((1,1), (0,0))
+
+        # calculate the profile
+        # profile = np.sum(np.abs(self.energy_stacks[image_name])**2, axis=2)
+        profile = np.sum(np.abs(self.time_stacks[image_name])**2, axis=2)
+        if dim == 'x':
+            lineout = np.sum(profile, axis=0)
+        else:
+            lineout = np.sum(profile, axis=1)
+
+        # show the horizontal lineout (distance in microns)
+        ax.plot(getattr(self, dim)[image_name] * 1e6, lineout / np.max(lineout))
+        ax.set_xlabel('%s coordinates (microns)' % dim)
+        ax.set_ylabel('Intensity (normalized)')
+
+        return ax, lineout
+
+    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False, log=False, voigt=False, show_fit=True):
         """
         Method to plot the spectrum at a given location
         Parameters
@@ -1524,26 +1674,369 @@ class Pulse:
         y_index = int((y_pos - miny) / dy)
 
         # calculate spectral intensity
-        y_data = np.abs(self.energy_stacks[image_name][y_index,x_index,:])**2
+        if integrated:
+            y_data = np.sum(np.abs(self.energy_stacks[image_name]) ** 2, axis=(0, 1))
+        else:
+            y_data = np.abs(self.energy_stacks[image_name][y_index, x_index, :]) ** 2
 
         # get gaussian stats
         centroid, sx = Util.gaussian_stats(self.energy, y_data)
         fwhm = sx * 2.355
 
-        # gaussian fit to plot
-        gauss_plot = Util.fit_gaussian(self.energy, centroid, sx)
+        if voigt:
+            # get voigt fit
+            popt, pcov = optimize.curve_fit(Util.fit_lorentzian, self.energy, y_data, p0=[centroid, fwhm])
+            gauss_plot = Util.fit_lorentzian(self.energy, popt[0], popt[1])
+        else:
+            # gaussian fit to plot
+            gauss_plot = Util.fit_gaussian(self.energy, centroid, sx)
+
+        # change label depending on bandwidth
+        if fwhm >= 1:
+            width_label = '%.1f eV FWHM' % fwhm
+        elif fwhm > 1e-3:
+            width_label = '%.1f meV FHWM' % (fwhm * 1e3)
+        else:
+            width_label = u'%.1f \u03BCeV FWHM' % (fwhm * 1e6)
 
         # plotting
         plt.figure()
-        plt.plot(self.energy, y_data/np.max(y_data), label='Simulated')
-        plt.plot(self.energy, gauss_plot, label=u'Gaussian Fit: %.2f eV FWHM' % fwhm)
-        plt.xlabel('Energy (eV)')
-        plt.ylabel('Intensity (normalized)')
-        plt.title(u'%s Spectrum at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
-        plt.legend()
+        ax = plt.subplot2grid((1, 1), (0, 0))
+        if log:
+            ax.semilogy(self.energy - self.E0, y_data / np.max(y_data), label='Simulated')
+            if show_fit:
+                ax.semilogy(self.energy - self.E0, gauss_plot, label=width_label)
+        else:
+            ax.plot(self.energy - self.E0, y_data / np.max(y_data), label='Simulated')
+            if show_fit:
+                ax.plot(self.energy - self.E0, gauss_plot, label=width_label)
+        ax.set_ylim(-.05, 1.3)
+        ax.set_xlabel('Energy (eV)')
+        ax.set_ylabel('Intensity (normalized)')
+        if integrated:
+            ax.set_title(u'%s Integrated Spectrum' % (image_name))
+        else:
+            ax.set_title(u'%s Spectrum at X: %d \u03BCm, Y: %d \u03BCm' % (image_name, x_pos, y_pos))
+        if show_fit:
+            plt.legend()
         plt.grid()
 
-    def plot_pulse(self, image_name, x_pos=0, y_pos=0):
+        return ax
+
+    def pulse_bandwidth(self, image_name, x_pos=0, y_pos=0):
+        """
+        Method to calculate the bandwidth of the pulse at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to check
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+
+        Returns
+        -------
+        bandwidth: float
+            pulse bandwidth (FWHM) in eV
+        """
+        # get boundaries
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # get number of pixels
+        M = self.x[image_name].size
+        N = self.y[image_name].size
+
+        # calculate pixel sizes (microns)
+        dx = (maxx - minx) / M
+        dy = (maxy - miny) / N
+
+        # calculate indices for the desired location
+        x_index = int((x_pos - minx) / dx)
+        y_index = int((y_pos - miny) / dy)
+
+        # calculate spectral intensity
+        y_data = np.abs(self.energy_stacks[image_name][y_index, x_index, :]) ** 2
+
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.energy, y_data)
+        fwhm = sx * 2.355
+
+        return fwhm
+
+    def central_energy(self, image_name, x_pos=0, y_pos=0):
+        """
+        Method to calculate the central energy of a pulse at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to check
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+
+        Returns
+        -------
+        central_energy: float
+            central energy of the pulse in eV
+        """
+
+        # get boundaries
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # get number of pixels
+        M = self.x[image_name].size
+        N = self.y[image_name].size
+
+        # calculate pixel sizes (microns)
+        dx = (maxx - minx) / M
+        dy = (maxy - miny) / N
+
+        # calculate indices for the desired location
+        x_index = int((x_pos - minx) / dx)
+        y_index = int((y_pos - miny) / dy)
+
+        # calculate spectral intensity
+        y_data = np.abs(self.energy_stacks[image_name][y_index, x_index, :]) ** 2
+
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.energy, y_data)
+        fwhm = sx * 2.355
+
+        return centroid
+
+    def throughput(self, image1_name, image2_name):
+        """
+        Method to calculate the throughput at image2 relative to image1
+        Parameters
+        ----------
+        image1_name: str
+            upstream profile monitor name
+        image2_name: str
+            downstream profile monitor name
+
+        Returns
+        -------
+        throughput: float
+            fraction of pulse energy arriving at image2 relative to image1
+        """
+        image1_data = self.energy_stacks[image1_name]
+        image2_data = self.energy_stacks[image2_name]
+
+        # total integrated intensity at image2 location normalized by integrated intensity at image1 location
+        # for now these probably need to be the same pixel size since I'm not being careful with units
+        throughput = np.sum(np.abs(image2_data)**2)/np.sum(np.abs(image1_data)**2)
+
+        return throughput
+
+    def pulsefront_tilt(self, image_name, dim='x', slice_pos=0, shift=None):
+        """
+        Method to calculate the pulse front tilt at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        dim: str
+            spatial dimension for the slice ('x' or 'y')
+        slice_pos: float
+            spatial slice location (in y if dim='x' and vice versa). Units are microns.
+        shift: float
+            amount to shift pulse in fs. if None, calculated automatically
+        Returns
+        -------
+        tilt: float
+            pulse front tilt in units of fs/micron
+        """
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # horizontal slice
+        if dim == 'x':
+            # slice index
+            N = self.x[image_name].size
+            dx = (maxx - minx) / N
+            index = int((slice_pos - minx) / dx)
+            profile = np.abs(self.time_stacks[image_name][index, :, :]) ** 2
+            # spatial coordinates (microns)
+            x = np.copy(self.x[image_name])*1e6
+
+        # vertical slice
+        elif dim == 'y':
+            # slice index
+            N = self.y[image_name].size
+            dx = (maxy - miny) / N
+            index = int((slice_pos - miny) / dx)
+            profile = np.abs(self.time_stacks[image_name][:, index, :]) ** 2
+            # spatial coordinates (microns)
+            x = np.copy(self.x[image_name])*1e6
+
+        else:
+            profile = np.zeros((256, 256))
+            x = np.linspace(0, 255, 256)
+
+        # find peak at central spatial position
+        index = np.argmax(profile[int(N/2), :])
+
+        # distance between array center and peak
+        shift = int(np.size(profile[int(N/2), :]) / 2 - index)
+
+        profile = np.roll(profile, shift, axis=1)
+
+        # find peak (in time) at each position and put into fs units
+        time_peaks = np.argmax(profile, axis=1) * self.deltaT
+
+        # mask out anything outside the fwhm
+        spatial_projection = np.sum(profile, axis=1)
+        mask = spatial_projection>0.5*np.max(spatial_projection)
+
+        time_peaks = time_peaks[mask]
+        x = x[mask]
+
+        # fit a line to the peaks
+        p = np.polyfit(x, time_peaks, 1)
+        # return slope (units are fs/micron)
+        slope = p[0]
+
+        return slope
+
+    def spatial_chirp(self, image_name, dim='x', slice_pos=0, shift=None):
+        """
+        Method to calculate the spatial chirp at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        dim: str
+            spatial dimension for the slice ('x' or 'y')
+        slice_pos: float
+            spatial slice location (in y if dim='x' and vice versa). Units are microns.
+        shift: float
+            amount to shift spectrum in eV. if None, calculated automatically
+
+        Returns
+        -------
+        chirp: float
+            spatial chirp in units of eV/micron
+        """
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # horizontal slice
+        if dim == 'x':
+            # slice index
+            N = self.x[image_name].size
+            dx = (maxx - minx) / N
+            index = int((slice_pos - minx) / dx)
+            profile = np.abs(self.energy_stacks[image_name][index, :, :]) ** 2
+            # spatial coordinates (microns)
+            x = np.copy(self.x[image_name]) * 1e6
+
+        # vertical slice
+        elif dim == 'y':
+            # slice index
+            N = self.y[image_name].size
+            dx = (maxy - miny) / N
+            index = int((slice_pos - miny) / dx)
+            profile = np.abs(self.energy_stacks[image_name][:, index, :]) ** 2
+            # spatial coordinates (microns)
+            x = np.copy(self.x[image_name]) * 1e6
+
+        else:
+            profile = np.zeros((256, 256))
+            x = np.linspace(0, 255, 256)
+
+        # find peak at central spatial position
+        index = np.argmax(profile[int(N / 2), :])
+
+        # distance between array center and peak
+        shift = int(np.size(profile[int(N / 2), :]) / 2 - index)
+
+        profile = np.roll(profile, shift, axis=1)
+
+        # find peak (in time) at each position and put into fs units
+        energy_peaks = np.argmax(profile, axis=1) * self.dE
+
+        # mask out anything outside the fwhm
+        spatial_projection = np.sum(profile, axis=1)
+        mask = spatial_projection > 0.5 * np.max(spatial_projection)
+
+        energy_peaks = energy_peaks[mask]
+        x = x[mask]
+
+        # fit a line to the peaks
+        p = np.polyfit(x, energy_peaks, 1)
+        # return slope (units are fs/micron)
+        slope = p[0]
+
+        return slope
+
+    def pulse_duration(self, image_name, x_pos=0, y_pos=0):
+        """
+        Method to calculate the temporal pulse structure at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to check
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+
+        Returns
+        -------
+        pulse_width: float
+            pulse width (FWHM) in fs
+        """
+
+        # get boundaries
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # get number of pixels
+        M = self.x[image_name].size
+        N = self.y[image_name].size
+
+        # calculate pixel sizes (microns)
+        dx = (maxx - minx) / M
+        dy = (maxy - miny) / N
+
+        # calculate indices for the desired location
+        x_index = int((x_pos - minx) / dx)
+        y_index = int((y_pos - miny) / dy)
+
+        # calculate temporal intensity
+        y_data = np.abs(self.time_stacks[image_name][y_index, x_index, :]) ** 2
+
+        # find peak
+        index = np.argmax(y_data)
+
+        # distance between array center and peak
+        shift = int(np.size(y_data)/2 - index)
+
+        y_data = np.roll(y_data, shift)
+
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
+        fwhm = int(sx * 2.355)
+
+        return centroid, fwhm
+
+    def plot_pulse(self, image_name, x_pos=0, y_pos=0, shift=None):
         """
         Method to plot the temporal pulse structure at a given location
         Parameters
@@ -1580,6 +2073,9 @@ class Pulse:
 
         # calculate temporal intensity
         y_data = np.abs(self.time_stacks[image_name][y_index, x_index, :]) ** 2
+
+        if shift is not None:
+            y_data = np.roll(y_data, int(shift/self.deltaT))
 
         # get gaussian stats
         centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
