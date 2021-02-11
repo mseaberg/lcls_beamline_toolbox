@@ -2179,6 +2179,8 @@ class Crystal(Mirror):
         # shapePoly = np.polyfit(zi_1d, shapeError2, 16)
         # slopePoly = np.polyder(shapePoly)
         # take derivative
+        c2 = shapePoly.c[2]
+
         shapePoly.legder(1)
         # slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
         slope_error = shapePoly.legval()*1e-9
@@ -2238,7 +2240,7 @@ class Crystal(Mirror):
         ##!! need to calculate effective focal distance while taking into account crystal curvature, similar to
         ##!! what was needed for the grating
 
-        second_order = shapePoly.c[2]*3/2*(shapePoly.dx*shapePoly.N/2)**2
+        second_order = c2*3/2/(shapePoly.dx*shapePoly.N/2)**2
 
         R = 1 / (2 * second_order*1e-9)
         print(R)

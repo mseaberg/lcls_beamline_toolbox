@@ -789,4 +789,3 @@ class LegendreUtil:
     def legval(self):
 
         return np.polynomial.legendre.legval(self.x_norm, self.c)
-
