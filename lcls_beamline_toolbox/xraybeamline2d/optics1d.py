@@ -2165,10 +2165,29 @@ class Crystal(Mirror):
                 shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs,
                                         self.shapeError[int(Ns / 2), :])
 
+        z_c = zi_1d - self.dx / np.tan(total_alpha)
+        # limit fit to size of crystal
+        mask = np.abs(z_c) <= self.length / 2
+        print(np.sum(mask) / np.size(z_c))
+
+        # if np.sum(mask) > 0:
+        #     shapePoly = LegendreUtil(z_c[mask], shapeError2[mask], 16)
+        # else:
+        #     shapePoly = np.zeros(16)
+
         # get slope error
-        shapePoly = np.polyfit(zi_1d, shapeError2, 16)
+        if np.sum(mask) > 0:
+            shapePoly = np.polyfit(zi_1d[mask], shapeError2[mask], 16)
+        else:
+            shapePoly = np.zeros(16)
+
         slopePoly = np.polyder(shapePoly)
-        slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
+        slope_error = np.polyval(slopePoly, zi_1d[mask]) * 1e-9
+
+        slope_error2 = np.zeros_like(zi_1d)
+        slope_error2[mask] = slope_error
+        slope_error = slope_error2
+
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
