@@ -22,7 +22,7 @@ import scipy.ndimage as ndimage
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
 import os
-from .util import Util
+from .util import Util, LegendreUtil
 from .pitch import TalbotLineout
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
@@ -2165,10 +2165,27 @@ class Crystal(Mirror):
                 shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs,
                                         self.shapeError[int(Ns / 2), :])
 
+        z_c = zi_1d - self.dx / np.tan(total_alpha)
+        # limit fit to size of crystal
+        mask = np.abs(z_c) <= self.length / 2
+        print(np.sum(mask)/np.size(z_c))
+
+        if np.sum(mask) > 0:
+            shapePoly = LegendreUtil(z_c[mask], shapeError2[mask], 16)
+        else:
+            shapePoly = np.zeros(16)
+
         # get slope error
-        shapePoly = np.polyfit(zi_1d, shapeError2, 16)
-        slopePoly = np.polyder(shapePoly)
-        slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
+        # shapePoly = np.polyfit(zi_1d, shapeError2, 16)
+        # slopePoly = np.polyder(shapePoly)
+        # take derivative
+        shapePoly.legder(1)
+        # slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
+        slope_error = shapePoly.legval()*1e-9
+
+        slope_error2 = np.zeros_like(z_c)
+        slope_error2[mask] = slope_error
+        slope_error = slope_error2
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
@@ -2221,7 +2238,9 @@ class Crystal(Mirror):
         ##!! need to calculate effective focal distance while taking into account crystal curvature, similar to
         ##!! what was needed for the grating
 
-        R = 1 / (2 * shapePoly[-3]*1e-9)
+        second_order = shapePoly.c[2]*3/2*(shapePoly.dx*shapePoly.N/2)**2
+
+        R = 1 / (2 * second_order*1e-9)
         print(R)
 
         # use equation for curved grating imaging condition. Works great!
