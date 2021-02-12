@@ -767,3 +767,41 @@ class Util:
         # beam points in z direction
         k = z
         return k
+
+
+class LegendreUtil:
+
+    def __init__(self, x, y, deg):
+        self.N = x.size
+        self.dx = np.abs(x[1] - x[0])
+        self.x_center = np.mean(x)
+        self.x_centered = x - self.x_center
+        self.x_norm = self.x_centered / np.max(self.x_centered)
+        self.x = x
+        self.deg = deg
+
+        if self.N > 0:
+            self.c = np.polynomial.legendre.legfit(self.x_norm, y, deg)
+        else:
+            self.c = np.zeros(deg+1)
+
+    def legint(self, m):
+        self.c = np.polynomial.legendre.legint(self.c, m)*(self.dx*self.N/2)**m
+
+    def legder(self, m):
+        self.c = np.polynomial.legendre.legder(self.c, m)/(self.dx*self.N/2)**m
+
+    def legval(self, deg=None):
+
+        if deg is None:
+            deg = self.deg
+
+        return np.polynomial.legendre.legval(self.x_norm, self.c[:deg+1])
+
+    def quad_coeff(self):
+
+        return self.c[2] * 3 / 2 / (self.dx * self.N / 2) ** 2
+
+    def linear_coeff(self):
+
+        return self.c[1] / (self.dx * self.N / 2)
