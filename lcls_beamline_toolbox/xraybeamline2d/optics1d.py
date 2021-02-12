@@ -100,14 +100,13 @@ class Mirror:
         self.yaw = 0.
         self.dx = 0.
         self.dy = 0.
-        self.dz = 0.
         self.global_x = 0
         self.global_y = 0
         self.global_alpha = 0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
-                             'delta', 'dx', 'dy', 'dz', 'motor_list', 'roll', 'yaw']
+                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -2150,7 +2149,7 @@ class Crystal(Mirror):
                 # mirror coordinates
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
                 # 1D interpolation onto beam coordinates
-                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs, self.shapeError)
+                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs, self.shapeError)
             # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
             else:
                 # shape error array shape
@@ -2162,18 +2161,31 @@ class Crystal(Mirror):
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
 
                 # just take central line for 1d shape error
-                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs,
+                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs,
                                         self.shapeError[int(Ns / 2), :])
 
+        # zi_1d is centered around cz, and beam is centered on cz
+
+        # to make the mask, we need coordinates that are centered on the crystal,
+        # with no offset this is zi_1d, with offset this is z_c = zi_1d - self.dx / np.tan(total_alpha)
         z_c = zi_1d - self.dx / np.tan(total_alpha)
+
+        # beam-centered coordinates are zi_1d - cz (meaning zero at beam center) - we will call this z_b
+        # This implies that z_b = z_c + self.dx / np.tan(total_alpha) - cz, which is consistent with the
+        # offset applied below
+        z_b = zi_1d - cz
+
+        # in the end we need a polynomial that's centered on the beam (meaning on z_b)
+
         # limit fit to size of crystal
         mask = np.abs(z_c) <= self.length / 2
         print(np.sum(mask)/np.size(z_c))
 
-        if np.sum(mask) > 0:
-            shapePoly = LegendreUtil(z_c[mask], shapeError2[mask], 16)
-        else:
-            shapePoly = np.zeros(16)
+        shapePoly = LegendreUtil(z_c[mask], shapeError2[mask], 16)
+
+        plt.figure()
+        plt.plot(z_c, shapeError2)
+        plt.plot(shapePoly.x, shapePoly.legval())
 
         # get slope error
         # shapePoly = np.polyfit(zi_1d, shapeError2, 16)
@@ -2268,18 +2280,51 @@ class Crystal(Mirror):
         # limit fit to size of crystal
         mask = np.abs(z_c) <= self.length/2
 
+        # if np.sum(mask) > 0:
+        #     shapePoly = LegendreUtil(z_c[mask], shapeError2[mask], 16)
+        # else:
+        #     shapePoly = np.zeros(16)
+
+        # integrate
+        # shapePoly.legint(1)
+
+        # Try fitting to Legendre polynomial, subtracting off 2nd order and below and fitting this to polynomial,
+        # The second order Legendre give the starting point for 2nd order and linear phase terms, then the offset
+        # will generate some more 2nd and first order terms, to be added on.
+
+        shapePoly = LegendreUtil(z_c[mask], slope_error[mask], 16)
+
+        # integrate slope error
+        shapePoly.legint(1)
+
+        # now subtract off second order Legendre polynomial.
+        # residual = shapePoly.legval() - shapePoly.legval(2)
+        # plt.figure()
+        # plt.plot(shapePoly.x_norm, residual,label='residual')
+        # plt.plot(shapePoly.x_norm, shapePoly.legval(2),label='2nd')
+        # plt.plot(shapePoly.x_norm, shapePoly.legval(),label='original')
+        # plt.plot(shapePoly.x_norm, shapePoly.legval(2)+residual,label='sum')
+        # plt.plot(shapePoly.x_norm, np.cumsum(slope_error[mask])*shapePoly.dx,label='slope')
+        # plt.legend()
+
+        # plt.figure()
+        # plt.plot(shapePoly.x_norm, shapePoly.legval() - np.cumsum(slope_error[mask])*shapePoly.dx)
+
+
         if np.sum(mask) > 0:
             p = np.polyfit(z_c[mask], slope_error[mask], 16)
         else:
             p = np.zeros(16)
-        # p = np.polyfit(z_c[mask], slope_error[mask], 3)
 
         # integrate slope error
         p_int = np.polyint(p)
-        R = 1 / (2 * p_int[-3])
+        # c2 = shapePoly.c[2]*3/2/(shapePoly.dx*shapePoly.N/2)**2
+        c2 = shapePoly.quad_coeff()
+
+        R = 1 / (2 * c2)
         print('radius of curvature: %.2e' % R)
 
-        # offset from center (along mirror z-axis)
+        # offset from center of crystal (along crystal z-axis)
         offset = cz - self.dx / np.tan(total_alpha)
 
         # account for decentering

@@ -778,7 +778,12 @@ class LegendreUtil:
         self.x_centered = x - self.x_center
         self.x_norm = self.x_centered / np.max(self.x_centered)
         self.x = x
-        self.c = np.polynomial.legendre.legfit(self.x_norm, y, deg)
+        self.deg = deg
+
+        if self.N > 0:
+            self.c = np.polynomial.legendre.legfit(self.x_norm, y, deg)
+        else:
+            self.c = np.zeros(deg+1)
 
     def legint(self, m):
         self.c = np.polynomial.legendre.legint(self.c, m)*(self.dx*self.N/2)**m
@@ -786,6 +791,17 @@ class LegendreUtil:
     def legder(self, m):
         self.c = np.polynomial.legendre.legder(self.c, m)/(self.dx*self.N/2)**m
 
-    def legval(self):
+    def legval(self, deg=None):
 
-        return np.polynomial.legendre.legval(self.x_norm, self.c)
+        if deg is None:
+            deg = self.deg
+
+        return np.polynomial.legendre.legval(self.x_norm, self.c[:deg+1])
+
+    def quad_coeff(self):
+
+        return self.c[2] * 3 / 2 / (self.dx * self.N / 2) ** 2
+
+    def linear_coeff(self):
+
+        return self.c[1] / (self.dx * self.N / 2)
