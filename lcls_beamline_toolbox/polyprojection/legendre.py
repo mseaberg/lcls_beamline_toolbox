@@ -541,3 +541,193 @@ class LegendreFit2D:
         # reshape onto grid shape
         wavefront = np.reshape(wavefront0, (N1, M1))
         return wavefront
+
+
+class LegendreSurface:
+
+    def __init__(self, N, M, order):
+
+        """Initialize LegendreFit2D object.
+        :param N: int
+            first dimension of image
+        :param M: int
+            second dimension of image
+        :param order: int
+            Legendre order to fit up to
+        """
+
+        # set attributes from parameters
+        self.N = N
+        self.M = M
+        self.order = order
+
+        # calculate number of terms based on Legendre order. Add 1 to order for 0th degree (constant).
+        self.terms = (order + 1) ** 2
+        # P is the number of coefficients. Subtract one from terms because we can't fit the overall constant.
+        self.P = self.terms
+        # calculate total size of image
+        self.N0 = self.N * self.M
+        # define coordinate system on unit square
+        self.x = np.linspace(-1, 1, M)
+        self.y = np.linspace(-1, 1, N)
+
+        # initialize Legendre matrices
+        self.A = np.zeros((self.N0, self.P))
+        self.legendre_val = np.zeros((self.N0, self.P))
+        self.mapping = np.zeros((self.P, self.P))
+
+        # initialize dictionaries
+        self.leg_x = {}
+        self.leg_y = {}
+
+        print('calculating Legendre polynomials')
+        # calculate Legendre polynomials on this grid
+        self.get_legendre()
+
+        # calculate Legendre derivatives
+        self.make_A()
+        print('calculated Legendre polynomials')
+
+    def get_legendre(self):
+        """
+        Method for generating 2D Legendre polynomials.
+        :return leg_2d: dict
+            dictionary for 2D Legendre polynomials
+        """
+
+        # flatten coordinate arrays
+        xf = self.x.flatten()
+        yf = self.y.flatten()
+
+        # initialize Legendre dictionaries
+        leg_x = {
+            0: np.ones(np.size(xf)),
+            1: xf
+            }
+        leg_y = {
+            0: np.ones(np.size(yf)),
+            1: yf
+            }
+
+        # iterate through legendres
+        if self.order > 1:
+
+            # start recurrence relation for Legendre polynomials
+            # n starts at 1, leg_x first entry is 2
+            # n ends at order. leg_x last entry is order
+            for i in range(self.order - 1):
+                n = i + 1
+
+                leg_x[n + 1] = ((2 * n + 1) * xf * leg_x[n] - n * leg_x[n - 1]) / (n + 1)
+                leg_y[n + 1] = ((2 * n + 1) * yf * leg_y[n] - n * leg_y[n - 1]) / (n + 1)
+
+        # initialize 2d Legendre dictionary
+        leg_2d = {}
+
+        # nx starts at 0. last entry is order.
+        # ny starts at 0. last entry is order.
+        for i in range(self.terms):
+            nx = int(np.floor(i / (self.order + 1)))
+            ny = int(np.mod(i, self.order + 1))
+
+            # make 2D polynomials.
+            leg_2d[i] = (np.tile(leg_x[nx], (np.size(yf), 1)) *
+                         np.tile(np.reshape(leg_y[ny], (np.size(yf), 1)), (1, np.size(xf))))
+
+        # set as attributes
+        self.leg_x = leg_x
+        self.leg_y = leg_y
+
+        # skip order (0,0).
+        for i in range(self.P):
+            # flatten the polynomials so they fit in a 2D array
+            self.legendre_val[:, i] = leg_2d[i].flatten()
+
+        return leg_2d
+
+    def make_A(self):
+        """
+        Method to generate matrix for fitting wavefront gradient onto 2D Legendre basis.
+        """
+
+        A1 = self.legendre_val
+
+        # qr decomposition of A1, to get an orthonormal basis for the wavefront gradient
+        A, r = np.linalg.qr(A1)
+
+        # matrix for mapping orthonormal basis back onto Legendre basis.
+        self.mapping = np.linalg.inv(np.matmul(np.transpose(A1), A))
+
+        # set A as an object variable
+        self.A = A
+
+    def make_B(self, input):
+        """
+        Function to take data inside the unit square and make it consistent with basis
+        :param h_grad: (N,M) ndarray
+            horizontal gradient (2d)
+        :return B: (N0,) ndarray
+            1d vector containing data inside unit square
+        """
+
+        B = np.zeros((self.N0, 1))
+        # flattened input
+        B[:, 0] = input.flatten()
+
+        return B
+
+    def least_squares_coeff(self, input, i_mask=None):
+        """
+        Method to project input onto 2D Legendre polynomials.
+        :param input: (N,M) ndarray
+            surface to fit (2d)
+        :param dx: float
+            pixel size (meters)
+        :param i_mask: (N,M) ndarray
+            amplitude-based mask to avoid fitting noise
+        :return W: (P,) ndarray
+            2D Legendre coefficients
+        """
+
+        # flatten amplitude mask to 1d array
+        if i_mask is None:
+            i_flat = np.ones(self.N0,dtype=bool)
+        else:
+            i_flat = i_mask.flatten()
+
+        # generate gradient vector
+        B = self.make_B(input)
+
+        # remove any area outside the amplitude mask
+        B = B[i_flat, :]
+
+        # remove any area outside the amplitude mask in the basis matrix
+        A = self.A[i_flat, :]
+
+        # projection onto orthonormal basis
+        W0 = np.matmul(np.transpose(A), B)
+
+        # map back onto Legendre basis
+        W = np.matmul(np.transpose(self.mapping), W0)
+
+        return W
+
+    def fitval(self, W):
+        """
+        Method to calculate wavefront based on Legendre coefficients.
+        :param W: (P,) ndarray
+            2D Legendre coefficients
+        :return wavefront: (N,M) ndarray
+            wavefront (2d)
+        """
+
+        # get grid shape
+        M1 = np.size(self.x)
+        N1 = np.size(self.y)
+
+        # add up Legendre polynomials based on coefficients
+        fit0 = np.matmul(self.legendre_val, W)
+
+        # reshape onto grid shape
+        fit_shaped = np.reshape(fit0, (N1, M1))
+        return fit_shaped

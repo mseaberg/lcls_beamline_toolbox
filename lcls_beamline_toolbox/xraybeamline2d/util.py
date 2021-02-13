@@ -289,16 +289,17 @@ class Util:
         """
 
         # remove low orders
-        p[-3:] = 0
+        p2 = np.copy(p)
+        p2[-3:] = 0
 
         # print('high order polycoeff: ' + str(p))
 
         # get polynomial order
-        M = np.size(p) - 1
+        M = np.size(p2) - 1
 
         values = np.zeros_like(x)
 
-        for num, coeff in enumerate(p):
+        for num, coeff in enumerate(p2):
             # order of current coefficient
             n = M - num
 
@@ -320,16 +321,17 @@ class Util:
         """
 
         # remove low orders
-        p[-2:] = 0
+        p2 = np.copy(p)
+        p2[-2:] = 0
 
         # print('high order polycoeff: ' + str(p))
 
         # get polynomial order
-        M = np.size(p) - 1
+        M = np.size(p2) - 1
 
         values = np.zeros_like(x)
 
-        for num, coeff in enumerate(p):
+        for num, coeff in enumerate(p2):
             # order of current coefficient
             n = M - num
 
@@ -771,12 +773,18 @@ class Util:
 
 class LegendreUtil:
 
-    def __init__(self, x, y, deg):
+    def __init__(self, x, y, deg, recenter=True):
         self.N = x.size
         self.dx = np.abs(x[1] - x[0])
         self.x_center = np.mean(x)
-        self.x_centered = x - self.x_center
-        self.x_norm = self.x_centered / np.max(self.x_centered)
+        if recenter:
+            self.x_centered = x - self.x_center
+        else:
+            self.x_centered = x
+
+        self.scale = np.max(np.abs(self.x_centered))
+
+        self.x_norm = self.x_centered / self.scale
         self.x = x
         self.deg = deg
 
@@ -786,10 +794,10 @@ class LegendreUtil:
             self.c = np.zeros(deg+1)
 
     def legint(self, m):
-        self.c = np.polynomial.legendre.legint(self.c, m)*(self.dx*self.N/2)**m
+        self.c = np.polynomial.legendre.legint(self.c, m)*(self.scale)**m
 
     def legder(self, m):
-        self.c = np.polynomial.legendre.legder(self.c, m)/(self.dx*self.N/2)**m
+        self.c = np.polynomial.legendre.legder(self.c, m)/(self.scale)**m
 
     def legval(self, deg=None):
 
@@ -800,8 +808,8 @@ class LegendreUtil:
 
     def quad_coeff(self):
 
-        return self.c[2] * 3 / 2 / (self.dx * self.N / 2) ** 2
+        return self.c[2] * 3 / 2 / (self.scale) ** 2
 
     def linear_coeff(self):
 
-        return self.c[1] / (self.dx * self.N / 2)
+        return self.c[1] / (self.scale)

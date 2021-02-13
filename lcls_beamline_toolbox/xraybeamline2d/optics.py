@@ -28,7 +28,7 @@ from skimage.restoration import unwrap_phase
 import os
 import pickle
 from ..polyprojection.legendre import LegendreFit2D
-from .util import Util
+from .util import Util, LegendreUtil
 try:
     from epics import PV
     from pcdsdevices.areadetector.detectors import PCDSAreaDetector
@@ -911,9 +911,46 @@ class Crystal(Mirror):
         # get slope error
         # for now just do this in 1D, update for 2D later
         Ns, Ms = np.shape(shapeError2)
-        shapePoly = np.polyfit(zi_1d, shapeError2[int(Ns/2),:], 16)
-        slopePoly = np.polyder(shapePoly)
-        slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
+        shapeError2 = shapeError2[int(Ns/2),:]
+        # shapePoly = np.polyfit(zi_1d, shapeError2[int(Ns/2),:], 16)
+        # slopePoly = np.polyder(shapePoly)
+        # slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
+
+        # to make the mask, we need coordinates that are centered on the crystal,
+        # with no offset this is zi_1d, with offset this is z_c = zi_1d - self.dx / np.tan(total_alpha)
+        z_c = zi_1d - self.dx / np.tan(total_alpha)
+
+        # beam-centered coordinates are zi_1d - cz (meaning zero at beam center) - we will call this z_b
+        # This implies that z_b = z_c + self.dx / np.tan(total_alpha) - cz, which is consistent with the
+        # offset applied below
+        z_b = zi_1d - cz
+
+        # in the end we need a polynomial that's centered on the beam (meaning on z_b)
+
+        # limit fit to size of crystal
+        mask = np.abs(z_c) <= self.length / 2
+        print(np.sum(mask) / np.size(z_c))
+
+        shapePoly = LegendreUtil(z_c[mask], shapeError2[mask], 16)
+
+        plt.figure()
+        plt.plot(z_c, shapeError2)
+        plt.plot(shapePoly.x, shapePoly.legval())
+
+        # get slope error
+        # shapePoly = np.polyfit(zi_1d, shapeError2, 16)
+        # slopePoly = np.polyder(shapePoly)
+        # take derivative
+        c2 = shapePoly.c[2]
+
+        shapePoly.legder(1)
+        # slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
+        slope_error = shapePoly.legval() * 1e-9
+
+        slope_error2 = np.zeros_like(z_c)
+        slope_error2[mask] = slope_error
+        slope_error = slope_error2
+
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
@@ -966,8 +1003,12 @@ class Crystal(Mirror):
         ##!! need to calculate effective focal distance while taking into account crystal curvature, similar to
         ##!! what was needed for the grating
 
-        R = 1 / (2 * shapePoly[-3]*1e-9)
+        second_order = c2 * 3 / 2 / (shapePoly.dx * shapePoly.N / 2) ** 2
+
+        R = 1 / (2 * second_order * 1e-9)
         print(R)
+        # R = 1 / (2 * shapePoly[-3]*1e-9)
+        # print(R)
 
         # use equation for curved grating imaging condition. Works great!
         f2 = np.sin(self.beta0) ** 2 / (

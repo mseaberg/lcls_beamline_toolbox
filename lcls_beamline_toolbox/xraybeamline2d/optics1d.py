@@ -2193,6 +2193,7 @@ class Crystal(Mirror):
         # slopePoly = np.polyder(shapePoly)
         # take derivative
         c2 = shapePoly.c[2]
+        second_order = shapePoly.quad_coeff()
 
         shapePoly.legder(1)
         # slope_error = np.polyval(slopePoly, zi_1d) * 1e-9
@@ -2201,7 +2202,6 @@ class Crystal(Mirror):
         slope_error2 = np.zeros_like(z_c)
         slope_error2[mask] = slope_error
         slope_error = slope_error2
-        shape_error
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
@@ -2254,7 +2254,8 @@ class Crystal(Mirror):
         ##!! need to calculate effective focal distance while taking into account crystal curvature, similar to
         ##!! what was needed for the grating
 
-        second_order = c2*3/2/(shapePoly.dx*shapePoly.N/2)**2
+        # second_order = c2*3/2/(shapePoly.dx*shapePoly.N/2)**2
+        # second_order = shapePoly.quad_coeff()
 
         R = 1 / (2 * second_order*1e-9)
         print(R)
@@ -2294,13 +2295,18 @@ class Crystal(Mirror):
         # The second order Legendre give the starting point for 2nd order and linear phase terms, then the offset
         # will generate some more 2nd and first order terms, to be added on.
 
-        shapePoly = LegendreUtil(z_c[mask], slope_error[mask], 16)
+        # shapePoly = LegendreUtil(z_c[mask], slope_error[mask], 16)
 
+        # integrate slope error
+        # shapePoly.legint(1)
+
+        # fit legendre centered on beam
+        shapePoly = LegendreUtil(z_c[mask], slope_error[mask], 16)
         # integrate slope error
         shapePoly.legint(1)
 
         # now subtract off second order Legendre polynomial.
-        # residual = shapePoly.legval() - shapePoly.legval(2)
+        residual = shapePoly.legval() - shapePoly.legval(2)
         # plt.figure()
         # plt.plot(shapePoly.x_norm, residual,label='residual')
         # plt.plot(shapePoly.x_norm, shapePoly.legval(2),label='2nd')
@@ -2318,8 +2324,17 @@ class Crystal(Mirror):
         else:
             p = np.zeros(16)
 
+        plt.figure()
+        plt.plot(z_c[mask],slope_error[mask])
+        plt.plot(z_c[mask],np.polyval(p,z_c[mask]))
+
         # integrate slope error
         p_int = np.polyint(p)
+
+        plt.figure()
+        plt.plot(z_c[mask],np.cumsum(slope_error[mask])*shapePoly.dx)
+        plt.plot(z_c[mask],np.polyval(p_int,z_c[mask]))
+
         # c2 = shapePoly.c[2]*3/2/(shapePoly.dx*shapePoly.N/2)**2
         c2 = shapePoly.quad_coeff()
 
@@ -2330,11 +2345,33 @@ class Crystal(Mirror):
         offset = cz - self.dx / np.tan(total_alpha)
 
         # account for decentering
+        print(p_int)
         p_recentered = Util.recenter_coeff(p_int, offset)
+        print('offset %.6f' % offset)
+        print(p_int)
+        print(p_recentered)
+
+        high_order_temp = np.polyval(p_int, z_c)
+        high_order_temp[mask] -= shapePoly.legval(2)
+
+        # trade out polyfit coefficients for the coefficients found from Legendre polynomials
+        # This helps keep most of the quadratic phase in the analytic term
+        p_int[-3] += shapePoly.quad_coeff() - p_int[-3]
+        p_int[-2] += shapePoly.linear_coeff() - p_int[-2]
+        p_int[-1] += shapePoly.c[0] - shapePoly.c[2]/2 - p_int[-1]
 
         # high order phase. Multiplied by sin(beta) because integration should actually happen in beam coordinates.
-        high_order = (2 * np.pi / beam.lambda0 * Util.polyval_high_order(p_recentered, zi - cz) *
+        high_order = (2 * np.pi / beam.lambda0 * high_order_temp *
                       np.sin(beta1 - self.delta))
+
+        # plt.figure()
+        # plt.plot(Util.polyval_high_order(p_int, zi-cz)*mask)
+        # plt.plot(np.polyval(p_int, zi-cz)*mask-Util.polyval_high_order(p_int, zi-cz)*mask)
+        #
+        # plt.figure()
+        # plt.plot(np.polyval(p_int,z_c[mask]))
+        # plt.plot(shapePoly.legval())
+        # plt.plot(np.cumsum(slope_error[mask])*shapePoly.dx)
 
         # scaling between grating z-axis and new beam coordinates
         scale = np.sin(beta1 - self.delta)
