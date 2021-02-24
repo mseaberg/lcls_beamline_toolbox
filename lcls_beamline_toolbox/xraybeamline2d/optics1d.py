@@ -2357,6 +2357,10 @@ class Crystal(Mirror):
         high_order_temp = np.polyval(p_int, z_c)
         high_order_temp[mask] -= shapePoly.legval(2)
 
+        # subtract phase at beam center
+        beam_center_phase = np.interp(cz, zi_1d, high_order_temp)
+        high_order_temp -= beam_center_phase
+
         # trade out polyfit coefficients for the coefficients found from Legendre polynomials
         # This helps keep most of the quadratic phase in the analytic term
         p_int[-3] += shapePoly.quad_coeff() - p_int[-3]
@@ -3191,11 +3195,11 @@ class PPM:
         self.group_delay = beam.group_delay
 
         # add linear phase (centered on beam)
-        # self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
-        # self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y - beam.cy)
+        self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
+        self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y - beam.cy)
 
-        self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x)
-        self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y)
+        # self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x)
+        # self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y)
 
         # multiply two dimensions together to get the 2d profile
         self.profile = np.reshape(profiley_interp, (self.N, 1)) * np.reshape(profilex_interp, (1, self.N))

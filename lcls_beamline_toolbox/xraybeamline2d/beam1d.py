@@ -1117,14 +1117,17 @@ class Pulse:
                 y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
                 self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
 
-            omega = 2*np.pi*self.f
-            omega0 = 2*np.pi*self.f0
-            p_delay = np.polyfit(omega-omega0,self.delay[screen],4)
+            omega = 2*np.pi*self.f*1e15
+            omega0 = 2*np.pi*self.f0*1e15
+            delay = self.delay[screen]-np.mean(self.delay[screen])
+            p_delay = np.polyfit(omega-omega0,delay,4)
             p_phase = np.polyint(p_delay)
             phase = np.polyval(p_phase,omega-omega0)
 
+            self.energy_stacks[screen] *= np.exp(1j*phase)
 
-            self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen]*np.exp(1j*phase))
+
+            self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
 
     @staticmethod
     def energy_to_time(energy_stack):
