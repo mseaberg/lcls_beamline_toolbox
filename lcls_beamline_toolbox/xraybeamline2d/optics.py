@@ -112,6 +112,8 @@ class Mirror:
         self.global_x = 0
         self.global_y = 0
         self.global_alpha = 0
+        self.azimuth = 0
+        self.elevation = 0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
@@ -2610,6 +2612,8 @@ class Collimator:
         self.global_y = 0
         self.dx = dx
         self.dy = dy
+        self.azimuth = 0
+        self.elevation = 0
 
     def multiply(self, beam):
         """
@@ -2677,6 +2681,8 @@ class Slit:
         self.z = z
         self.global_x = 0
         self.global_y = 0
+        self.azimuth = 0
+        self.elevation = 0
 
     def multiply(self, beam):
         """
@@ -2872,6 +2878,8 @@ class Prism:
         self.dy = dy
         self.z = z
         self.orientation = orientation
+        self.azimuth = 0
+        self.elevation = 0
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -2991,6 +2999,8 @@ class CRL:
         self.global_x = 0
         self.global_y = 0
         self.shapeError = None
+        self.azimuth = 0
+        self.elevation = 0
 
         # set allowed kwargs
         allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError']
@@ -3336,6 +3346,8 @@ class PPM:
         self.resolution = 5e-6
         self.calc_phase = False
         self.threshold = 0.0
+        self.azimuth = 0
+        self.elevation = 0
 
         # set allowed kwargs
         allowed_arguments = ['N', 'dx', 'FOV', 'z', 'blur', 'view_angle_x',
@@ -5455,6 +5467,7 @@ class EXS_Device(PPM):
             print('no image')
             return np.zeros((2048, 2048))
 
+
 class WFS:
     """
     Class to represent Talbot wavefront sensor gratings/pinhole arrays.
@@ -5497,6 +5510,8 @@ class WFS:
         self.phase = False
         self.enabled = True
         self.fraction = 1
+        self.azimuth = 0
+        self.elevation = 0
 
         # set allowed kwargs
         allowed_arguments = ['pitch', 'duty_cycle', 'f0', 'z', 'phase', 'enabled',

@@ -103,6 +103,8 @@ class Mirror:
         self.global_x = 0
         self.global_y = 0
         self.global_alpha = 0
+        self.azimuth = 0
+        self.elevation = 0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
@@ -297,7 +299,7 @@ class Mirror:
                 # mirror coordinates
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
                 # 1D interpolation onto beam coordinates
-                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs, self.shapeError)
+                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs, self.shapeError)
             # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
             else:
                 # shape error array shape
@@ -309,10 +311,10 @@ class Mirror:
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
 
                 # just take central line for 1d shape error
-                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha) - self.dz, zs, self.shapeError[int(Ns/2),:])
+                shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs, self.shapeError[int(Ns/2),:])
 
         # figure out aperturing due to mirror's finite size
-        z_mask = (np.abs(zi - self.dx / np.tan(total_alpha) - self.dz) < self.length / 2).astype(float)
+        z_mask = (np.abs(zi - self.dx / np.tan(total_alpha)) < self.length / 2).astype(float)
 
         # height error now in meters
         total_error = shapeError2 * 1e-9
@@ -1528,8 +1530,8 @@ class Grating(Mirror):
         # alphaBeamG = Util.interp_flip(z_g, zi_1d - self.dx / np.tan(total_alpha), alphaBeam)
 
         z_g = zi_1d - self.dx / np.tan(total_alpha)
-        plt.figure()
-        plt.plot(z_g)
+        # plt.figure()
+        # plt.plot(z_g)
 
         # account for all contributions to alpha
         # alpha_total = self.alpha + self.delta + alphaBeamG
@@ -1542,6 +1544,7 @@ class Grating(Mirror):
         D1 = self.n1 / self.n0 ** 2
         D0 = 1 / self.n0
         grating_focal_length = 1 / (self.lambda0 * D1 / D0 ** 2 / np.sin(self.beta0) ** 2)
+        print('f: %.4f' % grating_focal_length)
         object_distance = beamz * (np.sin(self.beta0) / np.sin(self.alpha)) ** 2
         f2 = 1 / (1 / grating_focal_length - 1 / object_distance)
         self.f = f2
@@ -2184,9 +2187,9 @@ class Crystal(Mirror):
 
         shapePoly = LegendreUtil(z_c[mask], shapeError2[mask], 16)
 
-        plt.figure()
-        plt.plot(z_c, shapeError2)
-        plt.plot(shapePoly.x, shapePoly.legval())
+        # plt.figure()
+        # plt.plot(z_c, shapeError2)
+        # plt.plot(shapePoly.x, shapePoly.legval())
 
         # get slope error
         # shapePoly = np.polyfit(zi_1d, shapeError2, 16)
@@ -2324,16 +2327,16 @@ class Crystal(Mirror):
         else:
             p = np.zeros(16)
 
-        plt.figure()
-        plt.plot(z_c[mask],slope_error[mask])
-        plt.plot(z_c[mask],np.polyval(p,z_c[mask]))
+        # plt.figure()
+        # plt.plot(z_c[mask],slope_error[mask])
+        # plt.plot(z_c[mask],np.polyval(p,z_c[mask]))
 
         # integrate slope error
         p_int = np.polyint(p)
 
-        plt.figure()
-        plt.plot(z_c[mask],np.cumsum(slope_error[mask])*shapePoly.dx)
-        plt.plot(z_c[mask],np.polyval(p_int,z_c[mask]))
+        # plt.figure()
+        # plt.plot(z_c[mask],np.cumsum(slope_error[mask])*shapePoly.dx)
+        # plt.plot(z_c[mask],np.polyval(p_int,z_c[mask]))
 
         # c2 = shapePoly.c[2]*3/2/(shapePoly.dx*shapePoly.N/2)**2
         c2 = shapePoly.quad_coeff()
@@ -2397,6 +2400,11 @@ class Crystal(Mirror):
         # (only add any 1st order phase due to de-centering since the rest is already accounted for in delta_k).
         p1st = p_centered[-2] - p_scaled[-2]
         # print(p1st)
+
+        # 0th order phase
+        # p0th = p_centered[-1]
+        # print('constant phase: %.6f' % p0th)
+        # high_order += p0th
 
         # figure out aperturing due to mirror's finite size
         z_mask = (np.abs(zi - self.dx / np.tan(total_alpha)) < self.length / 2).astype(float)
@@ -2548,8 +2556,12 @@ class Crystal(Mirror):
 
             # adjust beam direction relative to properly aligned axis
             beam.rotate_nominal(delta_azimuth=-self.alpha - self.beta0)
+            # the following might be problematic...
             delta_ax = -beam.ax - np.arcsin(delta_k[0] / np.cos(self.beta0)) - p1st
+            # let's see if this fixes it... NOPE
+            # delta_ax = -beam.ax - np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
+
             delta_ay = np.arcsin(delta_k[1])
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
@@ -2642,6 +2654,8 @@ class Collimator:
         self.global_y = 0
         self.dx = dx
         self.dy = dy
+        self.azimuth = 0
+        self.elevation = 0
 
     def multiply(self, beam):
         """
@@ -2711,6 +2725,8 @@ class Slit:
         self.z = z
         self.global_x = 0
         self.global_y = 0
+        self.azimuth = 0
+        self.elevation = 0
 
     def multiply(self, beam):
         """
@@ -2827,6 +2843,7 @@ class Drift:
             z_m = self.downstream_component.z
             x_m = self.downstream_component.global_x
             y_m = self.downstream_component.global_y
+
             # find z location where two lines intersect
             if self.downstream_component.orientation == 0:
                 z_intersect = ((-k[0]/k[2]*beam.global_z + beam.global_x + np.tan(alpha)*z_m - x_m)/
@@ -2837,15 +2854,23 @@ class Drift:
                                (np.tan(alpha) - k[1]/k[2]))
 
             elif self.downstream_component.orientation == 2:
+                # alpha = -alpha
                 z_intersect = ((-k[0] / k[2] * beam.global_z + beam.global_x + np.tan(alpha) * z_m - x_m) /
                                (np.tan(alpha) - k[0] / k[2]))
 
             else:
+                alpha = -alpha
                 z_intersect = ((-k[1] / k[2] * beam.global_z + beam.global_y + np.tan(alpha) * z_m - y_m) /
                                (np.tan(alpha) - k[1] / k[2]))
 
         else:
-            z_intersect = self.downstream_component.z
+            z_m = self.downstream_component.z
+            x_m = self.downstream_component.global_x
+            y_m = self.downstream_component.global_y
+            elev = self.downstream_component.elevation
+            azim = self.downstream_component.azimuth
+            z_intersect = ( ( ( x_m - beam.global_x)*np.tan(azim)*k[2] + z_m*k[2] + k[0]*beam.global_z*np.tan(azim)) / \
+                          (np.tan(azim) *k[0] + k[2]) )
 
         x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
         print('x intersect: %.4e' % x_intersect)
@@ -2853,6 +2878,8 @@ class Drift:
         y_intersect = k[1] / k[2] * (z_intersect - beam.global_z) + beam.global_y
         print('y intersect: %.4e' % y_intersect)
         print('component y: %.4e' % self.downstream_component.global_y)
+        print('z intersect: %.4e' % z_intersect)
+        print('component z: %.4e' % self.downstream_component.z)
         dx = x_intersect - beam.global_x
         dy = y_intersect - beam.global_y
         dz = z_intersect - beam.global_z
@@ -2867,127 +2894,6 @@ class Drift:
         # beam.global_z =
 
         beam.beam_prop(self.dz)
-
-
-# class CRL:
-#     """
-#     Class to represent parabolic compound refractive lenses (CRLs). This is a 1D implementation meaning the CRLs are
-#     square.
-#
-#     Attributes
-#     ----------
-#     name: str
-#         Name of the device (e.g. CRL1)
-#     diameter: float
-#         Diameter beyond which the lenses absorb all photons. (meters)
-#     roc: float
-#         Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
-#     material: str
-#         Lens material. Currently only Be is implemented but may add CVD diamond in the future.
-#         Looks up downloaded data from CXRO.
-#     dx: float
-#         Lens de-centering along beam's x-axis.
-#     dy: float
-#         Lens de-centering along beam's y-axis.
-#     z: float
-#         z location of lenses along beamline.
-#     energy: (N,) ndarray
-#         List of photon energies from CXRO file (eV).
-#     delta: (N,) ndarray
-#         Real part of index of refraction. n = 1 - delta + 1j * beta
-#     beta: (N,) ndarray
-#         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
-#     """
-#
-#     def __init__(self, name, diameter=300e-6, roc=50e-6, material='Be', z=0, dx=0, dy=0):
-#         """
-#         Method to create a CRL object.
-#         :param name: str
-#             Name of the device (e.g. CRL1)
-#         :param diameter: float
-#             Diameter beyond which the lenses absorb all photons. (meters)
-#         :param roc: float
-#             Lens radius of curvature. Lenses are actually parabolic but are labeled this way. (meters)
-#         :param material: str
-#             Lens material. Currently only Be is implemented but may add CVD diamond in the future.
-#         Looks up downloaded data from CXRO.
-#         :param z: float
-#             z location of lenses along beamline.
-#         :param dx: float
-#             Lens de-centering along beam's x-axis.
-#         :param dy: float
-#             Lens de-centering along beam's y-axis.
-#         """
-#
-#         # set some attributes
-#         self.name = name
-#         self.diameter = diameter
-#         self.roc = roc
-#         self.material = material
-#         self.dx = dx
-#         self.dy = dy
-#         self.z = z
-#
-#         # get file name of CXRO data
-#         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
-#
-#         # load in CXRO data
-#         cxro_data = np.genfromtxt(filename, delimiter=',')
-#         self.energy = cxro_data[:, 0]
-#         self.delta = cxro_data[:, 1]
-#         self.beta = cxro_data[:, 2]
-#
-#     def multiply(self, beam):
-#         """
-#         Method to propagate beam through CRL
-#         :param beam: Beam
-#             Beam object to propagate through CRL. Beam is modified by this method.
-#         :return: None
-#         """
-#
-#         # interpolate to find index of refraction at beam's energy
-#         # delta = np.interp(beam.photonEnergy, self.energy, self.delta)
-#         # beta = np.interp(beam.photonEnergy, self.energy, self.beta)
-#         #
-#         # # CRL thickness (for now assuming perfect lenses but might add aberrations later)
-#         # thickness = 2 * self.roc * (1 / 2 * ((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) / self.roc ** 2)
-#         #
-#         # # lens aperture
-#         # mask = (((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
-#         #
-#         # # subtract 2nd order and linear terms
-#         # phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((beam.x - self.dx) ** 2 +
-#         # (beam.y - self.dy) ** 2))
-#         #
-#         # # 2nd order
-#         # p2 = -beam.k0 * delta * 2 / 2 / self.roc
-#         # # 1st order
-#         # p1_x = p2 * 2 * (beam.cx - self.dx)
-#         # p1_y = p2 * 2 * (beam.cy - self.dy)
-#         #
-#         # # lens transmission based on beta and thickness profile
-#         # transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
-#         #
-#         # # adjust beam properties
-#         # beam.zx = 1 / (1 / beam.zx + p2 * beam.lambda0 / np.pi)
-#         # beam.zy = 1 / (1 / beam.zy + p2 * beam.lambda0 / np.pi)
-#         #
-#         # beam.ax += p1_x * beam.lambda0 / 2 / np.pi
-#         # beam.ay += p1_y * beam.lambda0 / 2 / np.pi
-#         #
-#         # # multiply beam by CRL transmission function and any high order phase
-#         # beam.wave *= transmission * np.exp(1j * phase)
-#
-#         print("CRLs not implemented in 1D")
-#
-#     def propagate(self, beam):
-#         """
-#         Method to propagate beam through CRL. Calls multiply.
-#         :param beam: Beam
-#             Beam object to propagate through CRL. Beam is modified by this method.
-#         :return: None
-#         """
-#         self.multiply(beam)
 
 
 class PPM:
@@ -3045,7 +2951,7 @@ class PPM:
     """
 
     def __init__(self, name, FOV=10e-3, z=None, N=2048, blur=False,
-                 view_angle_x=90, view_angle_y=90, resolution=5e-6, distort=False):
+                 view_angle_x=90, view_angle_y=90, resolution=5e-6, distort=False, xoffset=0, yoffset=0):
         """
         Method to initialize a PPM.
         :param name: str
@@ -3076,6 +2982,8 @@ class PPM:
         self.N = N
         dx = FOV / N
         self.dx = dx
+        self.xoffset=xoffset
+        self.yoffset=yoffset
         self.FOV = FOV
         self.z = z
         self.global_x = 0
@@ -3086,10 +2994,13 @@ class PPM:
         self.view_angle_x = view_angle_x
         self.view_angle_y = view_angle_y
         self.resolution = resolution
+        self.azimuth = 0
+        self.elevation = 0
 
         # calculate PPM coordinates
-        self.x = np.linspace(-N / 2, N / 2 - 1, N) * dx
-        self.y = np.copy(self.x)
+        self.x = np.linspace(-N / 2, N / 2 - 1, N) * dx + xoffset
+        # self.y = np.copy(self.x) + yoffset
+        self.y = np.linspace(-N / 2, N / 2 -1, N) * dx + yoffset
 
         # initialize some attributes
         self.profile = np.zeros((N, N))
@@ -3277,8 +3188,11 @@ class PPM:
         self.y_phase = Util.interp_flip(self.y, y * scaling_y, y_phase)
 
         # add linear phase (centered on beam)
-        self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
-        self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y - beam.cy)
+        # self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
+        # self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y - beam.cy)
+
+        self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x)
+        self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y)
 
         # multiply two dimensions together to get the 2d profile
         self.profile = np.reshape(profiley_interp, (self.N, 1)) * np.reshape(profilex_interp, (1, self.N))
@@ -3327,6 +3241,51 @@ class PPM:
         :return: None
         """
         self.calc_profile(beam)
+
+    def view_vertical(self, ax_y=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
+        """
+        Method to view
+        :param normalized: whether to normalize the lineout
+        :return:
+        """
+
+        gaussian_fit = np.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
+
+        if ax_y is None:
+            # generate the figure
+            plt.figure()
+            ax_y = plt.subplot2grid((1,1), (0, 0))
+        if normalized:
+            # show the vertical lineout (distance in microns)
+            if log:
+                ax_y.semilogy(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
+            else:
+                ax_y.plot(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
+                ax_y.set_ylim(0, 1.05)
+            ax_y.set_ylabel('Intensity (normalized)')
+        else:
+            # show the vertical lineout (distance in microns)
+            if log:
+                ax_y.semilogy(self.y * 1e6, self.y_lineout, label=label)
+            else:
+                ax_y.plot(self.y * 1e6, self.y_lineout, label=label)
+            gaussian_fit *= np.max(self.y_lineout)
+            ax_y.set_ylabel('Intensity (arbitrary units)')
+        # also plot the Gaussian fit
+        if show_fit:
+            if log:
+                ax_y.semilogy(self.y*1e6, gaussian_fit, label='fit')
+            else:
+                ax_y.plot(self.y * 1e6, gaussian_fit, label='fit')
+        if legend:
+            ax_y.legend()
+        ax_y.set_xlabel('Y Coordinates (\u03BCm)')
+        # show a grid
+        ax_y.grid(True)
+        # set limits
+
+
+        return ax_y
 
     def view_beam(self):
         """
@@ -3659,6 +3618,8 @@ class CRL:
         self.global_x = 0
         self.global_y = 0
         self.orientation = orientation
+        self.azimuth = 0
+        self.elevation = 0
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -3719,7 +3680,10 @@ class CRL:
         p1_x = p2 * 2 * (beamc - self.dx)
 
         # lens transmission based on beta and thickness profile
-        transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
+        # phase shift at center of beam
+        phase_shift = np.interp(beamc, beamx, thickness)*delta*2*np.pi/beam.lambda0
+
+        transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask# * np.exp(1j*phase_shift)
 
         # adjust beam properties
         new_zx = 1 / (1 / beamz + p2 * beam.lambda0 / np.pi)
@@ -3812,6 +3776,8 @@ class Prism:
         self.dy = dy
         self.z = z
         self.orientation = orientation
+        self.azimuth = 0
+        self.elevation = 0
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -3922,6 +3888,8 @@ class WFS:
         self.phase = phase
         self.enabled = enabled
         self.fraction = fraction
+        self.azimuth = 0
+        self.elevation = 0
         # initialize some calculated attributes
         self.x_pitch = 0.
         self.y_pitch = 0.

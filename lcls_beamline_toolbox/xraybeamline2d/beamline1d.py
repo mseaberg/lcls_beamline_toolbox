@@ -125,6 +125,9 @@ class Beamline:
 
                 # update k
                 k = Util.get_k(elevation, azimuth)
+            else:
+                device.azimuth = azimuth
+                device.elevation = elevation
             # update previous device
             prev_device = device
             # increment drift number

@@ -217,6 +217,9 @@ class Beam:
         self.global_azimuth = np.copy(self.ax)
         self.global_elevation = np.copy(self.ay)
 
+
+
+
         # calculate spatial frequencies at initial plane
         fx_max = 1.0 / (2.0 * self.dx)
         fy_max = 1.0 / (2.0 * self.dy)
