@@ -3019,6 +3019,7 @@ class PPM:
         self.wx = 0.0
         self.wy = 0.0
         self.lambda0 = 0.0
+        self.group_delay = 0
 
     def reset(self):
         # initialize some attributes
@@ -3186,6 +3187,8 @@ class PPM:
         # interpolating function from np.interp (allowing for flipped coordinates)
         self.x_phase = Util.interp_flip(self.x, x * scaling_x, x_phase)
         self.y_phase = Util.interp_flip(self.y, y * scaling_y, y_phase)
+
+        self.group_delay = beam.group_delay
 
         # add linear phase (centered on beam)
         # self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
@@ -3546,7 +3549,7 @@ class PPM:
         # reshape into 2 dimensional representation
         complex_beam = np.sqrt(self.profile) * phase_2D
 
-        return complex_beam, self.zx, self.zy, self.cx_beam, self.cy_beam
+        return complex_beam, self.group_delay, self.zx, self.zy, self.cx_beam, self.cy_beam
 
 
 class CRL:

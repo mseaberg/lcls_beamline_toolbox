@@ -217,7 +217,8 @@ class Beam:
         self.global_azimuth = np.copy(self.ax)
         self.global_elevation = np.copy(self.ay)
 
-
+        # initialize group delay
+        self.group_delay = 0.0
 
 
         # calculate spatial frequencies at initial plane
@@ -364,11 +365,13 @@ class Beam:
         ### putting in kind of a terrible hack where I account for half of the constant propagation phase
         ### for both x and y, so that they add up to the correct thing when horizontal and vertical phases
         ### are multiplied together. This causes 1D and 2D codes to agree...
-        phi_prop_x = (self.k0 * dz_real/2 - self.k0 / 2 *
+        phi_prop_x = ( - self.k0 / 2 *
                     (self.lambda0 * self.fx) ** 2 * dz_x)
 
-        phi_prop_y = (self.k0 * dz_real/2 - self.k0 / 2 *
+        phi_prop_y = ( - self.k0 / 2 *
                     (self.lambda0 * self.fy) ** 2 * dz_y)
+
+        self.group_delay += dz_real/3e8
 
         # calculate Fourier plane of beam
         gx = Util.nfft1(self.wavex)
@@ -903,6 +906,8 @@ class Pulse:
         self.cx = {}
         self.cy = {}
 
+        self.delay = {}
+
     def generate_SASE(self):
         spike_centers = (.5-np.random.rand(self.num_spikes))*self.num_spikes*self.bandwidth*2
         spike_intensity = np.random.rand(self.num_spikes)
@@ -1068,6 +1073,7 @@ class Pulse:
             self.qy[screen] = np.zeros(self.N)
             self.cx[screen] = np.zeros(self.N)
             self.cy[screen] = np.zeros(self.N)
+            self.delay[screen] = np.zeros(self.N)
 
         # loop through beams in the pulse
         for num, energy in enumerate(self.energy):
@@ -1079,7 +1085,7 @@ class Pulse:
             for screen in screen_names:
                 # put current photon energy into energy stack, multiply by spectral envelope
                 screen_obj = getattr(beamline, screen)
-                energy_slice, zx, zy, cx, cy = screen_obj.complex_beam()
+                energy_slice, delay, zx, zy, cx, cy = screen_obj.complex_beam()
                 self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
                 if zx != 0:
                     self.qx[screen][num] = 1/zx
@@ -1087,6 +1093,7 @@ class Pulse:
                     self.qy[screen][num] = 1/zy
                 self.cx[screen][num] = cx
                 self.cy[screen][num] = cy
+                self.delay[screen][num] = delay
                 # self.energy_stacks[screen][:, :, num] = screen_obj.complex_beam() * self.envelope[num]
 
         # convert to time domain
@@ -1110,7 +1117,14 @@ class Pulse:
                 y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
                 self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
 
-            self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
+            omega = 2*np.pi*self.f
+            omega0 = 2*np.pi*self.f0
+            p_delay = np.polyfit(omega-omega0,self.delay[screen],4)
+            p_phase = np.polyint(p_delay)
+            phase = np.polyval(p_phase,omega-omega0)
+
+
+            self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen]*np.exp(1j*phase))
 
     @staticmethod
     def energy_to_time(energy_stack):
