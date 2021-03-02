@@ -476,7 +476,10 @@ class Util:
             y_start = int(y_center - half_width)
             y_end = int(y_center + half_width)
 
-        lineout = np.sum(array_in[y_start:y_end, x_start:x_end], axis=0)
+        if half_width < 1:
+            lineout = array_in[y_start, x_start:x_end]
+        else:
+            lineout = np.sum(array_in[y_start:y_end, x_start:x_end], axis=0)
 
         return lineout
 
@@ -523,7 +526,10 @@ class Util:
             y_start = int(y_center - half_length)
             y_end = int(y_center + half_length)
 
-        lineout = np.sum(array_in[y_start:y_end, x_start:x_end], axis=1)
+        if half_width < 1:
+            lineout = array_in[y_start:y_end, x_start]
+        else:
+            lineout = np.sum(array_in[y_start:y_end, x_start:x_end], axis=1)
 
         return lineout
 
@@ -775,7 +781,10 @@ class LegendreUtil:
 
     def __init__(self, x, y, deg, recenter=True):
         self.N = x.size
-        self.dx = np.abs(x[1] - x[0])
+        # if self.N > 0
+        #     self.dx = np.abs(x[1] - x[0])
+        # else:
+        #     self.dx = 0
         self.x_center = np.mean(x)
         if recenter:
             self.x_centered = x - self.x_center

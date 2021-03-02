@@ -2357,7 +2357,7 @@ class Crystal(Mirror):
         high_order_temp = np.polyval(p_int, z_c)
         high_order_temp[mask] -= shapePoly.legval(2)
 
-        # subtract phase at beam center
+        # subtract phase at beam center. This is already taken care of with the group delay
         beam_center_phase = np.interp(cz, zi_1d, high_order_temp)
         high_order_temp -= beam_center_phase
 
