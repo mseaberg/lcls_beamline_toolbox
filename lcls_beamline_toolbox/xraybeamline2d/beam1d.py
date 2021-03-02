@@ -371,6 +371,7 @@ class Beam:
         phi_prop_y = ( - self.k0 / 2 *
                     (self.lambda0 * self.fy) ** 2 * dz_y)
 
+        # update group delay
         self.group_delay += dz_real/3e8
 
         # calculate Fourier plane of beam
@@ -906,6 +907,7 @@ class Pulse:
         self.cx = {}
         self.cy = {}
 
+        # initialize group delay dictionary
         self.delay = {}
 
     def generate_SASE(self):

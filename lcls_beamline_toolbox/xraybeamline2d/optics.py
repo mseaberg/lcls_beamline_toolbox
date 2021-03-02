@@ -3398,6 +3398,7 @@ class PPM:
         self.lambda0 = 0.0
         self.centroid_is_valid = 0
         self.wavefront_is_valid = 0
+        self.group_delay = 0
 
     def beam_analysis(self, line_x, line_y):
         """
@@ -3566,6 +3567,8 @@ class PPM:
                 self.cy_beam = beam.cy
             self.phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.xx - beam.cx)
             self.phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.yy - beam.cy)
+
+        self.group_delay = beam.group_delay
 
         # calculate horizontal lineout
         self.x_lineout = np.sum(self.profile, axis=0)
@@ -4019,7 +4022,7 @@ class PPM:
             complex_beam = np.sqrt(self.profile) * np.exp(1j*self.phase)
         else:
             complex_beam = np.sqrt(self.profile)
-        return complex_beam, self.zx, self.zy, self.cx_beam, self.cy_beam
+        return complex_beam, self.group_delay, self.zx, self.zy, self.cx_beam, self.cy_beam
 
 
 class PPM_Device(PPM):

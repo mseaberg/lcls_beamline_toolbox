@@ -234,6 +234,9 @@ class Beam:
         self.global_azimuth = np.copy(self.ax)
         self.global_elevation = np.copy(self.ay)
 
+        # initialize group delay
+        self.group_delay = 0.0
+
         # calculate spatial frequencies at initial plane
         fx_max = 1.0 / (2.0 * self.dx)
         fy_max = 1.0 / (2.0 * self.dy)
@@ -391,9 +394,12 @@ class Beam:
         """
 
         # phase to multiply by in Fourier plane
-        phi_prop = (self.k0 * dz_real - self.k0 / 2 *
+        phi_prop = (- self.k0 / 2 *
                     ((self.lambda0 * self.fx) ** 2 * dz_x +
                      (self.lambda0 * self.fy) ** 2 * dz_y))
+
+        # update group delay
+        self.group_delay += dz_real / 3e8
 
         # calculate Fourier plane of beam
         g = Util.nfft(self.wave)
@@ -980,6 +986,9 @@ class Pulse:
         self.cx = {}
         self.cy = {}
 
+        # initialize group delay dictionary
+        self.delay = {}
+
     @staticmethod
     def parse_genesis_dfl(fname, nx):
         """
@@ -1164,6 +1173,7 @@ class Pulse:
             self.cy[screen] = np.zeros(self.N)
             # make sure the phase is calculated
             screen_obj.calc_phase = True
+            self.delay[screen] = np.zeros(self.N)
 
         # loop through beams in the pulse
         for num, energy in enumerate(self.energy):
@@ -1178,7 +1188,7 @@ class Pulse:
             for screen in screen_names:
                 # put current photon energy into energy stack, multiply by spectral envelope
                 screen_obj = getattr(beamline, screen)
-                energy_slice, zx, zy, cx, cy = screen_obj.complex_beam()
+                energy_slice, delay, zx, zy, cx, cy = screen_obj.complex_beam()
                 self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
                 if zx != 0:
                     self.qx[screen][num] = 1/zx
@@ -1186,6 +1196,7 @@ class Pulse:
                     self.qy[screen][num] = 1/zy
                 self.cx[screen][num] = cx
                 self.cy[screen][num] = cy
+                self.delay[screen][num] = delay
                 # self.energy_stacks[screen][:, :, num] = screen_obj.complex_beam() * self.envelope[num]
 
         # convert to time domain
@@ -1208,6 +1219,15 @@ class Pulse:
                 y_phase = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
                 y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
                 self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
+
+            omega = 2 * np.pi * self.f * 1e15
+            omega0 = 2 * np.pi * self.f0 * 1e15
+            delay = self.delay[screen] - np.mean(self.delay[screen])
+            p_delay = np.polyfit(omega - omega0, delay, 4)
+            p_phase = np.polyint(p_delay)
+            phase = np.polyval(p_phase, omega - omega0)
+
+            self.energy_stacks[screen] *= np.exp(1j * phase)
 
             self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
 
