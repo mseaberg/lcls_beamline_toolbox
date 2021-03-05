@@ -635,31 +635,40 @@ class CurvedMirror(Mirror):
         # arbitrarily chosen array size
         N = 1024
 
-        # calculated ellipse values
-        L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
-        a2 = (p + q) ** 2 / 4  # a^2 for ellipse
-        b2 = a2 - (L / 2) ** 2  # b^2 for ellipse
+        # concave mirror
+        if q>=0:
 
-        # angle of incident beam
-        beta = np.arcsin(np.sin(2 * alpha) * q / L)
+            # calculated ellipse values
+            L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
+            a2 = (p + q) ** 2 / 4  # a^2 for ellipse
+            b2 = a2 - (L / 2) ** 2  # b^2 for ellipse
 
-        # mirror angle
-        delta = alpha - beta
+            # angle of incident beam
+            beta = np.arcsin(np.sin(2 * alpha) * q / L)
 
-        # mirror offset from ellipse center in x
-        x0 = -p * q / L * np.sin(2 * alpha)
-        if self.p > self.q:
-            z0 = np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+            # mirror angle
+            delta = alpha - beta
+
+            # mirror offset from ellipse center in x
+            x0 = -p * q / L * np.sin(2 * alpha)
+            if self.p > self.q:
+                z0 = np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+            else:
+                z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+
+            # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+            z1 = np.linspace(z0 - self.length / 2 * np.cos(alpha), z0 + self.length / 2 * np.cos(alpha), N)
+            # ellipse equation (using center of ellipse as origin)
+
+            x1 = -np.sqrt(b2) * np.sqrt(1 - z1 ** 2 / a2) * np.sign(alpha)
+
+            return z1, x1, z0, x0, delta
+
+        # convex mirror
         else:
-            z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
 
-        # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-        z1 = np.linspace(z0 - self.length / 2 * np.cos(alpha), z0 + self.length / 2 * np.cos(alpha), N)
-        # ellipse equation (using center of ellipse as origin)
-
-        x1 = -np.sqrt(b2) * np.sqrt(1 - z1 ** 2 / a2) * np.sign(alpha)
-
-        return z1, x1, z0, x0, delta
+            # calculated hyperbola values
+    
 
     def calc_misalignment(self, beam):
         """
