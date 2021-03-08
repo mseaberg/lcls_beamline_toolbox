@@ -2858,12 +2858,12 @@ class Drift:
                                (np.tan(alpha) - k[1]/k[2]))
 
             elif self.downstream_component.orientation == 2:
-                # alpha = -alpha
+
                 z_intersect = ((-k[0] / k[2] * beam.global_z + beam.global_x + np.tan(alpha) * z_m - x_m) /
                                (np.tan(alpha) - k[0] / k[2]))
 
             else:
-                alpha = -alpha
+
                 z_intersect = ((-k[1] / k[2] * beam.global_z + beam.global_y + np.tan(alpha) * z_m - y_m) /
                                (np.tan(alpha) - k[1] / k[2]))
 
