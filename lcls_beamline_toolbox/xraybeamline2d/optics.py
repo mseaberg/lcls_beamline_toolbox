@@ -2797,7 +2797,14 @@ class Drift:
                                (np.tan(alpha) - k[1] / k[2]))
 
         else:
-            z_intersect = self.downstream_component.z
+            z_m = self.downstream_component.z
+            x_m = self.downstream_component.global_x
+            y_m = self.downstream_component.global_y
+            elev = self.downstream_component.elevation
+            azim = self.downstream_component.azimuth
+            z_intersect = (((x_m - beam.global_x) * np.tan(azim) * k[2] + z_m * k[2] + k[0] * beam.global_z * np.tan(
+                azim)) / \
+                           (np.tan(azim) * k[0] + k[2]))
 
         x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
         print('x intersect: %.4e' % x_intersect)
