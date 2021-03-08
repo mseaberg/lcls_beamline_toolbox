@@ -666,7 +666,7 @@ class CurvedMirror(Mirror):
 
         # convex mirror
         else:
-
+            pass
             # calculated hyperbola values
     
 
@@ -2872,7 +2872,7 @@ class Drift:
                                (np.tan(alpha) - k[0] / k[2]))
 
             else:
-                alpha = -alpha
+                # alpha = -alpha
                 z_intersect = ((-k[1] / k[2] * beam.global_z + beam.global_y + np.tan(alpha) * z_m - y_m) /
                                (np.tan(alpha) - k[1] / k[2]))
 
