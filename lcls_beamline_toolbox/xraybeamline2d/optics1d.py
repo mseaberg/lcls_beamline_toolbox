@@ -3308,6 +3308,19 @@ class PPM:
         miny = np.round(np.min(self.y) * 1e6)
         maxy = np.round(np.max(self.y) * 1e6)
 
+        units = 'microns'
+        mult = 1e6
+
+        all_extrema = np.array([minx, maxx, miny, maxy])
+        min_extrema = np.min(np.abs(all_extrema))
+        if min_extrema < 1:
+            minx = np.round(np.min(self.x) * 1e9)
+            maxx = np.round(np.max(self.x) * 1e9)
+            miny = np.round(np.min(self.y) * 1e9)
+            maxy = np.round(np.max(self.y) * 1e9)
+            units = 'nm'
+            mult = 1e9
+
         # generate the figure
         plt.figure(figsize=(8, 8))
 
@@ -3319,33 +3332,33 @@ class PPM:
         # show the image, with positive y at the top of the figure
         ax_profile.imshow(np.flipud(self.profile), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
         # label coordinates
-        ax_profile.set_xlabel('X coordinates (microns)')
-        ax_profile.set_ylabel('Y coordinates (microns)')
+        ax_profile.set_xlabel('X coordinates (%s)' % units)
+        ax_profile.set_ylabel('Y coordinates (%s)' % units)
         ax_profile.set_title(self.name)
 
         # show the vertical lineout (distance in microns)
-        ax_y.plot(self.y_lineout/np.max(self.y_lineout), self.y * 1e6)
+        ax_y.plot(self.y_lineout/np.max(self.y_lineout), self.y * mult)
         # also plot the Gaussian fit
-        ax_y.plot(np.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2), self.y * 1e6)
+        ax_y.plot(np.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2), self.y * mult)
         # show a grid
         ax_y.grid(True)
         # set limits
         ax_y.set_xlim(0, 1.05)
 
         # show the horizontal lineout (distance in microns)
-        ax_x.plot(self.x * 1e6, self.x_lineout/np.max(self.x_lineout))
+        ax_x.plot(self.x * mult, self.x_lineout/np.max(self.x_lineout))
         # also plot the Gaussian fit
-        ax_x.plot(self.x * 1e6, np.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2))
+        ax_x.plot(self.x * mult, np.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2))
         # show a grid
         ax_x.grid(True)
         # set limits
         ax_x.set_ylim(0, 1.05)
 
         # add some annotations with beam centroid and FWHM
-        ax_y.text(.6, .1 * np.max(self.y * 1e6), 'centroid: %.2f microns' % (self.cy * 1e6), rotation=-90)
-        ax_y.text(.3, .1 * np.max(self.y * 1e6), 'width: %.2f microns' % (self.wy * 1e6), rotation=-90)
-        ax_x.text(-.9 * np.max(self.x * 1e6), .6, 'centroid: %.2f microns' % (self.cx * 1e6))
-        ax_x.text(-.9 * np.max(self.x * 1e6), .3, 'width: %.2f microns' % (self.wx * 1e6))
+        ax_y.text(.6, .1 * np.max(self.y * mult), 'centroid: %.2f %s' % (self.cy * mult, units), rotation=-90)
+        ax_y.text(.3, .1 * np.max(self.y * mult), 'width: %.2f %s' % (self.wy * mult, units), rotation=-90)
+        ax_x.text(-.9 * np.max(self.x * mult), .6, 'centroid: %.2f %s' % (self.cx * mult, units))
+        ax_x.text(-.9 * np.max(self.x * mult), .3, 'width: %.2f %s' % (self.wx * mult, units))
 
         # tight layout to make sure we're not cutting out anything
         plt.tight_layout()
