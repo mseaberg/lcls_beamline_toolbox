@@ -657,7 +657,7 @@ class CurvedMirror(Mirror):
                 z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
 
             # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-            z1 = np.linspace(z0 - self.length / 2 * np.cos(alpha), z0 + self.length / 2 * np.cos(alpha), N)
+            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
             # ellipse equation (using center of ellipse as origin)
 
             x1 = -np.sqrt(b2) * np.sqrt(1 - z1 ** 2 / a2) * np.sign(alpha)
@@ -684,17 +684,17 @@ class CurvedMirror(Mirror):
             delta = alpha + beta
 
             # mirror offset from hyperbola center in x
-            x0 = p*q/L*np.sin(2*alpha)
+            x0 = -p*q/L*np.sin(2*alpha)
             if np.abs(self.p) > np.abs(self.q):
                 z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
             else:
                 z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
 
             # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-            z1 = np.linspace(z0 - self.length / 2 * np.cos(alpha), z0 + self.length /2 * np.cos(alpha), N)
+            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length /2 * np.cos(delta), N)
 
             # hyperbola equation (using center of hyperbola as origin)
-            x1 = -np.sqrt(b2) * np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
+            x1 = np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
 
             return z1, x1, z0, x0, delta
 
@@ -744,10 +744,15 @@ class CurvedMirror(Mirror):
         zI, xI, z0I, x0I, deltaI = self.calc_ellipse(self.p, self.q, self.alpha + self.delta - xs / zs)
 
         # rotate actual ellipse into mirror coordinates
-        x1m = -np.sin(delta1) * (z1 - z0) + np.cos(delta1) * (x1 - x0) + x0
+        x1m = -np.sin(delta1) * (z1 - z0) + np.cos(delta1) * (x1 - x0)# + x0
 
         # rotate ideal ellipse into mirror coordinates
-        xIm = -np.sin(deltaI) * (zI - z0I) + np.cos(deltaI) * (xI - x0I) + x0
+        xIm = -np.sin(deltaI) * (zI - z0I) + np.cos(deltaI) * (xI - x0I)# + x0
+
+        # plt.figure()
+        # plt.plot(z1,xIm)
+        # # plt.plot(z1,x1m)
+        # plt.plot(z1,x1m-xIm)
 
         # effective height error
         height_error = x1m - xIm
