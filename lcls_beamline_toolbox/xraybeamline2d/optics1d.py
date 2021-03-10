@@ -573,10 +573,10 @@ class CurvedMirror(Mirror):
         self.total_alpha = self.alpha + self.delta
 
         # check if mirror is too long for distance to focus or source
-        if self.length/2 > self.p:
+        if self.length/2 > np.abs(self.p):
             print('Mirror is longer than distance to source. Adjusting length to be compatible.')
             self.length = 2 * self.p * .9
-        if self.length/2 > self.q:
+        if self.length/2 > np.abs(self.q):
             print('Mirror is longer than distance to focus. Adjusting length to be compatible.')
             self.length = 2 * self.q * .9
 
@@ -666,9 +666,39 @@ class CurvedMirror(Mirror):
 
         # convex mirror
         else:
-            pass
+            print('hyperbolic')
             # calculated hyperbola values
-    
+            L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
+            print('L %.2f' % L)
+            # a2 = (p-q)**2/4
+            a = -(np.abs(q) - np.abs(p))/2
+            a2 = a**2
+            c2 = (L/2)**2
+            b2 = c2-a2
+            print(b2)
+            # angle of incident beam
+            beta = np.arcsin(np.sin(2*alpha)*np.abs(q)/L)
+            print('beta %.2e' % beta)
+
+            # mirror angle
+            delta = alpha + beta
+
+            # mirror offset from hyperbola center in x
+            x0 = p*q/L*np.sin(2*alpha)
+            if np.abs(self.p) > np.abs(self.q):
+                z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+            else:
+                z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+
+            # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+            z1 = np.linspace(z0 - self.length / 2 * np.cos(alpha), z0 + self.length /2 * np.cos(alpha), N)
+
+            # hyperbola equation (using center of hyperbola as origin)
+            x1 = -np.sqrt(b2) * np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
+
+            return z1, x1, z0, x0, delta
+
+
 
     def calc_misalignment(self, beam):
         """
