@@ -651,7 +651,7 @@ class CurvedMirror(Mirror):
 
             # mirror offset from ellipse center in x
             x0 = -p * q / L * np.sin(2 * alpha)
-            if self.p > self.q:
+            if p > q:
                 z0 = np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
             else:
                 z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
@@ -685,7 +685,7 @@ class CurvedMirror(Mirror):
 
             # mirror offset from hyperbola center in x
             x0 = -p*q/L*np.sin(2*alpha)
-            if np.abs(self.p) > np.abs(self.q):
+            if np.abs(p) > np.abs(q):
                 z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
             else:
                 z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
@@ -2392,11 +2392,11 @@ class Crystal(Mirror):
         offset = cz - self.dx / np.tan(total_alpha)
 
         # account for decentering
-        print(p_int)
+        # print(p_int)
         p_recentered = Util.recenter_coeff(p_int, offset)
         print('offset %.6f' % offset)
-        print(p_int)
-        print(p_recentered)
+        # print(p_int)
+        # print(p_recentered)
 
         high_order_temp = np.polyval(p_int, z_c)
         high_order_temp[mask] -= shapePoly.legval(2)

@@ -14,7 +14,11 @@ from .optics1d import Drift, Mono, Mirror, Grating
 import copy
 import numpy as np
 from .util import Util
-
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+# from matplotlib.collections import PatchCollection
+# from matplotlib.patches import Rectangle
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 class Beamline:
     """
@@ -143,6 +147,70 @@ class Beamline:
             # keep everything in the same order, interleave drifts in between devices
             for num, drift in enumerate(drift_list):
                 self.full_list.insert(2*num+1, drift)
+
+    def draw_beamline(self,figsize=None):
+        if figsize is not None:
+            fig = plt.figure(figsize=figsize)
+        else:
+            fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        # collect vertices
+        xs = np.zeros(len(self.device_list))
+        ys = np.zeros(len(self.device_list))
+        zs = np.zeros(len(self.device_list))
+        for num, device in enumerate(self.device_list):
+            xs[num] = device.global_x
+            ys[num] = device.global_y
+            zs[num] = device.z
+
+        ax.plot(zs,xs,zs=ys)
+        ax.scatter(zs,xs,zs=ys)
+
+        patches = []
+        dirs = []
+        mirror_z = []
+
+        verts = []
+        for num, device in enumerate(self.device_list):
+            # ax.text(zs[num],xs[num],ys[num],device.name, 'y')
+            if issubclass(type(device), Mirror):
+                if (device.orientation==0) or (device.orientation==2):
+                    # x = device.z-device.length/2
+                    # y = device.global_x
+                    # mirror_z.append(device.global_y)
+                    # dirs.append('x')
+                    # mirror_patch = Rectangle((x,y),device.length,device.width)
+                    # patches.append(mirror_patch)
+
+                    x1 = device.z-(device.length/2 * np.cos(device.global_alpha))
+                    x2 = device.z + (device.length/2 * np.cos(device.global_alpha))
+                    y1 = device.global_x - device.length/2*np.sin(device.global_alpha)
+                    y2 = device.global_x + device.length/2*np.sin(device.global_alpha)
+                    z1 = device.global_y-device.width/2
+                    z2 = device.global_y+device.width/2
+                    verts.append([(x1,y1,z1),(x2,y2,z1),(x2,y2,z2),(x1,y1,z2)])
+                else:
+                    x1 = device.z - (device.length / 2 * np.cos(device.global_alpha))
+                    x2 = device.z + (device.length / 2 * np.cos(device.global_alpha))
+                    y1 = device.global_x - device.width / 2
+                    y2 = device.global_x + device.width / 2
+                    z1 = device.global_y - device.length / 2*np.sin(device.global_alpha)
+                    z2 = device.global_y + device.length / 2*np.sin(device.global_alpha)
+                    verts.append([(x1, y1, z1), (x2, y1, z2), (x2, y2, z2), (x1, y2, z1)])
+
+        col = Poly3DCollection(verts,facecolors=['r'])
+
+        # ax.set_ylim(np.min(ys),np.max(ys))
+        # ax.set_zlim(np.min(zs),np.max(zs))
+        # ax.set_xlim(np.min(xs), np.max(xs))
+        # ax.set_ylim(np.min(ys),np.max(ys))
+        # ax.set_zlim(np.min(zs),np.max(zs))
+        # print(len(patches))
+        # coll = PatchCollection([patches[0]])
+        ax.add_collection3d(col)
+
+        return ax, zs
 
     def update_devices(self):
         """

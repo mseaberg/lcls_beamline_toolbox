@@ -837,6 +837,10 @@ class Pulse:
             self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
             self.envelope = np.ones(self.N)
 
+            # frequencies
+            self.f = self.energy / 4.136
+            self.f0 = self.E0 / 4.136
+
         else:
             self.bandwidth = 2 * np.sqrt(2) * hbar * np.sqrt(np.log(2)) / self.tau
 
