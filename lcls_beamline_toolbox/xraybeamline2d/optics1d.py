@@ -2904,6 +2904,8 @@ class Drift:
             x_m = self.downstream_component.global_x
             y_m = self.downstream_component.global_y
 
+            mirror_center = np.array([x_m, y_m, z_m])
+
             normal = self.downstream_component.normal
             nx = normal[0]
             ny = normal[1]
@@ -2911,6 +2913,15 @@ class Drift:
             kx = k[0]
             ky = k[1]
             kz = k[2]
+
+            if self.downstream_component.orientation==0 or self.downstream_component.orientation==1:
+                mirror_center += normal*self.downstream_component.dx
+            else:
+                mirror_center -= normal*self.downstream_component.dx
+
+            x_m = mirror_center[0]
+            y_m = mirror_center[1]
+            z_m = mirror_center[2]
 
             # find z location where two lines intersect
             # if self.downstream_component.orientation == 0:
@@ -2939,8 +2950,6 @@ class Drift:
             z_m = self.downstream_component.z
             x_m = self.downstream_component.global_x
             y_m = self.downstream_component.global_y
-            elev = self.downstream_component.elevation
-            azim = self.downstream_component.azimuth
 
             normal = self.downstream_component.zhat
             nx = normal[0]

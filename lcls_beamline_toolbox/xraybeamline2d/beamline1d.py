@@ -117,7 +117,7 @@ class Beamline:
                 # update global alpha
                 if device.orientation == 0:
                     device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
-                                                                                       delta=device.alpha)
+                                                                                       delta=device.alpha+device.delta)
 
                     xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0)
                     # device.global_alpha = device.alpha + azimuth
@@ -125,7 +125,7 @@ class Beamline:
                     # print('after %s: %.4f' % (device.name, azimuth))
                 elif device.orientation == 1:
                     device.sagittal, device.normal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
-                                                                                       delta=device.alpha,
+                                                                                       delta=device.alpha+device.delta,
                                                                                        dir='elevation')
                     xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0,dir='elevation')
                     # device.global_alpha = device.alpha + elevation
@@ -133,7 +133,7 @@ class Beamline:
                     # print('after %s: %.4f' % (device.name, elevation))
                 elif device.orientation == 2:
                     device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat, yhat, zhat,
-                                                                                       delta=-device.alpha)
+                                                                                       delta=-device.alpha-device.delta)
 
                     xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0)
 
@@ -143,7 +143,7 @@ class Beamline:
 
                 elif device.orientation == 3:
                     device.sagittal, device.normal, device.transverse = Util.rotate_3d(xhat, yhat, zhat,
-                                                                                       delta=-device.alpha,
+                                                                                       delta=-device.alpha-device.delta,
                                                                                        dir='elevation')
                     xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0,
                                                       dir='elevation')
