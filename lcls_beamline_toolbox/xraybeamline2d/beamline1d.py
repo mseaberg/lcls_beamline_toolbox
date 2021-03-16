@@ -79,6 +79,12 @@ class Beamline:
         # beam direction
         k = Util.get_k(elevation, azimuth)
 
+        xhat = np.array([1, 0, 0])
+        yhat = np.array([0, 1, 0])
+        zhat = np.array([0, 0, 1])
+
+        k = np.copy(zhat)
+
         # initialize drift number
         i = 0
         # initialize previous device
@@ -110,28 +116,50 @@ class Beamline:
             if issubclass(type(device), Mirror):
                 # update global alpha
                 if device.orientation == 0:
-                    device.global_alpha = device.alpha + azimuth
-                    azimuth += device.alpha + device.beta0
-                    print('after %s: %.4f' % (device.name, azimuth))
+                    device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
+                                                                                       delta=device.alpha+device.delta)
+
+                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0)
+                    # device.global_alpha = device.alpha + azimuth
+                    # azimuth += device.alpha + device.beta0
+                    # print('after %s: %.4f' % (device.name, azimuth))
                 elif device.orientation == 1:
-                    device.global_alpha = device.alpha + elevation
-                    elevation += device.alpha + device.beta0
-                    print('after %s: %.4f' % (device.name, elevation))
+                    device.sagittal, device.normal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
+                                                                                       delta=device.alpha+device.delta,
+                                                                                       dir='elevation')
+                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0,dir='elevation')
+                    # device.global_alpha = device.alpha + elevation
+                    # elevation += device.alpha + device.beta0
+                    # print('after %s: %.4f' % (device.name, elevation))
                 elif device.orientation == 2:
-                    device.global_alpha = azimuth - device.alpha
-                    azimuth -= (device.alpha + device.beta0)
-                    print('after %s: %.4f' % (device.name, azimuth))
+                    device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat, yhat, zhat,
+                                                                                       delta=-device.alpha-device.delta)
+
+                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0)
+
+                    # device.global_alpha = azimuth - device.alpha
+                    # azimuth -= (device.alpha + device.beta0)
+                    # print('after %s: %.4f' % (device.name, azimuth))
 
                 elif device.orientation == 3:
-                    device.global_alpha = elevation - device.alpha
-                    elevation -= (device.alpha + device.beta0)
-                    print('after %s: %.4f' % (device.name, elevation))
+                    device.sagittal, device.normal, device.transverse = Util.rotate_3d(xhat, yhat, zhat,
+                                                                                       delta=-device.alpha-device.delta,
+                                                                                       dir='elevation')
+                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0,
+                                                      dir='elevation')
+
+                    # device.global_alpha = elevation - device.alpha
+                    # elevation -= (device.alpha + device.beta0)
+                    # print('after %s: %.4f' % (device.name, elevation))
 
                 # update k
-                k = Util.get_k(elevation, azimuth)
+                k = np.copy(zhat)
             else:
-                device.azimuth = azimuth
-                device.elevation = elevation
+                device.xhat = xhat
+                device.yhat = yhat
+                device.zhat = zhat
+                # device.azimuth = azimuth
+                # device.elevation = elevation
             # update previous device
             prev_device = device
             # increment drift number
@@ -175,29 +203,38 @@ class Beamline:
         for num, device in enumerate(self.device_list):
             # ax.text(zs[num],xs[num],ys[num],device.name, 'y')
             if issubclass(type(device), Mirror):
-                if (device.orientation==0) or (device.orientation==2):
-                    # x = device.z-device.length/2
-                    # y = device.global_x
-                    # mirror_z.append(device.global_y)
-                    # dirs.append('x')
-                    # mirror_patch = Rectangle((x,y),device.length,device.width)
-                    # patches.append(mirror_patch)
+                # if (device.orientation==0) or (device.orientation==2):
+                #     # x = device.z-device.length/2
+                #     # y = device.global_x
+                #     # mirror_z.append(device.global_y)
+                #     # dirs.append('x')
+                #     # mirror_patch = Rectangle((x,y),device.length,device.width)
+                #     # patches.append(mirror_patch)
+                #
+                #     x1 = device.z-(device.length/2 * np.cos(device.global_alpha))
+                #     x2 = device.z + (device.length/2 * np.cos(device.global_alpha))
+                #     y1 = device.global_x - device.length/2*np.sin(device.global_alpha)
+                #     y2 = device.global_x + device.length/2*np.sin(device.global_alpha)
+                #     z1 = device.global_y-device.width/2
+                #     z2 = device.global_y+device.width/2
+                #     verts.append([(x1,y1,z1),(x2,y2,z1),(x2,y2,z2),(x1,y1,z2)])
+                # else:
+                #     x1 = device.z - (device.length / 2 * np.cos(device.global_alpha))
+                #     x2 = device.z + (device.length / 2 * np.cos(device.global_alpha))
+                #     y1 = device.global_x - device.width / 2
+                #     y2 = device.global_x + device.width / 2
+                #     z1 = device.global_y - device.length / 2*np.sin(device.global_alpha)
+                #     z2 = device.global_y + device.length / 2*np.sin(device.global_alpha)
+                #     verts.append([(x1, y1, z1), (x2, y1, z2), (x2, y2, z2), (x1, y2, z1)])
 
-                    x1 = device.z-(device.length/2 * np.cos(device.global_alpha))
-                    x2 = device.z + (device.length/2 * np.cos(device.global_alpha))
-                    y1 = device.global_x - device.length/2*np.sin(device.global_alpha)
-                    y2 = device.global_x + device.length/2*np.sin(device.global_alpha)
-                    z1 = device.global_y-device.width/2
-                    z2 = device.global_y+device.width/2
-                    verts.append([(x1,y1,z1),(x2,y2,z1),(x2,y2,z2),(x1,y1,z2)])
-                else:
-                    x1 = device.z - (device.length / 2 * np.cos(device.global_alpha))
-                    x2 = device.z + (device.length / 2 * np.cos(device.global_alpha))
-                    y1 = device.global_x - device.width / 2
-                    y2 = device.global_x + device.width / 2
-                    z1 = device.global_y - device.length / 2*np.sin(device.global_alpha)
-                    z2 = device.global_y + device.length / 2*np.sin(device.global_alpha)
-                    verts.append([(x1, y1, z1), (x2, y1, z2), (x2, y2, z2), (x1, y2, z1)])
+                s = np.array([device.sagittal[2],device.sagittal[0],device.sagittal[1]])
+                t = np.array([device.transverse[2],device.transverse[0],device.transverse[1]])
+
+                point = np.array([device.z,device.global_x,device.global_y])
+                verts.append([tuple(point+t*device.length/2+s*device.width/2),
+                          tuple(point+t*device.length/2-s*device.width/2),
+                          tuple(point-t*device.length/2-s*device.width/2),
+                          tuple(point-t*device.length/2+s*device.width/2)])
 
         col = Poly3DCollection(verts,facecolors=['r'])
 

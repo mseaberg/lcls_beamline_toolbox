@@ -247,6 +247,17 @@ class Beam:
         # set beam parameters as attribute
         self.beam_params = beam_params
 
+        # define beam unit vectors in LCLS coordinates
+        self.xhat = np.array([1,0,0])
+        self.yhat = np.array([0,1,0])
+        self.zhat = np.array([0,0,1])
+
+        # define LCLS unit vectors
+        self.x_nom = np.copy(self.xhat)
+        self.y_nom = np.copy(self.yhat)
+        self.z_nom = np.copy(self.zhat)
+
+
     def reinitialize(self, dz):
         self.beam_params['z0x'] = dz
         self.beam_params['z0y'] = dz
@@ -285,36 +296,51 @@ class Beam:
         self.global_y += y_offset
 
     def rotate_nominal(self, delta_elevation=0, delta_azimuth=0):
+
+        # an "elevation" rotation corresponds to a rotation about the xhat unit vector
+        r1 = transform.Rotation.from_rotvec(-self.xhat * delta_elevation)
+        Rx = r1.as_matrix()
+        self.xhat = np.matmul(Rx, self.xhat)
+        self.yhat = np.matmul(Rx, self.yhat)
+        self.zhat = np.matmul(Rx, self.zhat)
+
+        # an azimuth rotation corresponds to a rotation about the yhat unit vector
+        r2 = transform.Rotation.from_rotvec(self.yhat * delta_azimuth)
+        Ry = r2.as_matrix()
+        self.xhat = np.matmul(Ry, self.xhat)
+        self.yhat = np.matmul(Ry, self.yhat)
+        self.zhat = np.matmul(Ry, self.zhat)
+
         self.global_elevation += delta_elevation
         self.global_azimuth += delta_azimuth
 
     def rotate_beam(self, delta_ax=0, delta_ay=0):
-        # first adjust "local" angles
+        # first adjust "local" angles. Going to keep this the same as before
         self.ax += delta_ax
         self.ay += delta_ay
 
-        self.global_elevation += delta_ay
-        self.global_azimuth += delta_ax
+        self.rotate_nominal(delta_elevation=delta_ay, delta_azimuth=delta_ax)
 
     def get_k(self):
-        x = np.array([1, 0, 0], dtype=float)
-        y = np.array([0, 1, 0], dtype=float)
-        z = np.array([0, 0, 1], dtype=float)
-
-        r1 = transform.Rotation.from_rotvec(-x * self.global_elevation)
-        Rx = r1.as_matrix()
-        x = np.matmul(Rx, x)
-        y = np.matmul(Rx, y)
-        z = np.matmul(Rx, z)
-
-        r2 = transform.Rotation.from_rotvec(y * self.global_azimuth)
-        Ry = r2.as_matrix()
-        x = np.matmul(Ry, x)
-        y = np.matmul(Ry, y)
-        z = np.matmul(Ry, z)
+        # x = np.array([1, 0, 0], dtype=float)
+        # y = np.array([0, 1, 0], dtype=float)
+        # z = np.array([0, 0, 1], dtype=float)
+        #
+        # r1 = transform.Rotation.from_rotvec(-x * self.global_elevation)
+        # Rx = r1.as_matrix()
+        # x = np.matmul(Rx, x)
+        # y = np.matmul(Rx, y)
+        # z = np.matmul(Rx, z)
+        #
+        # r2 = transform.Rotation.from_rotvec(y * self.global_azimuth)
+        # Ry = r2.as_matrix()
+        # x = np.matmul(Ry, x)
+        # y = np.matmul(Ry, y)
+        # z = np.matmul(Ry, z)
 
         # beam points in z direction
-        k = z
+        # k = z
+        k = np.copy(self.zhat)
         return k
 
     def rescale_x_noshift(self, factor):
