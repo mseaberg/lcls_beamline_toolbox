@@ -79,6 +79,12 @@ class Beamline:
         # beam direction
         k = Util.get_k(elevation, azimuth)
 
+        xhat = np.array([1, 0, 0])
+        yhat = np.array([0, 1, 0])
+        zhat = np.array([0, 0, 1])
+
+        k = np.copy(zhat)
+
         # initialize drift number
         i = 0
         # initialize previous device

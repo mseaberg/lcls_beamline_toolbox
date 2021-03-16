@@ -776,6 +776,24 @@ class Util:
         k = z
         return k
 
+    def rotate_3d(self, xhat, yhat, zhat, delta=0, dir='azimuth'):
+
+        if dir=='elevation':
+            # an "elevation" rotation corresponds to a rotation about the xhat unit vector
+            r1 = transform.Rotation.from_rotvec(-xhat * delta)
+            Rx = r1.as_matrix()
+            xhat = np.matmul(Rx, xhat)
+            yhat = np.matmul(Rx, yhat)
+            zhat = np.matmul(Rx, zhat)
+        elif dir=='azimuth':
+            # an azimuth rotation corresponds to a rotation about the yhat unit vector
+            r2 = transform.Rotation.from_rotvec(yhat * delta)
+            Ry = r2.as_matrix()
+            xhat = np.matmul(Ry, xhat)
+            yhat = np.matmul(Ry, yhat)
+            zhat = np.matmul(Ry, zhat)
+
+        return xhat, yhat, zhat
 
 class LegendreUtil:
 
