@@ -703,7 +703,7 @@ class CurvedMirror(Mirror):
 
 
 
-    def calc_misalignment(self, beam):
+    def calc_misalignment(self, beam, cz):
         """
         Method to calculate the effect of angular misalignment in terms of aberrations.
         :param beam: Beam
@@ -728,23 +728,47 @@ class CurvedMirror(Mirror):
             xs = beam.cx + beam.ax * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zx
 
+            # effective beam z at center of mirror
+            z_eff_c = beamz - cz*np.cos(self.total_alpha)
+            # effective beam angle at center of mirror
+            alpha_eff_c = -beam.ax - np.arctan(-cz*np.sin(self.total_alpha)/z_eff_c)
+
         elif self.orientation == 1:
             xs = beam.cy + beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zy
+
+            # effective beam z at center of mirror
+            z_eff_c = beamz - cz * np.cos(self.total_alpha)
+            # effective beam angle at center of mirror
+            alpha_eff_c = -beam.ay - np.arctan(-cz * np.sin(self.total_alpha) / z_eff_c)
 
         elif self.orientation == 2:
             xs = -beam.cx - beam.ax * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zx
 
+            # effective beam z at center of mirror
+            z_eff_c = beamz - cz * np.cos(self.total_alpha)
+            # effective beam angle at center of mirror
+            alpha_eff_c = beam.ax - np.arctan(-cz * np.sin(self.total_alpha) / z_eff_c)
+
         elif self.orientation == 3:
             xs = -beam.cy - beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zy
 
+            # effective beam z at center of mirror
+            z_eff_c = beamz - cz * np.cos(self.total_alpha)
+            # effective beam angle at center of mirror
+            alpha_eff_c = beam.ay - np.arctan(-cz * np.sin(self.total_alpha) / z_eff_c)
+
         # calculate ellipse based on design parameters
         z1, x1, z0, x0, delta1 = self.calc_ellipse(self.p, self.q, self.alpha)
 
+        print('z_eff: %.2f' % z_eff_c)
+        alpha_total = self.alpha + self.delta + alpha_eff_c
+        print('a_eff: %.2f' % alpha_total)
+
         # calculate ideal ellipse for this angle of incidence
-        zI, xI, z0I, x0I, deltaI = self.calc_ellipse(self.p, self.q, self.alpha + self.delta - xs / zs)
+        zI, xI, z0I, x0I, deltaI = self.calc_ellipse(z_eff_c, self.q, alpha_total)
 
         # rotate actual ellipse into mirror coordinates
         x1m = -np.sin(delta1) * (z1 - z0) + np.cos(delta1) * (x1 - x0)# + x0
@@ -817,6 +841,10 @@ class CurvedMirror(Mirror):
             yi = beam.y
             yi_1d = yi
             cy = beam.cy
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zx + (zi_1d - cz) * np.cos(self.total_alpha)
+            alphaBeam = -beam.ax - np.arctan((zi_1d - cz) * np.sin(self.total_alpha) / zEff)
+            beamz = beam.zx
 
         elif self.orientation == 1:
 
@@ -835,6 +863,11 @@ class CurvedMirror(Mirror):
             yi_1d = yi
             cy = -beam.cx
 
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zy + (zi_1d - cz) * np.cos(self.total_alpha)
+            alphaBeam = -beam.ay - np.arctan((zi_1d - cz) * np.sin(self.total_alpha) / zEff)
+            beamz = beam.zy
+
         elif self.orientation == 2:
 
             # small change to total angle of incidence
@@ -852,6 +885,11 @@ class CurvedMirror(Mirror):
             yi_1d = yi
             cy = -beam.cy
 
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zx + (zi_1d - cz) * np.cos(self.total_alpha)
+            alphaBeam = beam.ax - np.arctan((zi_1d - cz) * np.sin(self.total_alpha) / zEff)
+            beamz = beam.zx
+
         elif self.orientation == 3:
 
             # small change to total angle of incidence
@@ -868,6 +906,12 @@ class CurvedMirror(Mirror):
             yi = beam.x
             yi_1d = yi
             cy = beam.cx
+
+            # beam radius across grating (grating can be long enough that the additional correction is needed
+            zEff = beam.zy + (zi_1d - cz) * np.cos(self.total_alpha)
+
+            alphaBeam = beam.ay - np.arctan((zi_1d - cz) * np.sin(self.total_alpha) / zEff)
+            beamz = beam.zy
 
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k = self.rotation(k_i)
@@ -905,7 +949,7 @@ class CurvedMirror(Mirror):
         z_mask = (np.abs(zi - self.dx / np.tan(self.total_alpha)) < self.length / 2).astype(float)
 
         # calculate effect of ellipse misalignment
-        p_misalign = self.calc_misalignment(beam)
+        p_misalign = self.calc_misalignment(beam, cz)
 
         # apply benders
         bend_coeff = self.bend(cz)
@@ -944,8 +988,14 @@ class CurvedMirror(Mirror):
         p_scaled *= -2 * np.sin(self.total_alpha)
 
         # Add normal 2nd order phase to p_scaled
-        p_scaled[-3] += (-1 / (2 * (self.p + cz*np.cos(self.total_alpha)))
+        # p_scaled[-3] += (-1 / (2 * (self.p + cz*np.cos(self.total_alpha)))
+        #                  - 1 / (2 * (self.q - cz * np.cos(self.total_alpha))))
+        # the difference between p and beamz is already accounted for in the "calc_misalignment" method now,
+        # so the beam radius of curvature should be completely removed here. For the cases considered so far this
+        # gave identical results to previously.
+        p_scaled[-3] += (-1 / (2 * (beamz))
                          - 1 / (2 * (self.q - cz * np.cos(self.total_alpha))))
+
 
         # account for decentering
         p_scaled = Util.recenter_coeff(p_scaled, offset_scaled)
