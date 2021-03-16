@@ -728,6 +728,8 @@ class CurvedMirror(Mirror):
             xs = beam.cx + beam.ax * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zx
 
+            cz -= self.dx / np.tan(self.total_alpha)
+
             # effective beam z at center of mirror
             z_eff_c = beamz - cz*np.cos(self.total_alpha)
             # effective beam angle at center of mirror
@@ -736,6 +738,8 @@ class CurvedMirror(Mirror):
         elif self.orientation == 1:
             xs = beam.cy + beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zy
+
+            cz -= self.dx / np.tan(self.total_alpha)
 
             # effective beam z at center of mirror
             z_eff_c = beamz - cz * np.cos(self.total_alpha)
@@ -746,6 +750,8 @@ class CurvedMirror(Mirror):
             xs = -beam.cx - beam.ax * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zx
 
+            cz -= self.dx / np.tan(self.total_alpha)
+
             # effective beam z at center of mirror
             z_eff_c = beamz - cz * np.cos(self.total_alpha)
             # effective beam angle at center of mirror
@@ -754,6 +760,8 @@ class CurvedMirror(Mirror):
         elif self.orientation == 3:
             xs = -beam.cy - beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zy
+
+            cz -= self.dx / np.tan(self.total_alpha)
 
             # effective beam z at center of mirror
             z_eff_c = beamz - cz * np.cos(self.total_alpha)
