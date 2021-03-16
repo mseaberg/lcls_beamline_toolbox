@@ -2133,6 +2133,8 @@ class Crystal(Mirror):
         cz = 0
         cy = 0
 
+        wavefront = np.zeros_like(beam.x)
+
 
         if self.orientation == 0:
             # account for change to angle of incidence
@@ -2161,6 +2163,8 @@ class Crystal(Mirror):
             # self.f = -beam.zx
             beamz = beam.zx
 
+            wavefront = beam.wavex
+
         elif self.orientation == 1:
             # account for change to angle of incidence
             total_alpha -= beam.ay
@@ -2187,6 +2191,8 @@ class Crystal(Mirror):
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
             beamz = beam.zy
+
+            wavefront = beam.wavey
 
         elif self.orientation == 2:
             # account for change to angle of incidence
@@ -2215,6 +2221,8 @@ class Crystal(Mirror):
             # self.f = -beam.zx
             beamz = beam.zx
 
+            wavefront = beam.wavex
+
         elif self.orientation == 3:
             # account fo change to angle of incidence
             total_alpha += beam.ay
@@ -2242,6 +2250,8 @@ class Crystal(Mirror):
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
             beamz = beam.zy
+
+            wavefront = beam.wavey
 
         # mirror shape error interpolation onto beam coordinates (if applicable)
         if self.shapeError is not None:
@@ -2321,11 +2331,16 @@ class Crystal(Mirror):
         # project beam angle onto grating axis
         # Also take into account grating shift in dx (+dx corresponds to dz = -dx/alpha)
 
-        # grating coordinates (along z-axis)
-        z_g = np.linspace(-self.length / 2, self.length / 2, 1024)
+        # calculate higher order slope error on beam
+        wavePoly = LegendreUtil(z_c[mask], np.unwrap(np.angle(wavefront[mask])), 16)
+        # take derivative
+        wavePoly.legder(1)
+
+        beam_slope_error = wavePoly.legval()*beam.lambda0/2/np.pi*np.sin(total_alpha)
 
         # account for all contributions to alpha
         alpha_total = self.alpha + self.delta + alphaBeam
+        alpha_total[mask] -= beam_slope_error
 
         # calculate diffraction angle at every point on the grating
         # beta = np.arccos(np.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
