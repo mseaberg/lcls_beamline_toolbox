@@ -203,29 +203,38 @@ class Beamline:
         for num, device in enumerate(self.device_list):
             # ax.text(zs[num],xs[num],ys[num],device.name, 'y')
             if issubclass(type(device), Mirror):
-                if (device.orientation==0) or (device.orientation==2):
-                    # x = device.z-device.length/2
-                    # y = device.global_x
-                    # mirror_z.append(device.global_y)
-                    # dirs.append('x')
-                    # mirror_patch = Rectangle((x,y),device.length,device.width)
-                    # patches.append(mirror_patch)
+                # if (device.orientation==0) or (device.orientation==2):
+                #     # x = device.z-device.length/2
+                #     # y = device.global_x
+                #     # mirror_z.append(device.global_y)
+                #     # dirs.append('x')
+                #     # mirror_patch = Rectangle((x,y),device.length,device.width)
+                #     # patches.append(mirror_patch)
+                #
+                #     x1 = device.z-(device.length/2 * np.cos(device.global_alpha))
+                #     x2 = device.z + (device.length/2 * np.cos(device.global_alpha))
+                #     y1 = device.global_x - device.length/2*np.sin(device.global_alpha)
+                #     y2 = device.global_x + device.length/2*np.sin(device.global_alpha)
+                #     z1 = device.global_y-device.width/2
+                #     z2 = device.global_y+device.width/2
+                #     verts.append([(x1,y1,z1),(x2,y2,z1),(x2,y2,z2),(x1,y1,z2)])
+                # else:
+                #     x1 = device.z - (device.length / 2 * np.cos(device.global_alpha))
+                #     x2 = device.z + (device.length / 2 * np.cos(device.global_alpha))
+                #     y1 = device.global_x - device.width / 2
+                #     y2 = device.global_x + device.width / 2
+                #     z1 = device.global_y - device.length / 2*np.sin(device.global_alpha)
+                #     z2 = device.global_y + device.length / 2*np.sin(device.global_alpha)
+                #     verts.append([(x1, y1, z1), (x2, y1, z2), (x2, y2, z2), (x1, y2, z1)])
 
-                    x1 = device.z-(device.length/2 * np.cos(device.global_alpha))
-                    x2 = device.z + (device.length/2 * np.cos(device.global_alpha))
-                    y1 = device.global_x - device.length/2*np.sin(device.global_alpha)
-                    y2 = device.global_x + device.length/2*np.sin(device.global_alpha)
-                    z1 = device.global_y-device.width/2
-                    z2 = device.global_y+device.width/2
-                    verts.append([(x1,y1,z1),(x2,y2,z1),(x2,y2,z2),(x1,y1,z2)])
-                else:
-                    x1 = device.z - (device.length / 2 * np.cos(device.global_alpha))
-                    x2 = device.z + (device.length / 2 * np.cos(device.global_alpha))
-                    y1 = device.global_x - device.width / 2
-                    y2 = device.global_x + device.width / 2
-                    z1 = device.global_y - device.length / 2*np.sin(device.global_alpha)
-                    z2 = device.global_y + device.length / 2*np.sin(device.global_alpha)
-                    verts.append([(x1, y1, z1), (x2, y1, z2), (x2, y2, z2), (x1, y2, z1)])
+                s = np.array([device.sagittal[2],device.sagittal[0],device.sagittal[1]])
+                t = np.array([device.transverse[2],device.transverse[0],device.transverse[1]])
+
+                point = np.array([device.z,device.global_x,device.global_y])
+                verts.append([tuple(point+t*device.length/2+s*device.width/2),
+                          tuple(point+t*device.length/2-s*device.width/2),
+                          tuple(point-t*device.length/2-s*device.width/2),
+                          tuple(point-t*device.length/2+s*device.width/2)])
 
         col = Poly3DCollection(verts,facecolors=['r'])
 
