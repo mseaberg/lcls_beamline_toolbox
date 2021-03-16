@@ -116,28 +116,50 @@ class Beamline:
             if issubclass(type(device), Mirror):
                 # update global alpha
                 if device.orientation == 0:
-                    device.global_alpha = device.alpha + azimuth
-                    azimuth += device.alpha + device.beta0
-                    print('after %s: %.4f' % (device.name, azimuth))
+                    device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
+                                                                                       delta=device.alpha)
+
+                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0)
+                    # device.global_alpha = device.alpha + azimuth
+                    # azimuth += device.alpha + device.beta0
+                    # print('after %s: %.4f' % (device.name, azimuth))
                 elif device.orientation == 1:
-                    device.global_alpha = device.alpha + elevation
-                    elevation += device.alpha + device.beta0
-                    print('after %s: %.4f' % (device.name, elevation))
+                    device.sagittal, device.normal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
+                                                                                       delta=device.alpha,
+                                                                                       dir='elevation')
+                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0,dir='elevation')
+                    # device.global_alpha = device.alpha + elevation
+                    # elevation += device.alpha + device.beta0
+                    # print('after %s: %.4f' % (device.name, elevation))
                 elif device.orientation == 2:
-                    device.global_alpha = azimuth - device.alpha
-                    azimuth -= (device.alpha + device.beta0)
-                    print('after %s: %.4f' % (device.name, azimuth))
+                    device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat, yhat, zhat,
+                                                                                       delta=-device.alpha)
+
+                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0)
+
+                    # device.global_alpha = azimuth - device.alpha
+                    # azimuth -= (device.alpha + device.beta0)
+                    # print('after %s: %.4f' % (device.name, azimuth))
 
                 elif device.orientation == 3:
-                    device.global_alpha = elevation - device.alpha
-                    elevation -= (device.alpha + device.beta0)
-                    print('after %s: %.4f' % (device.name, elevation))
+                    device.sagittal, device.normal, device.transverse = Util.rotate_3d(xhat, yhat, zhat,
+                                                                                       delta=-device.alpha,
+                                                                                       dir='elevation')
+                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0,
+                                                      dir='elevation')
+
+                    # device.global_alpha = elevation - device.alpha
+                    # elevation -= (device.alpha + device.beta0)
+                    # print('after %s: %.4f' % (device.name, elevation))
 
                 # update k
-                k = Util.get_k(elevation, azimuth)
+                k = np.copy(zhat)
             else:
-                device.azimuth = azimuth
-                device.elevation = elevation
+                device.xhat = xhat
+                device.yhat = yhat
+                device.zhat = zhat
+                # device.azimuth = azimuth
+                # device.elevation = elevation
             # update previous device
             prev_device = device
             # increment drift number

@@ -105,6 +105,9 @@ class Mirror:
         self.global_alpha = 0
         self.azimuth = 0
         self.elevation = 0
+        self.transverse = None
+        self.sagittal = None
+        self.normal = None
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
@@ -2704,6 +2707,9 @@ class Collimator:
         self.dy = dy
         self.azimuth = 0
         self.elevation = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
 
     def multiply(self, beam):
         """
@@ -2775,6 +2781,9 @@ class Slit:
         self.global_y = 0
         self.azimuth = 0
         self.elevation = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
 
     def multiply(self, beam):
         """
@@ -2862,6 +2871,9 @@ class Drift:
         self.z = (downstream_component.z + upstream_component.z) / 2.
         self.global_x = 0
         self.global_y = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
 
     def propagate(self, beam):
         """
@@ -2892,24 +2904,36 @@ class Drift:
             x_m = self.downstream_component.global_x
             y_m = self.downstream_component.global_y
 
+            normal = self.downstream_component.normal
+            nx = normal[0]
+            ny = normal[1]
+            nz = normal[2]
+            kx = k[0]
+            ky = k[1]
+            kz = k[2]
+
             # find z location where two lines intersect
-            if self.downstream_component.orientation == 0:
-                z_intersect = ((-k[0]/k[2]*beam.global_z + beam.global_x + np.tan(alpha)*z_m - x_m)/
-                               (np.tan(alpha) - k[0]/k[2]))
-
-            elif self.downstream_component.orientation == 1:
-                z_intersect = ((-k[1]/k[2]*beam.global_z + beam.global_y + np.tan(alpha)*z_m - y_m)/
-                               (np.tan(alpha) - k[1]/k[2]))
-
-            elif self.downstream_component.orientation == 2:
-
-                z_intersect = ((-k[0] / k[2] * beam.global_z + beam.global_x + np.tan(alpha) * z_m - x_m) /
-                               (np.tan(alpha) - k[0] / k[2]))
-
-            else:
-
-                z_intersect = ((-k[1] / k[2] * beam.global_z + beam.global_y + np.tan(alpha) * z_m - y_m) /
-                               (np.tan(alpha) - k[1] / k[2]))
+            # if self.downstream_component.orientation == 0:
+            #     # z_intersect = ((-k[0]/k[2]*beam.global_z + beam.global_x + np.tan(alpha)*z_m - x_m)/
+            #     #                (np.tan(alpha) - k[0]/k[2]))
+            #
+            #
+            # elif self.downstream_component.orientation == 1:
+            #     z_intersect = ((-k[1]/k[2]*beam.global_z + beam.global_y + np.tan(alpha)*z_m - y_m)/
+            #                    (np.tan(alpha) - k[1]/k[2]))
+            #
+            # elif self.downstream_component.orientation == 2:
+            #
+            #     z_intersect = ((-k[0] / k[2] * beam.global_z + beam.global_x + np.tan(alpha) * z_m - x_m) /
+            #                    (np.tan(alpha) - k[0] / k[2]))
+            #
+            # else:
+            #
+            #     z_intersect = ((-k[1] / k[2] * beam.global_z + beam.global_y + np.tan(alpha) * z_m - y_m) /
+            #                    (np.tan(alpha) - k[1] / k[2]))
+            z_intersect = ((nx*kx*beam.global_z - nx*kz*(beam.global_x-x_m) +
+                           ny*ky*beam.global_z-ny*kz*(beam.global_y-y_m) + nz*kz*z_m)/
+                           (nx*kx+ny*ky+nz*kz))
 
         else:
             z_m = self.downstream_component.z
@@ -2917,8 +2941,17 @@ class Drift:
             y_m = self.downstream_component.global_y
             elev = self.downstream_component.elevation
             azim = self.downstream_component.azimuth
-            z_intersect = ( ( ( x_m - beam.global_x)*np.tan(azim)*k[2] + z_m*k[2] + k[0]*beam.global_z*np.tan(azim)) / \
-                          (np.tan(azim) *k[0] + k[2]) )
+
+            normal = self.downstream_component.zhat
+            nx = normal[0]
+            ny = normal[1]
+            nz = normal[2]
+            kx = k[0]
+            ky = k[1]
+            kz = k[2]
+            z_intersect = ((nx * kx * beam.global_z - nx * kz * (beam.global_x - x_m) +
+                            ny * ky * beam.global_z - ny * kz * (beam.global_y - y_m) + nz * kz * z_m) /
+                           (nx * kx + ny * ky + nz * kz))
 
         x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
         print('x intersect: %.4e' % x_intersect)
@@ -3044,6 +3077,9 @@ class PPM:
         self.resolution = resolution
         self.azimuth = 0
         self.elevation = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
 
         # calculate PPM coordinates
         self.x = np.linspace(-N / 2, N / 2 - 1, N) * dx + xoffset
@@ -3684,6 +3720,9 @@ class CRL:
         self.orientation = orientation
         self.azimuth = 0
         self.elevation = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -3842,6 +3881,9 @@ class Prism:
         self.orientation = orientation
         self.azimuth = 0
         self.elevation = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -3959,6 +4001,9 @@ class WFS:
         self.y_pitch = 0.
         self.grating_x = np.zeros(0)
         self.grating_y = np.zeros(0)
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
 
     def propagate(self,beam):
         """

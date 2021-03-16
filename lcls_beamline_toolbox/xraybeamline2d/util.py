@@ -776,7 +776,7 @@ class Util:
         k = z
         return k
 
-    def rotate_3d(self, xhat, yhat, zhat, delta=0, dir='azimuth'):
+    def rotate_3d(xhat, yhat, zhat, delta=0, dir='azimuth'):
 
         if dir=='elevation':
             # an "elevation" rotation corresponds to a rotation about the xhat unit vector
