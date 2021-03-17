@@ -725,7 +725,7 @@ class CurvedMirror(Mirror):
             if np.abs(p) > np.abs(q):
                 z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
             else:
-                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+                z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
 
             # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
             z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
@@ -2198,6 +2198,8 @@ class Crystal(Mirror):
             beamz = beam.zx
 
             wavefront = beam.wavex
+            if beam.focused_x:
+                wavefront *= np.exp(-1j * np.pi / beam.lambda0 / beam.zx * (beam.x - beam.cx) ** 2)
 
         elif self.orientation == 1:
             # account for change to angle of incidence
@@ -2228,6 +2230,9 @@ class Crystal(Mirror):
 
             wavefront = beam.wavey
 
+            if beam.focused_y:
+                wavefront *= np.exp(-1j * np.pi / beam.lambda0 / beam.zy * (beam.y - beam.cy) ** 2)
+
         elif self.orientation == 2:
             # account for change to angle of incidence
             total_alpha += beam.ax
@@ -2256,6 +2261,9 @@ class Crystal(Mirror):
             beamz = beam.zx
 
             wavefront = beam.wavex
+
+            if beam.focused_x:
+                wavefront *= np.exp(-1j * np.pi / beam.lambda0 / beam.zx * (beam.x - beam.cx) ** 2)
 
         elif self.orientation == 3:
             # account fo change to angle of incidence
@@ -2286,6 +2294,9 @@ class Crystal(Mirror):
             beamz = beam.zy
 
             wavefront = beam.wavey
+
+            if beam.focused_y:
+                wavefront *= np.exp(-1j * np.pi / beam.lambda0 / beam.zy * (beam.y - beam.cy) ** 2)
 
         # mirror shape error interpolation onto beam coordinates (if applicable)
         if self.shapeError is not None:
@@ -2365,16 +2376,23 @@ class Crystal(Mirror):
         # project beam angle onto grating axis
         # Also take into account grating shift in dx (+dx corresponds to dz = -dx/alpha)
 
+        xWidth = np.abs(beam.x[0] - beam.x[-1])
+        mask2 = np.abs(z_b)<xWidth/beam.scaleFactor
+        mask_beam = np.logical_and(mask,mask2)
         # calculate higher order slope error on beam
-        wavePoly = LegendreUtil(z_c[mask], np.unwrap(np.angle(wavefront[mask])), 16)
+        wavePoly = LegendreUtil(z_b[mask_beam], np.unwrap(np.angle(wavefront[mask_beam])), 16)
         # take derivative
+
+        plt.figure()
+        plt.plot(z_b[mask_beam],wavePoly.legval())
+
         wavePoly.legder(1)
 
         beam_slope_error = wavePoly.legval()*beam.lambda0/2/np.pi*np.sin(total_alpha)
 
         # account for all contributions to alpha
         alpha_total = self.alpha + self.delta + alphaBeam
-        # alpha_total[mask] -= beam_slope_error
+        alpha_total[mask_beam] -= beam_slope_error
 
         # calculate diffraction angle at every point on the grating
         # beta = np.arccos(np.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
