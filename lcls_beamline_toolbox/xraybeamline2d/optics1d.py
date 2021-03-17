@@ -2340,7 +2340,7 @@ class Crystal(Mirror):
 
         # account for all contributions to alpha
         alpha_total = self.alpha + self.delta + alphaBeam
-        alpha_total[mask] -= beam_slope_error
+        # alpha_total[mask] -= beam_slope_error
 
         # calculate diffraction angle at every point on the grating
         # beta = np.arccos(np.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
