@@ -810,7 +810,10 @@ class LegendreUtil:
         else:
             self.x_centered = x
 
-        self.scale = np.max(np.abs(self.x_centered))
+        if self.N > 0:
+            self.scale = np.max(np.abs(self.x_centered))
+        else:
+            self.scale = 1
 
         self.x_norm = self.x_centered / self.scale
         self.x = x
@@ -822,10 +825,20 @@ class LegendreUtil:
             self.c = np.zeros(deg+1)
 
     def legint(self, m):
-        self.c = np.polynomial.legendre.legint(self.c, m)*(self.scale)**m
+        if self.N > 0:
+            self.c = np.polynomial.legendre.legint(self.c, m)*(self.scale)**m
+            self.deg += m
+        else:
+            self.deg += m
+            self.c = np.zeros(self.deg+1)
 
     def legder(self, m):
-        self.c = np.polynomial.legendre.legder(self.c, m)/(self.scale)**m
+        if self.N > 0:
+            self.c = np.polynomial.legendre.legder(self.c, m)/(self.scale)**m
+            self.deg -= m
+        else:
+            self.deg -= m
+            self.c = np.zeros(self.deg+1)
 
     def legval(self, deg=None):
 

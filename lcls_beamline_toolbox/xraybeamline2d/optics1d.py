@@ -2377,18 +2377,25 @@ class Crystal(Mirror):
         # Also take into account grating shift in dx (+dx corresponds to dz = -dx/alpha)
 
         xWidth = np.abs(beam.x[0] - beam.x[-1])
-        mask2 = np.abs(z_b)<xWidth/beam.scaleFactor
+        # mask2 = np.abs(z_b)<xWidth/beam.scaleFactor
+        mask2 = np.abs(wavefront)**2>.01*np.abs(wavefront)
         mask_beam = np.logical_and(mask,mask2)
         # calculate higher order slope error on beam
-        wavePoly = LegendreUtil(z_b[mask_beam], np.unwrap(np.angle(wavefront[mask_beam])), 16)
+        wavePoly = LegendreUtil(z_b[mask_beam]*np.sin(total_alpha), np.unwrap(np.angle(wavefront[mask_beam])), 4)
         # take derivative
 
-        plt.figure()
-        plt.plot(z_b[mask_beam],wavePoly.legval())
+        # plt.figure()
+        # plt.plot(z_b[mask_beam],wavePoly.legval())
+        # plt.plot(z_b[mask_beam],np.unwrap(np.angle(wavefront[mask_beam])))
+        # plt.plot(z_b[mask_beam],np.abs(wavefront[mask_beam]))
 
         wavePoly.legder(1)
 
-        beam_slope_error = wavePoly.legval()*beam.lambda0/2/np.pi*np.sin(total_alpha)
+        beam_slope_error = wavePoly.legval()*beam.lambda0/2/np.pi
+        # beam_slope_error = np.gradient(np.unwrap(np.angle(wavefront[mask_beam])),z_b[mask]*np.sin(total_alpha))*beam.lambda0/2/np.pi
+
+        # plt.figure()
+        # plt.plot(z_b[mask_beam], beam_slope_error)
 
         # account for all contributions to alpha
         alpha_total = self.alpha + self.delta + alphaBeam
@@ -2476,9 +2483,11 @@ class Crystal(Mirror):
         # shapePoly.legint(1)
 
         # fit legendre centered on beam
-        shapePoly = LegendreUtil(z_c[mask], slope_error[mask], 16)
+        shapePoly = LegendreUtil(z_c[mask_beam], slope_error[mask_beam], 16)
         # integrate slope error
         shapePoly.legint(1)
+
+
 
         # now subtract off second order Legendre polynomial.
         residual = shapePoly.legval() - shapePoly.legval(2)
@@ -2494,8 +2503,8 @@ class Crystal(Mirror):
         # plt.plot(shapePoly.x_norm, shapePoly.legval() - np.cumsum(slope_error[mask])*shapePoly.dx)
 
 
-        if np.sum(mask) > 0:
-            p = np.polyfit(z_c[mask], slope_error[mask], 16)
+        if np.sum(mask_beam) > 0:
+            p = np.polyfit(z_c[mask_beam], slope_error[mask_beam], 16)
         else:
             p = np.zeros(16)
 
@@ -2527,7 +2536,7 @@ class Crystal(Mirror):
         # print(p_recentered)
 
         high_order_temp = np.polyval(p_int, z_c)
-        high_order_temp[mask] -= shapePoly.legval(2)
+        high_order_temp[mask_beam] -= shapePoly.legval(2)
 
         # subtract phase at beam center. This is already taken care of with the group delay
         beam_center_phase = np.interp(cz, zi_1d, high_order_temp)
@@ -2542,6 +2551,12 @@ class Crystal(Mirror):
         # high order phase. Multiplied by sin(beta) because integration should actually happen in beam coordinates.
         high_order = (2 * np.pi / beam.lambda0 * high_order_temp *
                       np.sin(beta1 - self.delta))
+
+        # remove original high order phase since this is now double-counted
+        # high_order *= np.exp(-1j*np.angle(wavefront))
+        high_order -= np.angle(wavefront)
+        beam_center_phase = np.interp(cz, zi_1d, np.angle(wavefront))
+        high_order += beam_center_phase
 
         # plt.figure()
         # plt.plot(Util.polyval_high_order(p_int, zi-cz)*mask)
