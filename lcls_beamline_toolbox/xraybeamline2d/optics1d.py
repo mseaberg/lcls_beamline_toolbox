@@ -2554,9 +2554,9 @@ class Crystal(Mirror):
 
         # remove original high order phase since this is now double-counted
         # high_order *= np.exp(-1j*np.angle(wavefront))
-        high_order -= np.angle(wavefront)
-        beam_center_phase = np.interp(cz, zi_1d, np.angle(wavefront))
-        high_order += beam_center_phase
+        # high_order -= np.angle(wavefront)
+        # beam_center_phase = np.interp(cz, zi_1d, np.angle(wavefront))
+        # high_order += beam_center_phase
 
         # plt.figure()
         # plt.plot(Util.polyval_high_order(p_int, zi-cz)*mask)
@@ -2653,7 +2653,7 @@ class Crystal(Mirror):
         if self.orientation == 0:
 
             # modify beam's wave attribute by mirror aperture and phase error
-            beam.wavex *= z_mask * np.exp(1j * high_order) * C
+            beam.wavex *= z_mask * np.exp(1j * high_order) * C *np.exp(-1j*np.angle(wavefront))
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
@@ -2690,7 +2690,7 @@ class Crystal(Mirror):
         elif self.orientation == 1:
 
             # modify beam's wave attribute by mirror aperture and phase error
-            beam.wavey *= z_mask * np.exp(1j * high_order) * C
+            beam.wavey *= z_mask * np.exp(1j * high_order) * C*np.exp(-1j*np.angle(wavefront))
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
@@ -2727,7 +2727,7 @@ class Crystal(Mirror):
         elif self.orientation == 2:
 
             # modify beam's wave attribute by mirror aperture and phase error
-            beam.wavex *= z_mask * np.exp(1j * high_order) * C
+            beam.wavex *= z_mask * np.exp(1j * high_order) * C*np.exp(-1j*np.angle(wavefront))
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
@@ -2768,7 +2768,7 @@ class Crystal(Mirror):
         elif self.orientation == 3:
 
             # modify beam's wave attribute by mirror aperture and phase error
-            beam.wavey *= z_mask * np.exp(1j * high_order) * C
+            beam.wavey *= z_mask * np.exp(1j * high_order) * C*np.exp(-1j*np.angle(wavefront))
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
