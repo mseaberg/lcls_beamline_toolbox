@@ -638,8 +638,8 @@ class CurvedMirror(Mirror):
         # arbitrarily chosen array size
         N = 1024
 
-        # concave mirror
-        if q>=0:
+        # concave elliptical mirror
+        if q>=0 and p>=0:
 
             # calculated ellipse values
             L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
@@ -667,8 +667,8 @@ class CurvedMirror(Mirror):
 
             return z1, x1, z0, x0, delta
 
-        # convex mirror
-        else:
+        # convex hyperbolic mirror
+        elif q<0 and p>=0:
             print('hyperbolic')
             # calculated hyperbola values
             L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
@@ -698,6 +698,40 @@ class CurvedMirror(Mirror):
 
             # hyperbola equation (using center of hyperbola as origin)
             x1 = np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
+
+            return z1, x1, z0, x0, delta
+
+        # concave hyperbolic mirror
+        elif p<0 and q>=0:
+            print('hyperbolic')
+            # calculated hyperbola values
+            L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+            print('L %.2f' % L)
+            # a2 = (p-q)**2/4
+            a = -(np.abs(q) - np.abs(p)) / 2
+            a2 = a ** 2
+            c2 = (L / 2) ** 2
+            b2 = c2 - a2
+            print(b2)
+            # angle of incident beam
+            beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+            print('beta %.2e' % beta)
+
+            # mirror angle
+            delta = alpha + beta
+
+            # mirror offset from hyperbola center in x
+            x0 = p * q / L * np.sin(2 * alpha)
+            if np.abs(p) > np.abs(q):
+                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+            else:
+                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+
+            # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+
+            # hyperbola equation (using center of hyperbola as origin)
+            x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
 
             return z1, x1, z0, x0, delta
 
@@ -786,7 +820,7 @@ class CurvedMirror(Mirror):
 
         # plt.figure()
         # plt.plot(z1,xIm)
-        # # plt.plot(z1,x1m)
+        # plt.plot(z1,x1m)
         # plt.plot(z1,x1m-xIm)
 
         # effective height error
