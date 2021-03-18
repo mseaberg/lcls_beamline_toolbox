@@ -2421,8 +2421,13 @@ class Crystal(Mirror):
 
         wavePoly.legder(1)
 
+
         beam_slope_error = wavePoly.legval()*beam.lambda0/2/np.pi
         # beam_slope_error = np.gradient(np.unwrap(np.angle(wavefront[mask_beam])),z_b[mask]*np.sin(total_alpha))*beam.lambda0/2/np.pi
+
+        ##############################
+        beam_slope_error = np.gradient(np.unwrap(np.angle(wavefront)),z_b*np.sin(total_alpha))*beam.lambda0/2/np.pi
+        ##############################
 
         # plt.figure()
         # plt.plot(z_b[mask_beam], beam_slope_error)
@@ -2431,7 +2436,11 @@ class Crystal(Mirror):
         alpha_total = self.alpha + self.delta + alphaBeam
         # alpha_total[mask_beam] -= beam_slope_error
         alpha_full = np.copy(alpha_total)
-        alpha_full[mask_beam] -= beam_slope_error
+        # alpha_full[mask_beam] -= beam_slope_error
+
+        ##############################
+        alpha_full -= beam_slope_error
+        ##############################
 
         k_i_full, k_f_full, m_x, c_normal = self.calc_kf(zi_1d, k_iy, alpha_full, slope_error, beam.lambda0)
 
