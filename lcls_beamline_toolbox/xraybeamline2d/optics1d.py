@@ -2408,10 +2408,10 @@ class Crystal(Mirror):
 
         xWidth = np.abs(beam.x[0] - beam.x[-1])
         # mask2 = np.abs(z_b)<xWidth/beam.scaleFactor
-        mask2 = np.abs(wavefront)**2>.01*np.abs(wavefront)
+        mask2 = np.abs(wavefront)**2>.01*np.max(np.abs(wavefront)**2)
         mask_beam = np.logical_and(mask,mask2)
         # calculate higher order slope error on beam
-        wavePoly = LegendreUtil(z_b[mask_beam]*np.sin(total_alpha), np.unwrap(np.angle(wavefront[mask_beam])), 4)
+        wavePoly = LegendreUtil(z_b[mask_beam]*np.sin(total_alpha), np.unwrap(np.angle(wavefront[mask_beam])),16)
         # take derivative
 
         # plt.figure()
