@@ -5121,7 +5121,7 @@ class PPM_Data(PPM):
 
         return wfs_data, wfs_param_out
 
-    def set_image(self, angle=0, new_image):
+    def set_image(self, new_image, angle=0):
         try:
 
             img = new_image
@@ -6230,7 +6230,7 @@ class WFS_Data(WFS):
         super().__init__(name, **kwargs)
 
         # set allowed kwargs
-        allowed_arguments = ['state', 'zPos']
+        allowed_arguments = ['state', 'z_pos']
 
         # update attributes based on kwargs
         for key, value in kwargs.items():
@@ -6275,7 +6275,7 @@ class WFS_Data(WFS):
         #self.z_pv = EpicsSignalRO(self.epics_name+'MMS:Z', name='omitted')
 
         # state 0 is OUT, need to subtract 1 to align with target positions
-        state = self.state_list.index(self.state) - 2
+        state = self.states_list.index(self.state) - 2
         #state = self.state.value
         print(state)
         # for testing purposes we will set OUT to state 0
@@ -6295,10 +6295,10 @@ class WFS_Data(WFS):
             self.z = z_dict['PF1L0']
             self.f0 = 100
 
-    def set_zPos(self, zPos):
-        self.zPos = zPos
+    def set_zPos(self, z_pos):
+        self.z_pos = z_pos
 
     def zPos(self):
         # z position in meters
 
-        return self.zPos
+        return (self.z_pos-self.z_offset)*1e-3
