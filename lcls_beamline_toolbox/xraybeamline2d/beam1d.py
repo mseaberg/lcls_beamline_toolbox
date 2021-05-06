@@ -765,6 +765,24 @@ class Beam:
         # recalculate spatial frequencies
         self.new_fx()
 
+    def asymmetry_x(self, factor):
+        """
+        Method that rescales coordinates and also distance to focus, for asymmetric reflections
+        Parameters
+        ----------
+        factor: float
+            scaling factor
+
+        Returns
+        -------
+
+        """
+
+        # scale coordinates
+        self.rescale_x(factor)
+        # rescale distance to focus
+        self.zx *= factor**2
+
     def rescale_y(self, factor):
         """
         Method to rescale y coordinates and recalculate spatial frequencies
@@ -777,6 +795,26 @@ class Beam:
         self.y = self.y * factor
         # recalculate spatial frequencies
         self.new_fx()
+
+        # scale beam z
+        self.zy = self.zy * factor ** 2
+
+    def asymmetry_y(self, factor):
+        """
+        Method that rescales coordinates and also distance to focus, for asymmetric reflections
+        Parameters
+        ----------
+        factor: float
+            scaling factor
+
+        Returns
+        -------
+
+        """
+        # rescale coordinates
+        self.rescale_y(factor)
+        # rescale distance to focus
+        self.zy *= factor**2
 
     def multiply_screen(self, screen):
         """
