@@ -2414,10 +2414,10 @@ class Crystal(Mirror):
         wavePoly = LegendreUtil(z_b[mask_beam]*np.sin(total_alpha), np.unwrap(np.angle(wavefront[mask_beam])),16)
         # take derivative
 
-        # plt.figure()
-        # plt.plot(z_b[mask_beam],wavePoly.legval())
-        # plt.plot(z_b[mask_beam],np.unwrap(np.angle(wavefront[mask_beam])))
-        # plt.plot(z_b[mask_beam],np.abs(wavefront[mask_beam]))
+        plt.figure()
+        plt.plot(z_b[mask_beam],wavePoly.legval())
+        plt.plot(z_b[mask_beam],np.unwrap(np.angle(wavefront[mask_beam])))
+        plt.plot(z_b[mask_beam],np.abs(wavefront[mask_beam]))
 
         wavePoly.legder(1)
 
