@@ -1917,6 +1917,9 @@ class Mono:
         # set monochromator z-position to pre-mirror z-position
         self.z = self.m2.z
 
+        self.elevation = 0
+        self.azimuth = 0
+
     def calc_alpha(self):
         """
         Method to calculate grating angle of incidence for a given photon energy and CFF
@@ -2800,7 +2803,7 @@ class Drift:
             z_m = self.downstream_component.z
             x_m = self.downstream_component.global_x
             y_m = self.downstream_component.global_y
-            elev = self.downstream_component.elevation
+            # elev = self.downstream_component.elevation
             azim = self.downstream_component.azimuth
             z_intersect = (((x_m - beam.global_x) * np.tan(azim) * k[2] + z_m * k[2] + k[0] * beam.global_z * np.tan(
                 azim)) / \
