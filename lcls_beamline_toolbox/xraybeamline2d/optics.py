@@ -3004,7 +3004,7 @@ class PPM_Device(PPM):
             'IM3K2': 781.9,
             'IM4K2': 783.455,
             'IM5K2': 787.417,
-            'IM6K2': 792.167,
+            'IM6K2': 792.8188-.03,
             'IM7K2': 798.5,
             'IM1L1': 745.4046250,
             'IM2L1': 759.02,
@@ -3136,15 +3136,18 @@ class PPM_Device(PPM):
         self.profile = np.zeros_like(self.xx)
         self.x_lineout = np.zeros(self.M)
         self.y_lineout = np.zeros(self.N)
-        self.x_projection = np.zeros(self.M)
-        self.y_projection = np.zeros(self.N)
+        self.projection_x = np.zeros(self.M)
+        self.projection_y = np.zeros(self.N)
         if 'K' in self.epics_name:
             self.photon_energy = PV('PMPS:KFE:PE:UND:CurrentPhotonEnergy_RBV').get()
         else:
             self.photon_energy = PV('PMPS:LFE:PE:UND:CurrentPhotonEnergy_RBV').get()
 
         print('photon energy: %.2f' % self.photon_energy)
-        self.lambda0 = 1239.8/self.photon_energy*1e-9
+        try:
+            self.lambda0 = 1239.8/self.photon_energy*1e-9
+        except ZeroDivisionError:
+            self.lambda0 = 0
         self.time_stamp = 0.0
         self.cx = 0
         self.cy = 0
@@ -3823,7 +3826,10 @@ class EXS_Device(PPM):
             self.photon_energy = PV('PMPS:LFE:PE:UND:CurrentPhotonEnergy_RBV').get()
 
         print('photon energy: %.2f' % self.photon_energy)
-        self.lambda0 = 1239.8 / self.photon_energy * 1e-9
+        try:
+            self.lambda0 = 1239.8 / self.photon_energy * 1e-9
+        except ZeroDivisionError:
+            self.lambda0 = 0
         self.time_stamp = 0.0
         self.cx = 0
         self.cy = 0
@@ -4538,11 +4544,11 @@ class WFS_Device(WFS):
         self.z_offset = 31.0
 
         pitch_dict = {
-            'PF1K0': [39.6, 41],
+            'PF1K0': [39.6, 41, 41, 41, 39.6],
             'PF1L0': [28.4, 29.9, 31.7, 33.9, 36.6],
             'PF1K4': [35.8, 35.8, 35.8, 35.8, 34.6],
-            'PF2K4': [33.3],
-            'PF1K2': [32, 36.4]
+            'PF2K4': [33.3, 33.3, 33.3, 33.3, 33.3],
+            'PF2K2': [36.4, 36.4, 36.4, 36.4, 32.0]
         }
 
         z_dict = {
@@ -4551,7 +4557,7 @@ class WFS_Device(WFS):
             'PF1K4': 763.515,
             #'PF1K4': 763.66694 - .0093,
             'PF2K4': 768.583,
-            'PF1K2': 786.918,
+            'PF2K2': 792.319 - .0093,
         }
 
         f0_dict = {
@@ -4561,7 +4567,7 @@ class WFS_Device(WFS):
             'PF1K4': 1.768,
             #'PF1K4': 763.66694-.0093 - 761.89013,
             'PF2K4': 0.996,
-            'PF1K2': 1.668
+            'PF2K2': 2.3097
         }
 
         #state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()

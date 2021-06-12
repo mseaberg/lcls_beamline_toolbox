@@ -886,7 +886,7 @@ class Pulse:
         # Determine number of slices
         ny = nx
         nz = npoints / ny / nx
-        assert (nz % 1 == 0), f'Confused shape {nx} {ny} {nz}'
+        #assert (nz % 1 == 0), f'Confused shape {nx} {ny} {nz}'
         nz = int(nz)
         dat = dat.reshape(nz, ny, nx)
         dat = np.moveaxis(dat, [0, 1, 2], [2, 1, 0])  # z, y, x to x, y, z
