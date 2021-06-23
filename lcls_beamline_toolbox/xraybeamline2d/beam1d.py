@@ -635,7 +635,10 @@ class Beam:
                         y_prop_limit = dz_remaining
 
                 # distance to propagate during this step. Pick the more restrictive case.
-                prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
+                prop_cases = [x_prop_limit, y_prop_limit]
+                prop_choice = np.argmin(np.abs(prop_cases))
+                prop_step = prop_cases[prop_choice]
+                # prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
 
                 # print the current step size
                 print('current step size: %.2f microns' % (prop_step*1e6))
