@@ -903,7 +903,11 @@ class TalbotImage:
             'F0': F0,
             'tilt': tilt,
             'h_peak': grad_param['h_peak'],
-            'v_peak': grad_param['v_peak']
+            'v_peak': grad_param['v_peak'],
+            'h_grad': h_grad2*zeroMask,
+            'v_grad': v_grad2*zeroMask,
+            'h_mean': h_mean,
+            'v_mean': v_mean
             # 'xf': xf,
             # 'yf': yf
         }
