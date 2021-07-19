@@ -2387,6 +2387,10 @@ class PPM:
             fit_validity = 0
             print('Least squares minimization failed. Using second moment for width.')
 
+        except TypeError:
+            fit_validity = 0
+            print('Not enough points to fit. Using second moment for width.')
+
         try:
             # only fit in the region where we have signal
             mask = line_y > .1
@@ -2400,6 +2404,10 @@ class PPM:
         except RuntimeError:
             fit_validity = 0
             print('Least squares minimization failed. Using second moment for width.')
+
+        except TypeError:
+            fit_validity = 0
+            print('Not enough points to fit. Using second moment for width.')
 
         # conversion factor from sigma to FWHM. Also convert back to meters.
         fwhm_x = sx * 2.355 / 1e6
@@ -3475,134 +3483,138 @@ class PPM_Device(PPM):
         return self.dummy_image
 
     def get_image(self, angle=0):
+        #try:
+    # do averaging
+        if hasattr(self, 'average'):
+            numImages = getattr(self, 'average').get_numImages()
+        else:
+            numImages = 1
+        
         try:
-            # do averaging
-            if hasattr(self, 'average'):
-                numImages = getattr(self, 'average').get_numImages()
-            else:
-                numImages = 1
             image_data = self.image_pv.get_with_metadata()
-            img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
-            if numImages > 1:
-                for i in range(numImages-1):
-                    # wait for the next image
-                    sleep(self.acquisition_period)
-                    image_data = self.image_pv.get_with_metadata()
-                    imgTemp = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
-                    img += imgTemp
-
-
-            img = img/numImages
-
-            time_stamp = image_data['timestamp']
-            # time_stamp = image_data.time_stamp
-            # img = np.array(image_data.shaped_image,dtype='float')
-            # img = np.array(self.gige.image2.image,dtype='float')
-            #img = Util.threshold_array(img, self.threshold)
-
-            if self.orientation == 'action0':
-                self.profile = img
-                self.x = self.x0
-                self.y = self.y0
-            elif self.orientation == 'action90':
-                self.profile = np.rot90(img)
-                self.x = self.y0
-                self.y = self.x0
-            elif self.orientation == 'action180':
-                self.profile = np.rot90(img,2)
-                self.x = self.x0
-                self.y = self.y0
-            elif self.orientation == 'action270':
-                self.profile = np.rot90(img,3)
-                self.x = self.y0
-                self.y = self.x0
-            elif self.orientation == 'action0_flip':
-                self.profile = np.fliplr(img)
-                self.x = self.x0
-                self.y = self.y0
-            elif self.orientation == 'action90_flip':
-                self.profile = np.rot90(np.fliplr(img))
-                self.x = self.y0
-                self.y = self.x0
-            elif self.orientation == 'action180_flip':
-                self.profile = np.rot90(np.fliplr(img),2)
-                self.x = self.x0
-                self.y = self.y0
-            elif self.orientation == 'action270_flip':
-                self.profile = np.rot90(np.fliplr(img),3)
-                self.x = self.y0
-                self.y = self.x0
-
-            self.N = np.size(self.y)
-            self.M = np.size(self.x)
-
-            #print(self.M)
-            #print(self.N)
-
-            #angle = -0.2
-            self.profile = ndimage.rotate(self.profile, angle, reshape=False)
-
-            temp_profile = Util.threshold_array(self.profile, self.threshold)
-
-            self.intensity = np.mean(temp_profile)
-            self.projection_x = np.mean(temp_profile, axis=0)
-            self.projection_y = np.mean(temp_profile, axis=1)
-
-            # get beam statistics
-            self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
-
-            # add imager state to validity
-            if 'MONO' in self.imager_prefix or 'SL' in self.imager_prefix:
-                imager_state = 'YAG'
-            else:
-                imager_state = self.states_list[self.state.value]
-            imager_in = 'YAG' in imager_state or 'DIAMOND' in imager_state
-
-            self.centroid_is_valid = self.centroid_is_valid and imager_in
-
-            x_center = Util.coordinate_to_pixel(self.cx, self.dx*self.xbin, self.M)
-            y_center = Util.coordinate_to_pixel(self.cy, self.dx*self.ybin, self.N)
-
-            #print(self.cx)
-            #print(self.cy)
-
-            #print(x_center)
-            #print(y_center)
-
-            try:
-                self.lineout_x = temp_profile[int(y_center), :]
-                self.lineout_y = temp_profile[:, int(x_center)]
-            except:
-                self.lineout_x = self.projection_x
-                self.lineout_y = self.projection_y
-
-            #print('got lineouts')
-
-            # gaussian fits
-            try:
-                fit_x = self.amp_x * np.exp(
-                    -(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
-            except RuntimeWarning:
-                fit_x = np.zeros_like(self.lineout_x)
-            try:
-                fit_y = self.amp_y * np.exp(
-                    -(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
-            except RuntimeWarning:
-                fit_y = np.zeros_like(self.lineout_y)
-
-
-
-            self.fit_x = fit_x
-            self.fit_y = fit_y
-
-            self.time_stamp = time_stamp
-
-            return img, time_stamp
         except:
-            self.lineout_x = np.zeros_like(self.x_lineout)
-            self.lineout_y = np.zeros_like(self.y_lineout)
-            print('no image')
-            return np.zeros((2048, 2048))
+            image_data = np.zeros((self.ysize, self.xsize))
+        img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+        if numImages > 1:
+            for i in range(numImages-1):
+                # wait for the next image
+                sleep(self.acquisition_period)
+                image_data = self.image_pv.get_with_metadata()
+                imgTemp = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+                img += imgTemp
+
+
+        img = img/numImages
+
+        time_stamp = image_data['timestamp']
+        # time_stamp = image_data.time_stamp
+        # img = np.array(image_data.shaped_image,dtype='float')
+        # img = np.array(self.gige.image2.image,dtype='float')
+        #img = Util.threshold_array(img, self.threshold)
+
+        if self.orientation == 'action0':
+            self.profile = img
+            self.x = self.x0
+            self.y = self.y0
+        elif self.orientation == 'action90':
+            self.profile = np.rot90(img)
+            self.x = self.y0
+            self.y = self.x0
+        elif self.orientation == 'action180':
+            self.profile = np.rot90(img,2)
+            self.x = self.x0
+            self.y = self.y0
+        elif self.orientation == 'action270':
+            self.profile = np.rot90(img,3)
+            self.x = self.y0
+            self.y = self.x0
+        elif self.orientation == 'action0_flip':
+            self.profile = np.fliplr(img)
+            self.x = self.x0
+            self.y = self.y0
+        elif self.orientation == 'action90_flip':
+            self.profile = np.rot90(np.fliplr(img))
+            self.x = self.y0
+            self.y = self.x0
+        elif self.orientation == 'action180_flip':
+            self.profile = np.rot90(np.fliplr(img),2)
+            self.x = self.x0
+            self.y = self.y0
+        elif self.orientation == 'action270_flip':
+            self.profile = np.rot90(np.fliplr(img),3)
+            self.x = self.y0
+            self.y = self.x0
+
+        self.N = np.size(self.y)
+        self.M = np.size(self.x)
+
+        #print(self.M)
+        #print(self.N)
+
+        #angle = -0.2
+        self.profile = ndimage.rotate(self.profile, angle, reshape=False)
+
+        temp_profile = Util.threshold_array(self.profile, self.threshold)
+
+        self.intensity = np.mean(temp_profile)
+        self.projection_x = np.mean(temp_profile, axis=0)
+        self.projection_y = np.mean(temp_profile, axis=1)
+
+        # get beam statistics
+        self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
+
+        # add imager state to validity
+        if 'MONO' in self.imager_prefix or 'SL' in self.imager_prefix:
+            imager_state = 'YAG'
+        else:
+            imager_state = self.states_list[self.state.value]
+        imager_in = 'YAG' in imager_state or 'DIAMOND' in imager_state
+
+        self.centroid_is_valid = self.centroid_is_valid and imager_in
+
+        x_center = Util.coordinate_to_pixel(self.cx, self.dx*self.xbin, self.M)
+        y_center = Util.coordinate_to_pixel(self.cy, self.dx*self.ybin, self.N)
+
+        #print(self.cx)
+        #print(self.cy)
+
+        #print(x_center)
+        #print(y_center)
+
+        try:
+            self.lineout_x = temp_profile[int(y_center), :]
+            self.lineout_y = temp_profile[:, int(x_center)]
+        except:
+            self.lineout_x = self.projection_x
+            self.lineout_y = self.projection_y
+
+        #print('got lineouts')
+
+        # gaussian fits
+        try:
+            fit_x = self.amp_x * np.exp(
+                -(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
+        except RuntimeWarning:
+            fit_x = np.zeros_like(self.lineout_x)
+        try:
+            fit_y = self.amp_y * np.exp(
+                -(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
+        except RuntimeWarning:
+            fit_y = np.zeros_like(self.lineout_y)
+
+
+
+        self.fit_x = fit_x
+        self.fit_y = fit_y
+
+        self.time_stamp = time_stamp
+
+        return img, time_stamp
+        #except:
+        #    self.lineout_x = np.zeros_like(self.x_lineout)
+        #    self.lineout_y = np.zeros_like(self.y_lineout)
+        #    print('no image')
+        #    return np.zeros((2048, 2048))
 
 
 class EXS_Device(PPM):
