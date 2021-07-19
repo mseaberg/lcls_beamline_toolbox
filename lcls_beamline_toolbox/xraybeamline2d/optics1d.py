@@ -21,6 +21,7 @@ import scipy.interpolate as interpolation
 import scipy.ndimage as ndimage
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
+import scipy.integrate as integration
 import os
 from .util import Util, LegendreUtil
 from .pitch import TalbotLineout
@@ -2512,7 +2513,8 @@ class Crystal(Mirror):
         # print(p_int)
         # print(p_recentered)
 
-        high_order_temp = np.polyval(p_int, z_c)
+        # high_order_temp = np.polyval(p_int, z_c)
+        high_order_temp = integration.cumtrapz(slope_error, z_c, initial=0)
         high_order_temp[mask] -= shapePoly.legval(2)
 
         # subtract phase at beam center. This is already taken care of with the group delay
