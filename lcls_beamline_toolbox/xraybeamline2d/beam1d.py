@@ -278,8 +278,14 @@ class Beam:
         self.x = self.x + self.ax * dz
         self.y = self.y + self.ay * dz
         # update horizontal and vertical radii of curvature by propagation distance
+
+        print(self.zx)
+        print(self.zy)
         self.zx = self.zx + dz
         self.zy = self.zy + dz
+
+        print(self.zx)
+        print(self.zy)
 
         # update global positions
         k_beam = self.get_k()
@@ -556,6 +562,7 @@ class Beam:
             # ----------------------------
             # propagation inside focus region
             if self.focused_x and self.focused_y and x_focused and y_focused:
+                print('both stay focused')
                 # normal, unscaled propagation so all three parameters are the same
                 self.propagation(dz_remaining, dz_remaining, dz_remaining)
                 # staying in focus region, update the parameters and we're done
@@ -567,6 +574,7 @@ class Beam:
             # propagation outside focus region
             elif ((not self.focused_x) and (not self.focused_y) and
                   (not x_focused) and (not y_focused)):
+                print('both stay unfocused')
 
                 # calculate Fresnel scaling magnification
                 mag_x = (self.zx + dz_remaining) / self.zx
@@ -591,6 +599,7 @@ class Beam:
 
             # cases where multiple propagation steps are needed
             else:
+                print('multiple propagation steps needed')
 
                 # check if x is focused and whether it will stay focused
                 # -------------
@@ -798,9 +807,6 @@ class Beam:
         self.y = self.y * factor
         # recalculate spatial frequencies
         self.new_fx()
-
-        # scale beam z
-        self.zy = self.zy * factor ** 2
 
     def asymmetry_y(self, factor):
         """
