@@ -4098,6 +4098,7 @@ class WFS:
         if self.enabled:
             self.multiply(beam)
         else:
+            print('skipping')
             pass
 
     def disable(self):
@@ -4156,6 +4157,11 @@ class WFS:
         for i in range(int(Ng)):
             # each step defines one period
             self.grating_y[int(self.y_pitch) * (i+1) - y_width:int(self.y_pitch) * (i + 1) + y_width] = 1
+
+        # plt.figure()
+        # plt.plot(beam.x*1e6,self.grating_x)
+        # plt.figure()
+        # plt.plot(beam.y*1e6, self.grating_y)
 
         # convert to checkerboard pi phase grating if desired
         if self.phase:

@@ -796,6 +796,22 @@ class Util:
 
         return xhat, yhat, zhat
 
+    @staticmethod
+    def plan_checkerboard(wfs_obj, ppm_obj, photon_energy, fraction=1):
+
+        # distance from focus to grating
+        R1 = wfs_obj.f0
+        # "Talbot" distance
+        zT = ppm_obj.z - wfs_obj.z
+        # distance from focus to imager
+        R2 = R1 + zT
+        lambda0 = 1239.8/photon_energy*1e-9
+
+        d = np.sqrt(lambda0/fraction*8*R1*(1-R1/R2))
+
+        return d
+
+
 class LegendreUtil:
 
     def __init__(self, x, y, deg, recenter=True):
