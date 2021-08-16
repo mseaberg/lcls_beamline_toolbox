@@ -2419,7 +2419,11 @@ class Crystal(Mirror):
         # plt.plot(z_b, np.unwrap(np.angle(wavefront)))
         # plt.plot(z_b, np.pi / beam.lambda0 / beam.zx * (beam.x - beam.cx) ** 2)
 
-        # account for all contributions to alpha
+        # # account for all contributions to alpha
+        # if beam.focused_x:
+        #     alpha_total = np.ones_like(alphaBeam)*(self.alpha + self.delta)
+        # else:
+        #     alpha_total = self.alpha + self.delta + alphaBeam
         alpha_total = self.alpha + self.delta + alphaBeam
         # alpha_total[mask_beam] -= beam_slope_error
         alpha_full = np.copy(alpha_total)
@@ -2460,8 +2464,14 @@ class Crystal(Mirror):
         # take into account angular grating change, and dx
         x0 = 0.0
 
+        #### might need to add back in
         # calculate ideal slope to focus at f in the direction beta0
         m = (x1 - x0) / (z1 - z_c)
+        ####
+
+        #### might need to take out
+        # m = np.sin(self.beta0)
+        ####
 
         # calculate slope error
         slope_error = -np.tan(beta - np.arctan(m))
@@ -2541,8 +2551,10 @@ class Crystal(Mirror):
         # should actually happen in beam coordinates.
         p_scaled = Util.poly_change_coords(p_int, scale) * np.sin(beta1 - self.delta)
 
+        #### might need to add back in
         # Add 2nd order phase to p_scaled
         p_scaled[-3] += -1 / (2 * self.f)
+        #####
 
         # scale the offset
         offset_scaled = offset * scale
@@ -3517,10 +3529,10 @@ class PPM:
         ax_x.set_ylim(0, 1.05)
 
         # add some annotations with beam centroid and FWHM
-        ax_y.text(.6, .1 * np.max(self.y * mult), 'centroid: %.2f %s' % (self.cy * mult, units), rotation=-90)
-        ax_y.text(.3, .1 * np.max(self.y * mult), 'width: %.2f %s' % (self.wy * mult, units), rotation=-90)
-        ax_x.text(-.9 * np.max(self.x * mult), .6, 'centroid: %.2f %s' % (self.cx * mult, units))
-        ax_x.text(-.9 * np.max(self.x * mult), .3, 'width: %.2f %s' % (self.wx * mult, units))
+        ax_y.text(.6, .1 * np.max(self.y * mult), 'centroid: %.3f %s' % (self.cy * mult, units), rotation=-90)
+        ax_y.text(.3, .1 * np.max(self.y * mult), 'width: %.3f %s' % (self.wy * mult, units), rotation=-90)
+        ax_x.text(-.9 * np.max(self.x * mult), .6, 'centroid: %.3f %s' % (self.cx * mult, units))
+        ax_x.text(-.9 * np.max(self.x * mult), .3, 'width: %.3f %s' % (self.wx * mult, units))
 
         # tight layout to make sure we're not cutting out anything
         plt.tight_layout()
@@ -4172,3 +4184,146 @@ class WFS:
         # multiply beam by grating
         beam.wavex *= self.grating_x
         beam.wavey *= self.grating_y
+
+
+class PhasePlate:
+    """
+    Attributes
+    ----------
+    name: str
+        Name of the device (e.g. CRL1)
+    plateThickness: float
+        Thickness profile of the phase plate. (meters)
+    x_plate: float
+        Phase plate size in x. (meters)
+    y_plate: float
+        Phase plate size in y. (meters)
+    E0: float or None
+        photon energy in eV for calculating the corresponding phase difference of a given thickness
+    material: str
+        Phase plate material. Currently only Be is implemented but may add CVD diamond in the future.
+        Looks up downloaded data from CXRO.
+    dx: float
+        Phase plate de-centering along beam's x-axis.
+    dy: float
+        Phase plate de-centering along beam's y-axis.
+    z: float
+        z location of phase plate along beamline.
+    energy: (N,) ndarray
+        List of photon energies from CXRO file (eV).
+    delta: (N,) ndarray
+        Real part of index of refraction. n = 1 - delta + 1j * beta
+    beta: (N,) ndarray
+        Imaginary part of index of refraction. n = 1 - delta + 1j * beta
+    """
+
+    def __init__(self, name, platePhase=None, x_plate=None, y_plate=None, E0=None, z=0, dx=0, dy=0, orientation=0):
+        """
+        Method to create a PhasePlate object.
+        :param name: str
+            Name of the device (e.g. Phase1)
+        :param plateThickness: float
+            Thickness profile of the phase plate. (meters)
+        :x_plate: float
+            Phase plate size in x. (meters)
+        :y_plate: float
+            Phase plate size in y. (meters)
+        :param E0: float
+            photon energy for calculating radius of curvature for a given focal length (eV)
+        :param material: str
+            Lens material. Currently only Be is implemented but may add CVD diamond in the future.
+            Looks up downloaded data from CXRO.
+        :param z: float
+            z location of lenses along beamline.
+        :param dx, dy: float
+            PhasePlate de-centering along beam's x,y-axis.
+        :param orientation: int
+            Whether or not this is a horizontal or vertical lens (0 for horizontal, 1 for vertical).
+        """
+
+        # set some attributes
+        self.name = name
+        self.platePhase = platePhase
+        self.x_plate = x_plate
+        self.y_plate = y_plate
+        self.E0 = E0
+        self.orientation = orientation
+        self.dx = dx
+        self.dy = dy
+        self.z = z
+        self.global_x = 0
+        self.global_y = 0
+        self.azimuth = 0
+        self.elevation = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
+
+    def multiply(self, beam):
+        """
+        Method to propagate beam through PhasePlate
+        :param beam: Beam
+            Beam object to propagate through PhasePlate. Beam is modified by this method.
+        :return: None
+        """
+
+        # get shape of phase plate thickness
+        plate_shape = np.shape(self.platePhase)
+
+        Ns = 0
+        Ms = 0
+        beamx = beam.x
+        beamy = beam.y
+
+        if len(plate_shape)>1:
+            Ns = plate_shape[0]
+            Ms = plate_shape[1]
+
+            central_line_x = self.platePhase[np.int(Ns / 2), :]
+            central_line_y = self.platePhase[:, np.int(Ms / 2)]
+
+        else:
+            if self.orientation==0:
+                central_line_x = self.platePhase
+                central_line_y = None
+                Ms = plate_shape[0]
+                Ns = 0
+            elif self.orientation==1:
+                central_line_x = None
+                central_line_y = self.platePhase
+                Ns = plate_shape[0]
+                Ms = 0
+
+        xs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * self.x_plate / Ms  # phase plate x coordinate
+        ys = np.linspace(-Ns / 2, Ns / 2 - 1, Ns) * self.y_plate / Ns  # phase plate y coordinate
+
+        # interpolation onto beam coordinates
+        if central_line_x is not None:
+            phase_x = np.interp(beamx - self.dx, xs, central_line_x, left=0, right=0)
+        else:
+            phase_x = np.zeros_like(beamx)
+        if central_line_y is not None:
+            phase_y = np.interp(beamy - self.dy, ys, central_line_y, left=0, right=0)
+        else:
+            phase_y = np.zeros_like(beamy)
+
+        # transmission based on beta and thickness profile
+        mask_x = (((beamx - self.dx) ** 2) < (self.x_plate / 2) ** 2).astype(float)
+        mask_y = (((beamy - self.dy) ** 2) < (self.y_plate / 2) ** 2).astype(float)
+
+        transmission_x = np.exp(1j * phase_x) * mask_x
+        transmission_y = np.exp(1j * phase_y) * mask_y
+
+        beam.wavex *= transmission_x
+        # beam.zx = 100000
+        beam.wavey *= transmission_y
+
+    def propagate(self, beam):
+        """
+        Method to propagate beam through PhasePlate. Calls multiply.
+        :param beam: Beam
+            Beam object to propagate through PhasePlate. Beam is modified by this method.
+        :return: None
+        """
+        if self.platePhase is not None:
+            self.multiply(beam)
