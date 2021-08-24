@@ -2470,7 +2470,7 @@ class Crystal(Mirror):
         ####
 
         #### might need to take out
-        # m = np.sin(self.beta0)
+        # m = np.tan(self.beta0)
         ####
 
         # calculate slope error
@@ -2480,7 +2480,7 @@ class Crystal(Mirror):
         mask = np.abs(z_c) <= self.length/2
 
         # fit legendre centered on beam
-        shapePoly = LegendreUtil(z_c[mask], slope_error[mask], 16)
+        shapePoly = LegendreUtil(z_c[mask], slope_error[mask], 4)
         # integrate slope error
         shapePoly.legint(1)
 
