@@ -6,6 +6,7 @@ import numpy.fft as fft
 import scipy.special
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
+from scipy.integrate import cumtrapz
 
 
 class Util:
@@ -810,6 +811,48 @@ class Util:
         d = np.sqrt(lambda0/fraction*8*R1*(1-R1/R2))
 
         return d
+
+    @staticmethod
+    def integrate_gradient(g, h, x=None, y=None):
+        """
+        Method to integrate a 2D gradient.
+        Parameters
+        ----------
+        g: (N,M) ndarray
+            horizontal gradient term (df_dx)
+        h: (N,M) ndarray
+            vertical gradient term (df_dy)
+        x: (M) ndarray
+            horizontal coordinates (1D)
+        y: (N) ndarray
+            vertical coordinates (1D)
+
+        Returns
+        -------
+        f: (N,M) ndarray
+            the scalar field corresponding to the integrated gradient
+        """
+        if x is None:
+            dx = 1
+        else:
+            dx = x[1]-x[0]
+        if y is None:
+            dy = 1
+        else:
+            dy = y[1]-y[0]
+
+        # calculate second order mixed partial derivatives
+        dg_dy = np.gradient(g, dy, axis=0)
+        dh_dx = np.gradient(h, dx, axis=1)
+
+        # integrate the gradient (average mixed partial derivatives since these are
+        # supposed to be equal)
+        f = (cumtrapz(g, axis=1, dx=dx, initial=0) +
+             cumtrapz(h, axis=0, dx=dy, initial=0) -
+            cumtrapz(cumtrapz(.5*(dg_dy+dh_dx), axis=0, dx=dy, initial=0),
+                     axis=1, dx=dx, initial=0))
+
+        return f
 
 
 class LegendreUtil:
