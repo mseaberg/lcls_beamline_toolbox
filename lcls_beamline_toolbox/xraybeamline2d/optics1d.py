@@ -2386,12 +2386,14 @@ class Crystal(Mirror):
 
         # take derivative to get slope error
         shapePoly.legder(1)
-        slope_error = shapePoly.legval()*1e-9
+        # slope_error = shapePoly.legval()*1e-9
+        #
+        # # extend size of slope error array to size of beam array
+        # slope_error2 = np.zeros_like(z_c)
+        # slope_error2[mask] = slope_error
+        # slope_error = slope_error2
 
-        # extend size of slope error array to size of beam array
-        slope_error2 = np.zeros_like(z_c)
-        slope_error2[mask] = slope_error
-        slope_error = slope_error2
+        slope_error = np.gradient(shapeError2, z_c) * 1e-9
 
         # calculate nominal reflected k vector
         k_i = np.array([k_ix, k_iy, k_iz])
