@@ -2385,14 +2385,6 @@ class Crystal(Mirror):
         second_order = shapePoly.quad_coeff()
 
         # take derivative to get slope error
-        shapePoly.legder(1)
-        # slope_error = shapePoly.legval()*1e-9
-        #
-        # # extend size of slope error array to size of beam array
-        # slope_error2 = np.zeros_like(z_c)
-        # slope_error2[mask] = slope_error
-        # slope_error = slope_error2
-
         slope_error = np.gradient(shapeError2, z_c) * 1e-9
 
         # calculate nominal reflected k vector
@@ -2490,8 +2482,11 @@ class Crystal(Mirror):
         # residual = shapePoly.legval() - shapePoly.legval(2)
 
         # plt.figure()
-        # plt.plot(shapePoly.x_norm, shapePoly.legval() - np.cumsum(slope_error[mask])*shapePoly.dx)
+        # plt.plot(shapePoly.x_norm, shapePoly.legval() - np.cumsum(slope_error[mask])*(z_c[1]-z_c[0]))
 
+        # plt.figure()
+        # plt.plot(shapePoly.x, shapePoly.legval())
+        # plt.plot(z_c, np.cumsum(slope_error)*(z_c[1]-z_c[0]))
 
         if np.sum(mask) > 0:
             p = np.polyfit(z_c[mask], slope_error[mask], 16)
