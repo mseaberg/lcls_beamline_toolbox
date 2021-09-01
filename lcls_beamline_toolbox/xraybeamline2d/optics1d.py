@@ -2304,7 +2304,7 @@ class Crystal(Mirror):
 
             # k_ix = -np.sin(total_alpha)
             k_ix = -np.sin(self.alpha + beam.ay)
-            k_iy = beam.ax
+            k_iy = np.sin(beam.ax)
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2) * np.sign(np.cos(self.alpha + beam.ay))
             # k_iz = np.cos(total_alpha)
 
@@ -2398,7 +2398,7 @@ class Crystal(Mirror):
         # project beam angle onto grating axis
         # Also take into account grating shift in dx (+dx corresponds to dz = -dx/alpha)
 
-        # calculate high order component of beam slope error. This is multiplied by
+        # calculate high order component of beam slope error
         ##############################
         beam_slope_error = np.gradient(np.unwrap(np.angle(wavefront)),z_b*np.sin(total_alpha))*beam.lambda0/2/np.pi
         ##############################
@@ -2432,11 +2432,6 @@ class Crystal(Mirror):
         k_i, k_f, temp1, temp2 = self.calc_kf(zi_1d, k_iy, alpha_total, slope_error, beam.lambda0)
 
         beta = np.arccos(k_f[:, 2])
-
-        # calculate phase contribution by integrating slope error. This is kind of equivalent to a height error but
-        # we don't need to double-count it.
-        # (do this with a polynomial fit up to 3rd order for now)
-        z_c = zi_1d - self.dx / np.tan(total_alpha)
 
         ##!! need to calculate effective focal distance while taking into account crystal curvature, similar to
         ##!! what was needed for the grating
@@ -2505,9 +2500,9 @@ class Crystal(Mirror):
         # plt.plot(z_c[mask],np.polyval(p_int,z_c[mask]))
 
         # c2 = shapePoly.c[2]*3/2/(shapePoly.dx*shapePoly.N/2)**2
-        c2 = shapePoly.quad_coeff()
-
-        R = 1 / (2 * c2)
+        # c2 = shapePoly.quad_coeff()
+        #
+        # R = 1 / (2 * c2)
         # print('radius of curvature: %.2e' % R)
 
         # offset from center of crystal (along crystal z-axis)
@@ -2523,6 +2518,10 @@ class Crystal(Mirror):
         # high_order_temp = np.polyval(p_int, z_c)
         high_order_temp = integration.cumtrapz(slope_error, z_c, initial=0)
         high_order_temp[mask] -= shapePoly.legval(2)
+
+
+        # plt.plot(zi[int(Ns / 2), mask_z], shapePoly_z.legval(2))
+        # plt.plot(zi[int(Ns / 2), mask_z], shape_lineout_z[mask_z])
 
         # subtract phase at beam center. This is already taken care of with the group delay
         beam_center_phase = np.interp(cz, zi_1d, high_order_temp)
