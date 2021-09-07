@@ -1197,6 +1197,7 @@ class Crystal(Mirror):
         # use equation for curved grating sagittal imaging condition.
         f_s = 1 / ((np.sin(self.alpha) + np.sin(self.beta0)) / R_s - 1 / beamz_y)
         #
+        print('Calculated distance to sagittal focus: %.6f' % f_s)
 
         # limit fit to size of crystal
         mask_z = np.abs(z_c) <= self.length/2
@@ -1205,7 +1206,7 @@ class Crystal(Mirror):
         # subtract second order from shape error
         shape_subtract = np.copy(shapeError2)
         shape_subtract[:, mask_z] -= np.tile(shapePoly_z.legval(2),(Ns,1))
-        shape_subtract[mask_y, :] -= np.tile(np.reshape(shapePoly_y.legval(2),(Ns,1)),(1,Ms))
+        shape_subtract[mask_y, :] -= np.tile(np.reshape(shapePoly_y.legval(2),(shapePoly_y.N,1)),(1,Ms))
 
         shape_subtract *= 1e-9
 
