@@ -997,6 +997,7 @@ class CurvedMirror(Mirror):
 
         # offset along mirror z-axis
         offset = cz - self.dx / np.tan(self.total_alpha)
+        # offset = 0
 
         # get coefficients centered about beam center instead of mirror center
         p_recentered = Util.recenter_coeff(coeff_total, offset)
@@ -1032,7 +1033,7 @@ class CurvedMirror(Mirror):
         # so the beam radius of curvature should be completely removed here. For the cases considered so far this
         # gave identical results to previously.
         p_scaled[-3] += (-1 / (2 * (beamz))
-                         - 1 / (2 * (self.q - cz * np.cos(self.total_alpha))))
+                         - 1 / (2 * (self.q - (cz - self.dx / np.tan(self.total_alpha)) * np.cos(self.total_alpha))))
 
 
         # account for decentering
