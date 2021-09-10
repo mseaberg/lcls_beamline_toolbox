@@ -110,6 +110,10 @@ class Mirror:
         self.sagittal = None
         self.normal = None
         self.correction = 0
+        self.beam_cx = 0
+        self.beam_cy = 0
+        self.beam_ax = 0
+        self.beam_ay = 0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
@@ -222,6 +226,12 @@ class Mirror:
         yi = np.zeros_like(beam.x)
         zi_1d = np.zeros(0)
         yi_1d = np.zeros(0)
+
+        # store some beam attributes for accessing later
+        self.beam_cx = beam.cx
+        self.beam_cy = beam.cy
+        self.beam_ax = beam.ax
+        self.beam_ay = beam.ay
 
         # actual angle of incidence
         total_alpha = self.alpha + self.delta
@@ -823,6 +833,9 @@ class CurvedMirror(Mirror):
         # effective height error
         height_error = x1m - xIm
 
+        # plt.figure()
+        # plt.plot(height_error)
+
         # fit to a polynomial
         p_res = np.polyfit(z1 - np.mean(z1), height_error, 4)
         # print(p_res)
@@ -853,6 +866,12 @@ class CurvedMirror(Mirror):
         k_iz = 0
         cz = 0
         cy = 0
+
+        # store some beam attributes for accessing later
+        self.beam_cx = beam.cx
+        self.beam_cy = beam.cy
+        self.beam_ax = beam.ax
+        self.beam_ay = beam.ay
 
         # actual angle of incidence
         self.total_alpha = self.alpha + self.delta
@@ -1008,7 +1027,7 @@ class CurvedMirror(Mirror):
         M_poly = np.size(coeff_total) - 1
 
         # calculate contributions to high order error
-        total_error = shapeError2 * 1e-9 + Util.polyval_high_order(p_recentered, zi - cz)
+        total_error = shapeError2 * 1e-9 + Util.polyval_high_order(p_recentered, -(zi - cz))
 
         # calculate effect on high order phase for glancing incidence mirror
         phase = -total_error * 4 * np.pi * np.sin(self.total_alpha) / beam.lambda0
