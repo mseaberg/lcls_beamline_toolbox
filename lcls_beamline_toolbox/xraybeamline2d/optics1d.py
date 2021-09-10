@@ -109,6 +109,7 @@ class Mirror:
         self.transverse = None
         self.sagittal = None
         self.normal = None
+        self.correction = 0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
@@ -768,7 +769,7 @@ class CurvedMirror(Mirror):
             # effective beam z at center of mirror
             z_eff_c = beamz - cz*np.cos(self.total_alpha)
             # effective beam angle at center of mirror
-            alpha_eff_c = -beam.ax - np.arctan(-cz*np.sin(self.total_alpha)/z_eff_c)
+            alpha_eff_c = -beam.ax + np.arctan(cz*np.sin(self.total_alpha)/z_eff_c)
 
         elif self.orientation == 1:
             xs = beam.cy + beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
@@ -779,7 +780,7 @@ class CurvedMirror(Mirror):
             # effective beam z at center of mirror
             z_eff_c = beamz - cz * np.cos(self.total_alpha)
             # effective beam angle at center of mirror
-            alpha_eff_c = -beam.ay - np.arctan(-cz * np.sin(self.total_alpha) / z_eff_c)
+            alpha_eff_c = -beam.ay + np.arctan(cz * np.sin(self.total_alpha) / z_eff_c)
 
         elif self.orientation == 2:
             xs = -beam.cx - beam.ax * zs - self.dx / np.cos(self.alpha + self.delta)
@@ -790,7 +791,7 @@ class CurvedMirror(Mirror):
             # effective beam z at center of mirror
             z_eff_c = beamz - cz * np.cos(self.total_alpha)
             # effective beam angle at center of mirror
-            alpha_eff_c = beam.ax - np.arctan(-cz * np.sin(self.total_alpha) / z_eff_c)
+            alpha_eff_c = beam.ax + np.arctan(cz * np.sin(self.total_alpha) / z_eff_c)
 
         elif self.orientation == 3:
             xs = -beam.cy - beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
@@ -801,7 +802,7 @@ class CurvedMirror(Mirror):
             # effective beam z at center of mirror
             z_eff_c = beamz - cz * np.cos(self.total_alpha)
             # effective beam angle at center of mirror
-            alpha_eff_c = beam.ay - np.arctan(-cz * np.sin(self.total_alpha) / z_eff_c)
+            alpha_eff_c = beam.ay + np.arctan(cz * np.sin(self.total_alpha) / z_eff_c)
 
         # calculate ellipse based on design parameters
         z1, x1, z0, x0, delta1 = self.calc_ellipse(self.p, self.q, self.alpha)
@@ -997,6 +998,7 @@ class CurvedMirror(Mirror):
 
         # offset along mirror z-axis
         offset = cz - self.dx / np.tan(self.total_alpha)
+        print('offset: %.4f' % (offset*1e6*np.cos(self.total_alpha)))
         # offset = 0
 
         # get coefficients centered about beam center instead of mirror center
@@ -1032,8 +1034,10 @@ class CurvedMirror(Mirror):
         # the difference between p and beamz is already accounted for in the "calc_misalignment" method now,
         # so the beam radius of curvature should be completely removed here. For the cases considered so far this
         # gave identical results to previously.
+        # p_scaled[-3] += (-1 / (2 * (beamz))
+        #                  - 1 / (2 * (self.q - (cz - self.dx / np.tan(self.total_alpha)) * np.cos(self.total_alpha))))
         p_scaled[-3] += (-1 / (2 * (beamz))
-                         - 1 / (2 * (self.q - (cz - self.dx / np.tan(self.total_alpha)) * np.cos(self.total_alpha))))
+                         - 1 / (2 * (self.q - self.correction)))
 
 
         # account for decentering
@@ -3059,6 +3063,7 @@ class Drift:
         old_z = np.copy(self.dz)
 
         self.dz = np.sqrt(dx**2 + dy**2 + dz**2)
+        self.downstream_component.correction = self.dz - old_z
         print('delta z: %.2f' % ((self.dz - old_z)*1e6))
 
         # beam.global_x = x_intersect
