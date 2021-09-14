@@ -293,6 +293,8 @@ class Beam:
         # x = k_beam[0]/k_beam[2] * dz * k_beam[2]
         # z = dz * np.cos(alpha). cos(alpha) = k[2]
         # self.global_z += k_beam[2] * dz
+        print(self.global_y)
+        print(k_beam[1])
         self.global_x += k_beam[0] * dz
         self.global_y += k_beam[1] * dz
         self.global_z += k_beam[2] * dz
@@ -495,6 +497,91 @@ class Beam:
             else:
                 print('y becomes unfocused')
                 self.wavey *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy) ** 2)
+                self.focused_y = False
+
+        # update beam z
+        self.zx = new_zx
+        self.zy = new_zy
+
+    def change_z_mirror(self, new_zx=None, new_zy=None, old_zx=None, old_zy=None):
+        """
+        Method that is called by focusing elements to check if the beam needs to be re-classified as unfocused.
+        Must be called before beam z is adjusted. Also changes z to new values.
+
+        Parameters
+        ----------
+        new_zx: float
+            new horizontal beam radius of curvature
+        new_zy: float
+            new vertical beam radius of curvature
+        """
+
+        if new_zx is None:
+            new_zx = self.zx
+        if new_zy is None:
+            new_zy = self.zy
+        if old_zx is None:
+            old_zx = self.zx
+        if old_zy is None:
+            old_zy = self.zy
+
+        # update Rayleigh range
+        if new_zx is not None:
+            # if self.focused_x:
+            #     xWidth = np.abs(self.x[0] - self.x[-1])
+            #
+            #     # need to handle zx=0 appropriately
+            #     beamRef = xWidth / self.scaleFactor
+            #     w0 = np.sqrt(self.lambda0*self.zRx/np.pi)
+            #     w = w0 * np.sqrt(1 + (self.zx/self.zRx)**2)
+            #     xWidth *= np.abs(self.zx / (self.zRx * self.rangeFactor))
+            # else:
+            #     xWidth = np.abs(self.x[0] - self.x[-1])
+            xWidth = np.abs(self.x[0] - self.x[-1])
+
+            # self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
+            #             self.rangeFactor)
+            self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (new_zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
+                                     self.rangeFactor)
+            # self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
+            #         self.rangeFactor)
+        if new_zy is not None:
+            # if self.focused_y:
+            #     yWidth = np.abs(self.y[0] - self.y[-1])
+            #     yWidth *= np.abs(self.zy / (self.zRy * self.rangeFactor))
+            # else:
+            #     yWidth = np.abs(self.y[0] - self.y[-1])
+            yWidth = np.abs(self.y[0] - self.y[-1])
+
+            # self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
+            #             self.rangeFactor)
+            self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (new_zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
+                                     self.rangeFactor)
+            # self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
+            #         self.rangeFactor)
+
+        # check if beam should change state. This only needs to happen if beam is already focused because if unfocused
+        # the beam_prop method will check anyway.
+        x_focused = -self.zRx <= new_zx < self.zRx
+        y_focused = -self.zRy <= new_zy < self.zRy
+        print('zRx: %.2e' % self.zRx)
+        print('zRy: %.2e' % self.zRy)
+
+        # check if transitioning to unfocused
+        if self.focused_x:
+            # if it stays focused, we need to modify the phase directly
+            if x_focused:
+                self.wavex *= np.exp(1j * np.pi / self.lambda0 * (self.x - self.cx)**2 * (1/new_zx - 1/old_zx))
+            else:
+                print('x becomes unfocused')
+                self.wavex *= np.exp(-1j * np.pi / self.lambda0 / old_zx * (self.x - self.cx) ** 2)
+                self.focused_x = False
+        if self.focused_y:
+            if y_focused:
+                self.wavey *= np.exp(1j * np.pi / self.lambda0 * (self.y - self.cy) ** 2 * (1 / new_zy - 1 / old_zy))
+            else:
+                print('y becomes unfocused')
+                self.wavey *= np.exp(-1j * np.pi / self.lambda0 / old_zy * (self.y - self.cy) ** 2)
                 self.focused_y = False
 
         # update beam z

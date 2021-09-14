@@ -30,8 +30,12 @@ class Util:
         # check if array is backwards
         if xp[0] > xp[1]:
             y = np.interp(x, np.flipud(xp), np.flipud(fp), left=0, right=0)
+            # if x[0] > x[1]:
+                # y = np.interp(np.flipud(x), np.flipud(xp), np.flipud(fp), left=0, right=0)
         else:
             y = np.interp(x, xp, fp, left=0, right=0)
+            # if x[0] > x[1]:
+            #     y = np.interp(np.flipud(x), xp, fp, left=0, right=0)
 
         return y
 
