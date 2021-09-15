@@ -1178,7 +1178,7 @@ class CurvedMirror(Mirror):
 
         p_coeff = np.polyfit(x_eff[mask]-xcenter, total_distance[mask], 2)
 
-        total_distance -= np.polyval(p_coeff,x_eff - xcenter)
+        total_distance -= np.polyval([p_coeff[-3],0,0],x_eff - xcenter)
 
         distance_interp = Util.interp_flip(x_out,(x_eff-xcenter),total_distance*1e9)*1e-9
 
@@ -1259,6 +1259,9 @@ class CurvedMirror(Mirror):
         z_total = 1/(1/z_out+1/z_2)
         print('new z: %.6f' % z_total)
 
+        # beam.wavex *= np.exp(-1j*np.pi/beam.lambda0/z_2*(x_out)**2)
+        # beam.focused_x = False
+
         # plt.figure()
         # plt.plot(beam.x,mask)
         # plt.plot(beam.x,distance_interp*2*np.pi/beam.lambda0)
@@ -1274,6 +1277,10 @@ class CurvedMirror(Mirror):
             plt.plot(np.unwrap(np.angle(beam.wavex))*mask2)
 
             beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M/2)], old_zx=z_2)
+
+            plt.figure()
+            plt.plot(np.abs(beam.wavex))
+            plt.plot(np.unwrap(np.angle(beam.wavex)) * mask2)
 
             # now transfer origin back to global coordinates to put the beam in the right spot
             origin_shift = origin - np.reshape(np.array([x0, 0, z0]),(3,1))
