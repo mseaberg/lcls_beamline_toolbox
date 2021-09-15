@@ -542,7 +542,7 @@ class Beam:
             # self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
             #             self.rangeFactor)
             self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (new_zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
-                                     self.rangeFactor)
+                                     self.rangeFactor)*2
             # self.zRx = (8 ** 2 * self.lambda0 * new_zx** 2 / np.pi / (np.max(self.x - self.cx) ** 2) *
             #         self.rangeFactor)
         if new_zy is not None:
@@ -556,7 +556,7 @@ class Beam:
             # self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
             #             self.rangeFactor)
             self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (new_zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
-                                     self.rangeFactor)
+                                     self.rangeFactor)*2
             # self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
             #         self.rangeFactor)
 

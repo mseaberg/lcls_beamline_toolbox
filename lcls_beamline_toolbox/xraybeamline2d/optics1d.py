@@ -1000,6 +1000,9 @@ class CurvedMirror(Mirror):
             rotation_angle = -params['beta'] - self.delta
 
             # rotation matrix to rotate beam into ellipse coordinates
+            rot_axis = np.array([1,0,0])
+            # print(beam.xhat)
+            # r = transform.Rotation.from_rotvec(-beam.xhat * rotation_angle)
             r = transform.Rotation.from_rotvec(-beam.xhat * rotation_angle)
             R = r.as_matrix()
             xindex = 1
@@ -1078,6 +1081,7 @@ class CurvedMirror(Mirror):
         plt.quiver(coords[2,:],coords[xindex,:],rays[2,:],rays[xindex,:])
         plt.ylim(-.5,.5)
         plt.grid()
+        plt.title('incoming rays and mirror')
 
 
 
@@ -1117,9 +1121,10 @@ class CurvedMirror(Mirror):
         # calculate ray direction after interaction with ellipse
         rays_out = rays - 2 * np.sum(rays*ellipse_normal,axis=0) * ellipse_normal
 
-        # plt.figure()
-        # plt.plot(beam.y,rays[1,:])
-        # plt.plot(beam.y,rays_out[1,:])
+        plt.figure()
+        plt.plot(beam.y,rays[1,:])
+        plt.plot(beam.y,rays_out[1,:])
+        plt.title('rays in y direction')
 
         # now find intersection with exit plane
         # we can define this simply as having a normal vector in the direction of the central ray
@@ -1133,13 +1138,14 @@ class CurvedMirror(Mirror):
         i_vector = plane_intersect - intersect_coords
         distance_2 = np.sqrt(np.sum(i_vector*i_vector,axis=0))
 
-        # plt.figure()
-        # plt.plot(coords[2, :], coords[xindex, :])
-        # plt.plot(z1, x1)
-        # plt.plot(z_intersect, x_intersect)
-        # plt.plot(plane_intersect[2,:],plane_intersect[xindex,:])
+        plt.figure()
+        plt.plot(coords[2, :], coords[xindex, :])
+        plt.plot(z1, x1)
+        plt.plot(z_intersect, x_intersect)
+        plt.plot(plane_intersect[2,:],plane_intersect[xindex,:])
         # plt.ylim(-.5, .5)
-        # plt.grid()
+        plt.grid()
+        plt.title('entrance/exit planes, mirror intersection')
 
         # plt.figure()
         # plt.plot(coords[0,:],plane_intersect[0,:])
@@ -1152,10 +1158,11 @@ class CurvedMirror(Mirror):
 
         total_distance = (distance_1+distance_2)
 
-        # plt.figure()
-        # plt.plot(distance_1)
-        # plt.plot(distance_2)
-        # plt.plot(distance_1+distance_2)
+        plt.figure()
+        plt.plot(distance_1)
+        plt.plot(distance_2)
+        plt.plot(distance_1+distance_2)
+        plt.title('distances')
         # plt.plot(beam.x,beam.x**2/2/2.45)
         # plt.figure()
         # plt.plot(beam.x,total_distance-total_distance[int(beam.N/2)])
@@ -1193,6 +1200,7 @@ class CurvedMirror(Mirror):
         plt.figure()
         # plt.plot(x_out[mask2],distance_interp[mask2])
         plt.plot(x_eff[mask]-xcenter,total_distance[mask])
+        plt.title('distance inside mirror footprint')
         # plt.plot(x_out,mask2)
 
         z_out = 1/2/p_coeff[-3]
@@ -1215,7 +1223,9 @@ class CurvedMirror(Mirror):
                 plt.figure()
                 plt.plot(quadratic)
                 plt.plot(angle_out)
+                plt.title('quadratic phase and other phase')
                 angle_out += quadratic
+
 
                 # beam.focused_x = True
 
@@ -1225,7 +1235,8 @@ class CurvedMirror(Mirror):
             z_total = 1 / (1 / z_out + 1 / z_2)
             print('new z: %.6f' % z_total)
 
-            angle_out -= np.polyval([p_coeff[-3],0,0],x_out)
+            if not beam.focused_x:
+                angle_out -= np.polyval([p_coeff[-3],0,0],x_out)
 
             total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
 
@@ -1244,6 +1255,12 @@ class CurvedMirror(Mirror):
                 quadratic = Util.interp_flip(x_out, x_eff - xcenter, np.pi / beam.lambda0 / beam.zy * beam.y ** 2)
                 angle_out += quadratic
 
+                plt.figure()
+                plt.plot(quadratic)
+                plt.plot(angle_out)
+                plt.title('quadratic phase and other phase')
+                angle_out += quadratic
+
                 # beam.focused_y = True
 
             p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
@@ -1252,7 +1269,10 @@ class CurvedMirror(Mirror):
             z_total = 1 / (1 / z_out + 1 / z_2)
             print('new z: %.6f' % z_total)
 
-            angle_out -= np.polyval([p_coeff[-3], 0, 0], x_out)
+            # angle_out -= np.polyval([p_coeff[-3], 0, 0], x_out)
+
+            if not beam.focused_y:
+                angle_out -= np.polyval([p_coeff[-3],0,0],x_out)
 
             total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
 
@@ -1267,6 +1287,7 @@ class CurvedMirror(Mirror):
 
         plt.figure()
         plt.plot(x_out[mask2],angle_out[mask2])
+        plt.title('other phase inside footprint')
 
 
 
@@ -1286,12 +1307,14 @@ class CurvedMirror(Mirror):
             plt.figure()
             plt.plot(np.abs(beam.wavex))
             plt.plot(np.unwrap(np.angle(beam.wavex))*mask2)
+            plt.title('phase before changing beam.z')
 
             beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M/2)], old_zx=z_2)
 
             plt.figure()
             plt.plot(np.abs(beam.wavex))
             plt.plot(np.unwrap(np.angle(beam.wavex)) * mask2)
+            plt.title('phase after changing beam.z')
 
             # now transfer origin back to global coordinates to put the beam in the right spot
             origin_shift = origin - np.reshape(np.array([x0, 0, z0]),(3,1))
@@ -1303,8 +1326,14 @@ class CurvedMirror(Mirror):
             plt.figure()
             plt.plot(np.abs(beam.wavey))
             plt.plot(np.unwrap(np.angle(beam.wavey)) * mask2)
+            plt.title('phase before changing beam.z')
 
             beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.M / 2)], old_zy=z_2)
+
+            plt.figure()
+            plt.plot(np.abs(beam.wavey))
+            plt.plot(np.unwrap(np.angle(beam.wavey)) * mask2)
+            plt.title('phase after changing beam.z')
 
             # now transfer origin back to global coordinates to put the beam in the right spot
             origin_shift = origin - np.reshape(np.array([0, x0, z0]), (3, 1))
