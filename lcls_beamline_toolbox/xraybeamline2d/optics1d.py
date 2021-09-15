@@ -1245,8 +1245,6 @@ class CurvedMirror(Mirror):
 
             beam.y = x_out
 
-
-
         beam.new_fx()
         mask2 = mask2>0.5
 
