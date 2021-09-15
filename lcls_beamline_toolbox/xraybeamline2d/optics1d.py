@@ -1184,7 +1184,8 @@ class CurvedMirror(Mirror):
 
         mask2 = Util.interp_flip(x_out,x_eff-xcenter,mask)
         mask2[mask2<.9] = 0
-        mask2 = mask2.astype(int)
+        # mask2 = mask2.astype(int)
+        mask2 = mask2 > 0.5
 
         # plt.figure()
         # plt.plot(x_out,mask2)
@@ -1216,7 +1217,15 @@ class CurvedMirror(Mirror):
                 plt.plot(angle_out)
                 angle_out += quadratic
 
-                beam.focused_x = True
+                # beam.focused_x = True
+
+            p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
+            z_2 = np.pi / beam.lambda0 / p_coeff[-3]
+
+            z_total = 1 / (1 / z_out + 1 / z_2)
+            print('new z: %.6f' % z_total)
+
+            angle_out -= np.polyval([p_coeff[-3],0,0],x_out)
 
             total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
 
@@ -1235,7 +1244,15 @@ class CurvedMirror(Mirror):
                 quadratic = Util.interp_flip(x_out, x_eff - xcenter, np.pi / beam.lambda0 / beam.zy * beam.y ** 2)
                 angle_out += quadratic
 
-                beam.focused_y = True
+                # beam.focused_y = True
+
+            p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
+            z_2 = np.pi / beam.lambda0 / p_coeff[-3]
+
+            z_total = 1 / (1 / z_out + 1 / z_2)
+            print('new z: %.6f' % z_total)
+
+            angle_out -= np.polyval([p_coeff[-3], 0, 0], x_out)
 
             total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
 
@@ -1246,16 +1263,12 @@ class CurvedMirror(Mirror):
             beam.y = x_out
 
         beam.new_fx()
-        mask2 = mask2>0.5
+
 
         plt.figure()
         plt.plot(x_out[mask2],angle_out[mask2])
 
-        p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
-        z_2 = np.pi/beam.lambda0/p_coeff[-3]
 
-        z_total = 1/(1/z_out+1/z_2)
-        print('new z: %.6f' % z_total)
 
         # beam.wavex *= np.exp(-1j*np.pi/beam.lambda0/z_2*(x_out)**2)
         # beam.focused_x = False
