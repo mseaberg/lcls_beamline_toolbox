@@ -1058,12 +1058,20 @@ class CurvedMirror(Mirror):
         x0 = params['x0']
         z0 = params['z0']
 
-        ellipse_rotate = params['delta'] + self.delta
+        print(params['delta'])
+
+        ellipse_rotate = self.alpha + self.delta
         re = transform.Rotation.from_rotvec(-self.sagittal * ellipse_rotate)
         Re = re.as_matrix()
 
         ellipse_z = np.matmul(Re, self.transverse)
         ellipse_x = np.matmul(Re, self.normal)
+
+        print(ellipse_z)
+        print(ellipse_x)
+
+        # ellipse_z = np.array([0,0,1])
+        # ellipse_x = np.array([1,0,0])
 
         # now add mirror center offset so that coordinates are centered on the ellipse
         coords += np.reshape(x0 * ellipse_x + z0 * ellipse_z,(3,1))
