@@ -967,22 +967,50 @@ class CurvedMirror(Mirror):
 
     def trace_surface(self, beam):
 
+        # global unit vectors
+        ux = np.reshape(np.array([1,0,0]),(3,1))
+        uy = np.reshape(np.array([0,1,0]),(3,1))
+        uz = np.reshape(np.array([0,0,1]),(3,1))
+
         # propagate beam to just upstream of mirror
         beam.beam_prop(-self.length/2*1.1)
         # define mirror surface (this is in the normal ellipse coordinates)
         params = self.ellipse_params(self.p, self.q, self.alpha)
 
+        # vector defining displacement from beam location to mirror center. This is in global coordinates
+        beam_center = np.array([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = np.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        beam_to_mirror = beam_center - mirror_center
+
+        # define ellipse coordinate unit vectors
+        # rotation angle to rotate mirror vectors into ellipse coordinates
+        if self.orientation==0 or self.orientation==1:
+            ellipse_rotate = params['delta'] - self.delta
+        else:
+            ellipse_rotate = -params['delta'] + self.delta
+        re = transform.Rotation.from_rotvec(-self.sagittal*ellipse_rotate)
+        Re = re.as_matrix()
+        ellipse_x = np.matmul(Re, self.normal)
+        ellipse_y = self.sagittal
+        ellipse_z = np.matmul(Re, self.transverse)
+
+        print('ellipse unit vectors')
+        print(ellipse_x)
+        print(ellipse_z)
+
         # go through all orientation options
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
-            rays_x = beam.ax + (beam.x-beam.cx)/beam.zx
+            rays_x = (beam.x-beam.cx)/beam.zx
             # transverse unit vector (in global coordinates)
             t_hat = beam.xhat
-            # beam plane coordinates in beam local coordinates
-            coords = np.multiply.outer(beam.xhat, beam.x)
+            # beam plane coordinates in global coordinates, but with beam centered at zero
+            coords = np.multiply.outer(beam.xhat, beam.x-beam.cx)
+            # now add global beam center so that beam coordinates are in global coordinates
+
 
             # calculate angle that beam should be rotated into ellipse coordinates
-            rotation_angle = params['beta'] + self.delta
+            rotation_angle = params['beta'] + self.delta - beam.ax
 
             # rotation matrix to rotate beam into ellipse coordinates
             r = transform.Rotation.from_rotvec(-self.sagittal*rotation_angle)
@@ -1037,6 +1065,18 @@ class CurvedMirror(Mirror):
             R = r.as_matrix()
             xindex = 1
 
+        coords += np.reshape(beam_center, (3, 1))
+        # now subtract mirror center so that beam coordinates are in global coordinates,
+        # but with origin at mirror center
+        coords -= np.reshape(mirror_center, (3, 1))
+        # now shift origin to ellipse origin
+        coords += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+
+        # now write beam coordinates in ellipse coordinates
+        transform_matrix = np.tensordot(np.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)),
+                                        np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        coords_ellipse = np.tensordot(transform_matrix, coords, axes=(1, 0))
+
         # calculate z component of rays (enforcing unit vector)
         rays_z = np.sqrt(np.ones_like(rays_x) - rays_x ** 2)
         # ray vectors at each point in the beam
@@ -1045,14 +1085,17 @@ class CurvedMirror(Mirror):
         # normalize rays (should be redundant)
         rays = rays / np.sqrt(np.sum(rays*rays, axis=0))
 
-        # add offsets to find beam coordinates relative to mirror
-        # (still need to offset by ellipse center after rotating into ellipse coordinates)
-        coords += np.reshape((np.array([beam.global_x, beam.global_y, beam.global_z]) -
-                              np.array([self.global_x, self.global_y, self.z]) -
-                              self.normal * self.dx), (3, 1))
-        # now rotate beam into ellipse coordinates, taking into account mirror offset and/or angular misalignment
-        coords = np.tensordot(R, coords, axes=(1, 0))
-        rays = np.tensordot(R, rays, axes=(1,0))
+        # now write rays in ellipse coordinates
+        rays_ellipse = np.tensordot(transform_matrix, rays, axes=(1,0))
+
+        # # add offsets to find beam coordinates relative to mirror
+        # # (still need to offset by ellipse center after rotating into ellipse coordinates)
+        # coords += np.reshape((np.array([beam.global_x, beam.global_y, beam.global_z]) -
+        #                       np.array([self.global_x, self.global_y, self.z]) -
+        #                       self.normal * self.dx), (3, 1))
+        # # now rotate beam into ellipse coordinates, taking into account mirror offset and/or angular misalignment
+        # coords = np.tensordot(R, coords, axes=(1, 0))
+        # rays = np.tensordot(R, rays, axes=(1,0))
 
         # mirror center in ellipse coordinates
         x0 = params['x0']
