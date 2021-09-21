@@ -1200,9 +1200,9 @@ class CurvedMirror(Mirror):
         total_distance = (distance_1+distance_2)
         #
         plt.figure()
-        plt.plot(distance_1)
-        plt.plot(distance_2)
-        plt.plot(distance_1+distance_2)
+        plt.plot(intersect_coords[2,:],distance_1)
+        plt.plot(intersect_coords[2,:],distance_2)
+        plt.plot(intersect_coords[2,:],distance_1+distance_2)
         plt.title('distances')
         # # plt.plot(beam.x,beam.x**2/2/2.45)
         # # plt.figure()
@@ -1229,8 +1229,11 @@ class CurvedMirror(Mirror):
             dx = beam.dy * (beam.zy + self.length / 2 * 1.1) / beam.zy * (self.q - self.length / 2 * 1.1) / self.q
             x_out = np.linspace(-beam.N / 2 * dx, (beam.N / 2 - 1) * dx, beam.N)
         # mask defining mirror acceptance
-        mask = np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta'])
+        mask = np.logical_and(coords_ellipse[0,:]>intersect_coords[0,:], plane_intersect[0,:]>intersect_coords[0,:])
+        # mask = np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta'])
         # second order fit to ray distance
+        mask = np.logical_and(mask, np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta']))
+
         p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
         linear = p_coeff[-2]
         # subtract best fit parabola
@@ -1358,7 +1361,9 @@ class CurvedMirror(Mirror):
                 beam.rotate_nominal(delta_azimuth=-2*self.alpha)
                 beam.rotate_beam(delta_ax=-delta_ax)
 
-            delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
+            # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
+            delta_cx = ax0 * self.length / 2 * 1.1
+            delta_cx += beam.ax * self.length / 2 * 1.1
             delta_cx += 2*np.dot(self.normal,beam.xhat) * self.dx
             print('change in beam center')
             print(delta_cx)
@@ -1756,8 +1761,10 @@ class CurvedMirror(Mirror):
         # factor out 2pi/lambda for linear term (so equal to change in propagation angle)
         linear += p_scaled[-2]
 
+        cx = np.copy(beam.cx)
 
         self.trace_surface(beam)
+        beam.beam_prop(-self.length / 2 * 1.1)
 
         # now change outgoing beam k-vector based on mirror orientation, and apply quadratic phase
         if self.orientation == 0:
@@ -1788,7 +1795,7 @@ class CurvedMirror(Mirror):
             # delta_cx = 2 * self.dx * np.cos(self.total_alpha)
             # beam.cx = -beam.cx + delta_cx
             # beam.x = beam.x + delta_cx
-            pass
+            beam.cx = -cx
 
         elif self.orientation == 1:
 
@@ -1881,7 +1888,6 @@ class CurvedMirror(Mirror):
         # plt.plot(np.abs(beam.wavex))
         # plt.figure()
         # plt.plot(np.angle(beam.wavex))
-        beam.beam_prop(-self.length / 2 * 1.1)
 
         return
 
