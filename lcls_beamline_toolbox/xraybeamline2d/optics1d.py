@@ -974,8 +974,11 @@ class CurvedMirror(Mirror):
 
         delta_z = self.length / 2 * 1.1
 
+        print('ax: %.6e' % beam.ax)
+        print('ay: %.6e' % beam.ay)
+
         # propagate beam to just upstream of mirror
-        beam.beam_prop(-self.length/2*1.1)
+        beam.beam_prop(-delta_z)
         # define mirror surface (this is in the normal ellipse coordinates)
         params = self.ellipse_params(self.p, self.q, self.alpha)
 
@@ -1130,11 +1133,14 @@ class CurvedMirror(Mirror):
         z_intersect = (-bq+np.sqrt(bq**2-4*aq*cq))/2/aq
         if self.orientation==0 or self.orientation==1:
             x_intersect = -b*np.sqrt(np.ones_like(z_intersect)-z_intersect**2/a**2)
+            y_intersect = rays_ellipse[1,:]/rays_ellipse[2,:]*(z_intersect-coords_ellipse[2,:]) + coords_ellipse[1,:]
         else:
             x_intersect = -b * np.sqrt(np.ones_like(z_intersect) - z_intersect ** 2 / a ** 2)
+            y_intersect = rays_ellipse[1, :] / rays_ellipse[2, :] * (z_intersect - coords_ellipse[2, :]) + coords_ellipse[1, :]
 
         intersect_coords = np.zeros((3,np.size(z_intersect)))
         intersect_coords[0,:] = x_intersect
+        intersect_coords[1,:] = y_intersect
         intersect_coords[2,:] = z_intersect
 
         i_vector = intersect_coords - coords_ellipse
@@ -1442,24 +1448,37 @@ class CurvedMirror(Mirror):
 
         if self.orientation==0 or self.orientation==2:
             # calculate Fresnel scaling magnification
-            mag_y = (beam.zy + 2 * delta_z) / beam.zy
 
-            # calculate effective distance to propagate
-            z_eff_y = 2 * delta_z / mag_y
+            if beam.focused_y:
+                beam.propagation(0,0,2*delta_z)
+            else:
+                mag_y = (beam.zy + 2 * delta_z) / beam.zy
 
-            # scaled propagation
-            beam.propagation(0, 0, z_eff_y)
-            beam.rescale_y_noshift(mag_y)
+                # calculate effective distance to propagate
+                z_eff_y = 2 * delta_z / mag_y
+
+                # scaled propagation
+                beam.propagation(0, 0, z_eff_y)
+                beam.rescale_y_noshift(mag_y)
+            beam.y -= beam.cy
+            beam.cy += beam.ay * 2 * delta_z
+            beam.y += beam.cy
         else:
-            # calculate Fresnel scaling magnification
-            mag_x = (beam.zx + 2 * delta_z) / beam.zx
+            if beam.focused_x:
+                beam.propagation(0,0,2*delta_z)
+            else:
+                # calculate Fresnel scaling magnification
+                mag_x = (beam.zx + 2 * delta_z) / beam.zx
 
-            # calculate effective distance to propagate
-            z_eff_x = 2 * delta_z / mag_x
+                # calculate effective distance to propagate
+                z_eff_x = 2 * delta_z / mag_x
 
-            # scaled propagation
-            beam.propagation(0, 0, z_eff_x)
-            beam.rescale_x_noshift(mag_x)
+                # scaled propagation
+                beam.propagation(0, 0, z_eff_x)
+                beam.rescale_x_noshift(mag_x)
+            beam.x -= beam.cx
+            beam.cx += beam.ax * 2 * delta_z
+            beam.x += beam.cx
 
         if self.orientation==0 or self.orientation==2:
             # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
@@ -1469,6 +1488,7 @@ class CurvedMirror(Mirror):
             # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
             beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + 2*delta_z, old_zy=z_2)
 
+        beam.new_fx()
         # beam.wavex = abs_out * np.exp(1j * phase_interp)
         # # beam.wavex = (real_out + 1j*imag_out)*np.exp(1j*2*np.pi/beam.lambda0*distance_interp)
         # beam.wavex *= mask2
