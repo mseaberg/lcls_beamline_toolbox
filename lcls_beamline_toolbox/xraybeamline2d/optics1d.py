@@ -1850,9 +1850,9 @@ class CurvedMirror(Mirror):
             # delta_cx = 2 * self.dx * np.cos(self.total_alpha)
             # beam.cx = -beam.cx + delta_cx
             # beam.x = beam.x + delta_cx
-            beam.x -= beam.cx
+            # beam.x -= beam.cx
             beam.cx = -cx
-            beam.x += beam.cx
+            # beam.x += beam.cx
 
         elif self.orientation == 1:
 
@@ -1882,9 +1882,9 @@ class CurvedMirror(Mirror):
             # delta_cy = 2 * self.dx * np.cos(self.total_alpha)
             # beam.cy = -beam.cy + delta_cy
             # beam.y = beam.y + delta_cy
-            beam.y -= beam.cy
+            # beam.y -= beam.cy
             beam.cy = -cy
-            beam.y += beam.cy
+            # beam.y += beam.cy
 
         elif self.orientation == 2:
 
@@ -1914,9 +1914,9 @@ class CurvedMirror(Mirror):
             # delta_cx = -2 * self.dx * np.cos(self.total_alpha)
             # beam.cx = -beam.cx + delta_cx
             # beam.x = beam.x + delta_cx
-            beam.x -= beam.cx
+            # beam.x -= beam.cx
             beam.cx = -cx
-            beam.x += beam.cx
+            # beam.x += beam.cx
 
         elif self.orientation == 3:
 
@@ -1946,9 +1946,9 @@ class CurvedMirror(Mirror):
             # delta_cy = -2 * self.dx * np.cos(self.total_alpha)
             # beam.cy = -beam.cy + delta_cy
             # beam.y = beam.y + delta_cy
-            beam.y -= beam.cy
+            # beam.y -= beam.cy
             beam.cy = -cy
-            beam.y += beam.cy
+            # beam.y += beam.cy
 
         # plt.figure()
         # plt.plot(np.abs(beam.wavex))
