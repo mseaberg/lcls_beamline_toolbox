@@ -972,6 +972,8 @@ class CurvedMirror(Mirror):
         uy = np.reshape(np.array([0,1,0]),(3,1))
         uz = np.reshape(np.array([0,0,1]),(3,1))
 
+        delta_z = self.length / 2 * 1.1
+
         # propagate beam to just upstream of mirror
         beam.beam_prop(-self.length/2*1.1)
         # define mirror surface (this is in the normal ellipse coordinates)
@@ -1437,6 +1439,27 @@ class CurvedMirror(Mirror):
         beam.global_x = origin_global[0,0]
         beam.global_y = origin_global[1,0]
         beam.global_z = origin_global[2,0]
+
+        if self.orientation==0 or self.orientation==2:
+            # calculate Fresnel scaling magnification
+            mag_y = (beam.zy + 2 * delta_z) / beam.zy
+
+            # calculate effective distance to propagate
+            z_eff_y = 2 * delta_z / mag_y
+
+            # scaled propagation
+            beam.propagation(0, 0, z_eff_y)
+            beam.rescale_y_noshift(mag_y)
+        else:
+            # calculate Fresnel scaling magnification
+            mag_x = (beam.zx + 2 * delta_z) / beam.zx
+
+            # calculate effective distance to propagate
+            z_eff_x = 2 * delta_z / mag_x
+
+            # scaled propagation
+            beam.propagation(0, 0, z_eff_x)
+            beam.rescale_x_noshift(mag_x)
 
         if self.orientation==0 or self.orientation==2:
             beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
