@@ -1462,9 +1462,12 @@ class CurvedMirror(Mirror):
             beam.rescale_x_noshift(mag_x)
 
         if self.orientation==0 or self.orientation==2:
-            beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+            beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + 2*delta_z, old_zx=z_2)
         else:
-            beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+
+            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+            beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + 2*delta_z, old_zy=z_2)
 
         # beam.wavex = abs_out * np.exp(1j * phase_interp)
         # # beam.wavex = (real_out + 1j*imag_out)*np.exp(1j*2*np.pi/beam.lambda0*distance_interp)
