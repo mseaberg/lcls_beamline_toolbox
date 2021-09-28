@@ -193,6 +193,9 @@ class Beam:
         self.lambda0 = 1239.8 / beam_params['photonEnergy'] * 1e-9
         self.k0 = 2.0 * np.pi / self.lambda0
 
+        print('zRx: %.6f' % self.zRx)
+        print('zRy: %.6f' % self.zRy)
+
         # get array shape
         self.M = self.wavex.size
         self.N = self.wavey.size
@@ -516,14 +519,7 @@ class Beam:
             new vertical beam radius of curvature
         """
 
-        if new_zx is None:
-            new_zx = self.zx
-        if new_zy is None:
-            new_zy = self.zy
-        if old_zx is None:
-            old_zx = self.zx
-        if old_zy is None:
-            old_zy = self.zy
+
 
         old_zRx = np.copy(self.zRx)
         old_zRy = np.copy(self.zRy)
@@ -540,6 +536,7 @@ class Beam:
             #     xWidth *= np.abs(self.zx / (self.zRx * self.rangeFactor))
             # else:
             #     xWidth = np.abs(self.x[0] - self.x[-1])
+
             xWidth = np.abs(self.x[0] - self.x[-1])
 
             # self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
@@ -554,14 +551,24 @@ class Beam:
             #     yWidth *= np.abs(self.zy / (self.zRy * self.rangeFactor))
             # else:
             #     yWidth = np.abs(self.y[0] - self.y[-1])
+
             yWidth = np.abs(self.y[0] - self.y[-1])
 
             # self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
             #             self.rangeFactor)
             self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (new_zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
-                                     self.rangeFactor)*2
+                                 self.rangeFactor)*2
             # self.zRy = (8 ** 2 * self.lambda0 * new_zy** 2 / np.pi / (np.max(self.y - self.cy) ** 2) *
             #         self.rangeFactor)
+
+        if new_zx is None:
+            new_zx = self.zx
+        if new_zy is None:
+            new_zy = self.zy
+        if old_zx is None:
+            old_zx = self.zx
+        if old_zy is None:
+            old_zy = self.zy
 
         # check if beam should change state. This only needs to happen if beam is already focused because if unfocused
         # the beam_prop method will check anyway.
@@ -593,6 +600,13 @@ class Beam:
                 self.x = new_x
                 self.dx = new_dx
                 self.new_fx()
+
+                xWidth = np.abs(self.x[0] - self.x[-1])
+
+                # self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
+                #             self.rangeFactor)
+                self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (new_zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
+                            self.rangeFactor)
         if self.focused_y:
             if y_focused:
                 self.wavey *= np.exp(1j * np.pi / self.lambda0 * (self.y - self.cy) ** 2 * (1 / new_zy - 1 / old_zy))
@@ -615,6 +629,15 @@ class Beam:
                 self.dy = new_dy
                 self.new_fx()
 
+                yWidth = np.abs(self.y[0] - self.y[-1])
+
+                # self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
+                #             self.rangeFactor)
+                self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (new_zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
+                            self.rangeFactor)
+
+        print('zRx: %.2e' % self.zRx)
+        print('zRy: %.2e' % self.zRy)
         # update beam z
         self.zx = new_zx
         self.zy = new_zy

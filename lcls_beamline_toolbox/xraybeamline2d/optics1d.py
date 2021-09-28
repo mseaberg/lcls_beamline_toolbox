@@ -1467,6 +1467,7 @@ class CurvedMirror(Mirror):
             # calculate Fresnel scaling magnification
 
             if beam.focused_y:
+                # this accounts for change in phase
                 beam.propagation(0,0,2*delta_z)
             else:
                 mag_y = (beam.zy + 2 * delta_z) / beam.zy
@@ -1480,6 +1481,7 @@ class CurvedMirror(Mirror):
             beam.y -= beam.cy
             beam.cy += beam.ay * 2 * delta_z
             beam.y += beam.cy
+            beam.zy += 2*delta_z
         else:
             if beam.focused_x:
                 beam.propagation(0,0,2*delta_z)
@@ -1496,14 +1498,15 @@ class CurvedMirror(Mirror):
             beam.x -= beam.cx
             beam.cx += beam.ax * 2 * delta_z
             beam.x += beam.cx
+            beam.zx += 2*delta_z
 
         if self.orientation==0 or self.orientation==2:
             # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
-            beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + 2*delta_z, old_zx=z_2)
+            beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
         else:
 
             # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
-            beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + 2*delta_z, old_zy=z_2)
+            beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
 
         beam.new_fx()
         # beam.wavex = abs_out * np.exp(1j * phase_interp)
@@ -1620,9 +1623,9 @@ class CurvedMirror(Mirror):
         # beam.global_z = origin_rotate[2,0]
         # beam.global_y = origin_rotate[1,0]
         # beam.global_x = origin_rotate[0,0]
-        # print('global_x: %.2f' % beam.global_x)
-        # print('global_y: %.2f' % beam.global_y)
-        # print('global_z: %.2f' % beam.global_z)
+        print('global_x: %.2f' % beam.global_x)
+        print('global_y: %.2f' % beam.global_y)
+        print('global_z: %.2f' % beam.global_z)
 
     def reflect(self, beam):
         """
