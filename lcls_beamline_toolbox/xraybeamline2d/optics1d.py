@@ -115,6 +115,9 @@ class Mirror:
         self.beam_ax = 0
         self.beam_ay = 0
         self.show_figures = False
+        self.x_intersect = 0
+        self.y_intersect = 0
+        self.z_intersect = 0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
@@ -1861,6 +1864,13 @@ class CurvedMirror(Mirror):
         self.trace_surface(beam)
         beam.beam_prop(-self.length / 2 * 1.1)
 
+        print('x')
+        print(beam.global_x)
+        print('y')
+        print(beam.global_y)
+        print('z')
+        print(beam.global_z)
+
         # now change outgoing beam k-vector based on mirror orientation, and apply quadratic phase
         if self.orientation == 0:
 
@@ -1994,6 +2004,10 @@ class CurvedMirror(Mirror):
         # plt.plot(np.abs(beam.wavex))
         # plt.figure()
         # plt.plot(np.angle(beam.wavex))
+
+        # beam.global_x = self.x_intersect
+        # beam.global_y = self.y_intersect
+        # beam.global_z = self.z_intersect
 
         return
 
@@ -3877,13 +3891,17 @@ class Drift:
         y_intersect = k[1] / k[2] * (z_intersect - beam.global_z) + beam.global_y
         print('y intersect: %.4e' % y_intersect)
         print('component y: %.4e' % self.downstream_component.global_y)
-        print('z intersect: %.4e' % z_intersect)
-        print('component z: %.4e' % self.downstream_component.z)
+        print('z intersect: %.10e' % z_intersect)
+        print('component z: %.10e' % self.downstream_component.z)
         dx = x_intersect - beam.global_x
         dy = y_intersect - beam.global_y
         dz = z_intersect - beam.global_z
         # re-calculate propagation distance
         old_z = np.copy(self.dz)
+
+        self.downstream_component.x_intersect = x_intersect
+        self.downstream_component.y_intersect = y_intersect
+        self.downstream_component.z_intersect = z_intersect
 
         self.dz = np.sqrt(dx**2 + dy**2 + dz**2)
         self.downstream_component.correction = self.dz - old_z
@@ -3894,7 +3912,7 @@ class Drift:
         # beam.global_z =
 
         beam.beam_prop(self.dz)
-
+        # beam.beam_prop(old_z)
 
 class PPM:
     """
