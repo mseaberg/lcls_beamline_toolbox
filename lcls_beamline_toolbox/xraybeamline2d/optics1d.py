@@ -114,10 +114,11 @@ class Mirror:
         self.beam_cy = 0
         self.beam_ax = 0
         self.beam_ay = 0
+        self.show_figures = False
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
-                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw']
+                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw', 'show_figures']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -967,6 +968,7 @@ class CurvedMirror(Mirror):
 
     def trace_surface(self, beam):
 
+        figon = self.show_figures
         # global unit vectors
         ux = np.reshape(np.array([1,0,0]),(3,1))
         uy = np.reshape(np.array([0,1,0]),(3,1))
@@ -1031,6 +1033,8 @@ class CurvedMirror(Mirror):
 
             # relevant wavefront
             wave = beam.wavex
+
+            beamx = beam.x
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = (beam.y-beam.cy)/beam.zy
@@ -1041,6 +1045,7 @@ class CurvedMirror(Mirror):
 
             # relevant wavefront
             wave = beam.wavey
+            beamx = beam.y
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = (beam.x-beam.cx)/beam.zx
@@ -1051,6 +1056,7 @@ class CurvedMirror(Mirror):
 
             # relevant wavefront
             wave = beam.wavex
+            beamx = beam.x
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = (beam.y-beam.cy)/beam.zy
@@ -1061,6 +1067,7 @@ class CurvedMirror(Mirror):
 
             # relevant wavefront
             wave = beam.wavey
+            beamx = beam.y
         # reference to global origin by adding beam global center
         coords += np.reshape(beam_center, (3, 1))
         # now subtract mirror center so that beam coordinates are in global coordinates,
@@ -1109,13 +1116,14 @@ class CurvedMirror(Mirror):
         #     x1 = -x1
         #     x0 = -x0
 
-        plt.figure()
-        plt.plot(coords_ellipse[2,:],coords_ellipse[0,:])
-        plt.plot(z1, x1)
-        plt.quiver(coords_ellipse[2,:],coords_ellipse[0,:],rays_ellipse[2,:],rays_ellipse[0,:])
-        plt.ylim(-.5,.5)
-        plt.grid()
-        plt.title('incoming rays and mirror')
+        if figon:
+            plt.figure()
+            plt.plot(coords_ellipse[2,:],coords_ellipse[0,:])
+            plt.plot(z1, x1)
+            plt.quiver(coords_ellipse[2,:],coords_ellipse[0,:],rays_ellipse[2,:],rays_ellipse[0,:])
+            plt.ylim(-.5,.5)
+            plt.grid()
+            plt.title('incoming rays and mirror')
 
 
 
@@ -1159,10 +1167,11 @@ class CurvedMirror(Mirror):
         # calculate ray direction after interaction with ellipse
         rays_out = rays_ellipse - 2 * np.sum(rays_ellipse*ellipse_normal,axis=0) * ellipse_normal
 
-        plt.figure()
-        plt.plot(coords_ellipse[0,:],rays_ellipse[0,:])
-        plt.plot(coords_ellipse[0,:],rays_out[0,:])
-        plt.title('rays in y direction')
+        if figon:
+            plt.figure()
+            plt.plot(beamx,rays_ellipse[0,:])
+            plt.plot(beamx,rays_out[0,:])
+            plt.title('rays in y direction')
 
         # now find intersection with exit plane
         # we can define this simply as having a normal vector in the direction of the central ray
@@ -1176,14 +1185,15 @@ class CurvedMirror(Mirror):
         i_vector = plane_intersect - intersect_coords
         distance_2 = np.sqrt(np.sum(i_vector*i_vector,axis=0))
 
-        plt.figure()
-        plt.plot(coords_ellipse[2, :], coords_ellipse[0, :])
-        plt.plot(z1, x1)
-        plt.plot(z_intersect, x_intersect)
-        plt.plot(plane_intersect[2,:],plane_intersect[0,:])
-        # plt.ylim(-.5, .5)
-        plt.grid()
-        plt.title('entrance/exit planes, mirror intersection')
+        if figon:
+            plt.figure()
+            plt.plot(coords_ellipse[2, :], coords_ellipse[0, :])
+            plt.plot(z1, x1)
+            plt.plot(z_intersect, x_intersect)
+            plt.plot(plane_intersect[2,:],plane_intersect[0,:])
+            # plt.ylim(-.5, .5)
+            plt.grid()
+            plt.title('entrance/exit planes, mirror intersection')
 
         # plt.figure()
         # plt.plot(coords[0,:],plane_intersect[0,:])
@@ -1196,11 +1206,12 @@ class CurvedMirror(Mirror):
         #
         total_distance = (distance_1+distance_2)
         #
-        plt.figure()
-        plt.plot(intersect_coords[2,:],distance_1)
-        plt.plot(intersect_coords[2,:],distance_2)
-        plt.plot(intersect_coords[2,:],distance_1+distance_2)
-        plt.title('distances')
+        if figon:
+            plt.figure()
+            plt.plot(intersect_coords[2,:],distance_1)
+            plt.plot(intersect_coords[2,:],distance_2)
+            plt.plot(intersect_coords[2,:],distance_1+distance_2)
+            plt.title('distances')
         # # plt.plot(beam.x,beam.x**2/2/2.45)
         # # plt.figure()
         # # plt.plot(beam.x,total_distance-total_distance[int(beam.N/2)])
@@ -1234,6 +1245,7 @@ class CurvedMirror(Mirror):
                                   plane_intersect[0, :] < intersect_coords[0, :])
         # mask = np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta'])
         # second order fit to ray distance
+        mask = np.logical_and(mask, coords_ellipse[0,:]<0)
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta']))
 
         p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
@@ -1248,14 +1260,15 @@ class CurvedMirror(Mirror):
         # mask2 = mask2.astype(int)
         mask2 = mask2 > 0.5
         #
-        plt.figure()
-        # plt.plot(x_out,mask2)
-        plt.plot(x_eff[mask],mask[mask])
-        #
-        plt.figure()
-        # plt.plot(x_out[mask2],distance_interp[mask2])
-        plt.plot(x_eff[mask],total_distance[mask])
-        plt.title('distance inside mirror footprint')
+        if figon:
+            plt.figure()
+            # plt.plot(x_out,mask2)
+            plt.plot(x_eff[mask],mask[mask])
+            #
+            plt.figure()
+            # plt.plot(x_out[mask2],distance_interp[mask2])
+            plt.plot(x_eff[mask],total_distance[mask])
+            plt.title('distance inside mirror footprint')
         # plt.plot(x_out,mask2)
 
         z_out = 1/2/p_coeff[-3]
@@ -1275,15 +1288,16 @@ class CurvedMirror(Mirror):
 
         # plt.figure()
         # plt.plot(angle_out*mask2)
-        plt.figure()
-        plt.plot(x_eff[mask],np.abs(wave[mask]))
-        plt.plot(x_out,abs_out)
-        plt.plot(x_out,mask2)
-        plt.title("where's the beam?")
-        #
-        plt.figure()
-        plt.plot(x_eff[mask])
-        plt.title('exit plane coordinates')
+        if figon:
+            plt.figure()
+            plt.plot(x_eff[mask],np.abs(wave[mask]))
+            plt.plot(x_out,abs_out)
+            plt.plot(x_out,mask2)
+            plt.title("where's the beam?")
+            #
+            plt.figure()
+            plt.plot(x_eff[mask])
+            plt.title('exit plane coordinates')
 
         if self.orientation==0 or self.orientation==2:
             if not beam.focused_x:
@@ -1292,10 +1306,11 @@ class CurvedMirror(Mirror):
 
                 # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
 
-                plt.figure()
-                plt.plot(quadratic)
-                plt.plot(angle_in)
-                plt.title('quadratic phase and other phase')
+                if figon:
+                    plt.figure()
+                    plt.plot(quadratic)
+                    plt.plot(angle_in)
+                    plt.title('quadratic phase and other phase')
                 angle_in += quadratic
         else:
             if not beam.focused_y:
@@ -1304,10 +1319,11 @@ class CurvedMirror(Mirror):
 
                 # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
 
-                plt.figure()
-                plt.plot(quadratic)
-                plt.plot(angle_in)
-                plt.title('quadratic phase and other phase')
+                if figon:
+                    plt.figure()
+                    plt.plot(quadratic)
+                    plt.plot(angle_in)
+                    plt.title('quadratic phase and other phase')
                 angle_in += quadratic
 
         total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
@@ -1341,9 +1357,10 @@ class CurvedMirror(Mirror):
         wave = abs_out * np.exp(1j * phase_interp)
         wave *= mask2
 
-        plt.figure()
-        plt.plot(np.abs(wave))
-        plt.plot(np.abs(beam.wavex))
+        if figon:
+            plt.figure()
+            plt.plot(np.abs(wave))
+            plt.plot(np.abs(beam.wavex))
 
         # beam.x = -x_out
 

@@ -525,6 +525,9 @@ class Beam:
         if old_zy is None:
             old_zy = self.zy
 
+        old_zRx = np.copy(self.zRx)
+        old_zRy = np.copy(self.zRy)
+
         # update Rayleigh range
         if new_zx is not None:
             # if self.focused_x:
@@ -576,6 +579,20 @@ class Beam:
                 print('x becomes unfocused')
                 self.wavex *= np.exp(-1j * np.pi / self.lambda0 / old_zx * (self.x - self.cx) ** 2)
                 self.focused_x = False
+
+                # now we also need to adjust the size of the grid, to match scale and range settings
+                size_ratio = old_zRx / self.zx
+                new_dx = self.dx / size_ratio
+                new_x = np.linspace(-int(self.M/2), int(self.M/2)-1, self.M) * new_dx
+                if self.x[0] > self.x[1]:
+                    new_x = -new_x
+                new_x += self.cx
+                amp_interp = Util.interp_flip(new_x, self.x, np.abs(self.wavex))
+                phase_interp = Util.interp_flip(new_x, self.x, np.unwrap(np.angle(self.wavex)))
+                self.wavex = amp_interp * np.exp(1j * phase_interp)
+                self.x = new_x
+                self.dx = new_dx
+                self.new_fx()
         if self.focused_y:
             if y_focused:
                 self.wavey *= np.exp(1j * np.pi / self.lambda0 * (self.y - self.cy) ** 2 * (1 / new_zy - 1 / old_zy))
@@ -583,6 +600,20 @@ class Beam:
                 print('y becomes unfocused')
                 self.wavey *= np.exp(-1j * np.pi / self.lambda0 / old_zy * (self.y - self.cy) ** 2)
                 self.focused_y = False
+
+                # now we also need to adjust the size of the grid, to match scale and range settings
+                size_ratio = old_zRy / self.zy
+                new_dy = self.dy / size_ratio
+                new_y = np.linspace(-int(self.N / 2), int(self.N / 2) - 1, self.N) * new_dy
+                if self.y[0] > self.y[1]:
+                    new_y = -new_y
+                new_y += self.cy
+                amp_interp = Util.interp_flip(new_y, self.y, np.abs(self.wavey))
+                phase_interp = Util.interp_flip(new_y, self.y, np.unwrap(np.angle(self.wavey)))
+                self.wavey = amp_interp * np.exp(1j * phase_interp)
+                self.y = new_y
+                self.dy = new_dy
+                self.new_fx()
 
         # update beam z
         self.zx = new_zx
