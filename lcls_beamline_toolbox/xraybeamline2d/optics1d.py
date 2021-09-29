@@ -969,6 +969,73 @@ class CurvedMirror(Mirror):
 
         return p_res
 
+    def find_intersection(self, beam):
+
+        ux = np.reshape(np.array([1, 0, 0]), (3, 1))
+        uy = np.reshape(np.array([0, 1, 0]), (3, 1))
+        uz = np.reshape(np.array([0, 0, 1]), (3, 1))
+
+        params = self.ellipse_params(self.p, self.q, self.alpha)
+
+        beam_center = np.array([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = np.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+
+        # define ellipse coordinate unit vectors
+        # rotation angle to rotate mirror vectors into ellipse coordinates
+        # mirror is already rotated by delta when drifts are added to beamline
+        ellipse_rotate = params['delta']
+
+        re = transform.Rotation.from_rotvec(-self.sagittal * ellipse_rotate)
+        Re = re.as_matrix()
+
+        ellipse_x = np.matmul(Re, self.normal)
+        ellipse_y = self.sagittal
+        ellipse_z = np.matmul(Re, self.transverse)
+
+        central_ray = np.reshape(beam.zhat, (3,1))
+
+        coords = np.reshape(beam_center, (3,1))
+
+        coords -= np.reshape(mirror_center, (3, 1))
+
+        coords += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+
+        # now write beam coordinates in ellipse coordinates
+        transform_matrix = np.tensordot(np.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)),
+                                        np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        coords_ellipse = np.tensordot(transform_matrix, coords, axes=(1, 0))
+
+        # now write rays in ellipse coordinates
+        rays_ellipse = np.tensordot(transform_matrix, central_ray, axes=(1, 0))
+
+        a = params['a']
+        b = params['b']
+        aq = b ** 2 / a ** 2 + (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2
+        bq = (-2 * coords_ellipse[2, :] * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 +
+              2 * coords_ellipse[0, :] * rays_ellipse[0, :] / rays_ellipse[2, :])
+        cq = (coords_ellipse[2, :] ** 2 * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 -
+              2 * coords_ellipse[0, :] * coords_ellipse[2, :] * rays_ellipse[0, :] / rays_ellipse[2, :] +
+              coords_ellipse[0, :] ** 2 - b ** 2)
+
+        z_intersect = (-bq + np.sqrt(bq ** 2 - 4 * aq * cq)) / 2 / aq
+
+        x_intersect = -b * np.sqrt(np.ones_like(z_intersect) - z_intersect ** 2 / a ** 2)
+        y_intersect = rays_ellipse[1, :] / rays_ellipse[2, :] * (z_intersect - coords_ellipse[2, :]) + coords_ellipse[1,:]
+
+        intersect_point = np.reshape(np.array([x_intersect,y_intersect,z_intersect]), (3,1))
+
+        inv_transform = np.linalg.inv(transform_matrix)
+
+        # rotate into global coordinate system, but origin is still at ellipse center
+        intersect_global = np.tensordot(inv_transform, intersect_point, axes=(1, 0))
+
+        # subtract ellipse center, so that now this is relative to the mirror center
+        intersect_global -= np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+
+        intersect_global += np.reshape(mirror_center, (3, 1))
+
+        return intersect_global
+
     def trace_surface(self, beam):
 
         figon = self.show_figures
@@ -1002,23 +1069,10 @@ class CurvedMirror(Mirror):
             ellipse_rotate = params['delta']
         re = transform.Rotation.from_rotvec(-self.sagittal*ellipse_rotate)
         Re = re.as_matrix()
-        # if self.orientation==0:
-        if True:
-            ellipse_x = np.matmul(Re, self.normal)
-            ellipse_y = self.sagittal
-            ellipse_z = np.matmul(Re, self.transverse)
-        # elif self.orientation==1:
-        #     ellipse_x = np.matmul(Re, self.normal)
-        #     ellipse_y = self.sagittal
-        #     ellipse_z = np.matmul(Re, self.transverse)
-        # elif self.orientation==2:
-        #     ellipse_x = np.matmul(Re, -self.normal)
-        #     ellipse_y = -self.sagittal
-        #     ellipse_z = np.matmul(Re, self.transverse)
-        # elif self.orientation==3:
-        #     ellipse_x = np.matmul(Re, -self.normal)
-        #     ellipse_y = -self.sagittal
-        #     ellipse_z = np.matmul(Re, self.transverse)
+
+        ellipse_x = np.matmul(Re, self.normal)
+        ellipse_y = self.sagittal
+        ellipse_z = np.matmul(Re, self.transverse)
 
         print('ellipse unit vectors')
         print(self.normal)
@@ -1078,10 +1132,8 @@ class CurvedMirror(Mirror):
         coords -= np.reshape(mirror_center, (3, 1))
         # now shift origin to ellipse origin. This should be general since the unit vectors
         # are defined based on mirror unit vectors
-        if self.orientation==0 or self.orientation==1:
-            coords += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
-        else:
-            coords += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+        coords += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+
         # now write beam coordinates in ellipse coordinates
         transform_matrix = np.tensordot(np.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)),
                                         np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
@@ -1108,10 +1160,6 @@ class CurvedMirror(Mirror):
         # # now rotate beam into ellipse coordinates, taking into account mirror offset and/or angular misalignment
         # coords = np.tensordot(R, coords, axes=(1, 0))
         # rays = np.tensordot(R, rays, axes=(1,0))
-
-        # mirror center in ellipse coordinates
-        x0 = params['x0']
-        z0 = params['z0']
 
         # calculate ellipse for plotting purposes
         z1, x1, z0, x0, delta = self.calc_ellipse(self.p, self.q, self.alpha)
@@ -1142,17 +1190,34 @@ class CurvedMirror(Mirror):
               coords_ellipse[0,:]**2-b**2)
 
         z_intersect = (-bq+np.sqrt(bq**2-4*aq*cq))/2/aq
-        if self.orientation==0 or self.orientation==1:
-            x_intersect = -b*np.sqrt(np.ones_like(z_intersect)-z_intersect**2/a**2)
-            y_intersect = rays_ellipse[1,:]/rays_ellipse[2,:]*(z_intersect-coords_ellipse[2,:]) + coords_ellipse[1,:]
-        else:
-            x_intersect = -b * np.sqrt(np.ones_like(z_intersect) - z_intersect ** 2 / a ** 2)
-            y_intersect = rays_ellipse[1, :] / rays_ellipse[2, :] * (z_intersect - coords_ellipse[2, :]) + coords_ellipse[1, :]
+
+        x_intersect = -b*np.sqrt(np.ones_like(z_intersect)-z_intersect**2/a**2)
+        y_intersect = rays_ellipse[1,:]/rays_ellipse[2,:]*(z_intersect-coords_ellipse[2,:]) + coords_ellipse[1,:]
+
 
         intersect_coords = np.zeros((3,np.size(z_intersect)))
         intersect_coords[0,:] = x_intersect
         intersect_coords[1,:] = y_intersect
         intersect_coords[2,:] = z_intersect
+
+        intersect_center = np.reshape(intersect_coords[:,int(beam.N/2)],(3,1))
+
+        intersect1 = np.reshape(np.array([self.x_intersect, self.y_intersect, self.z_intersect]),(3,1))
+        print(intersect1)
+        print(mirror_center)
+
+        # intersect1 += np.reshape(beam_center, (3, 1))
+        # now subtract mirror center so that beam coordinates are in global coordinates,
+        # but with origin at mirror center
+        intersect1 -= np.reshape(mirror_center, (3, 1))
+        intersect1 += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+        intersect1 = np.tensordot(transform_matrix, intersect1, axes=(1, 0))
+        intersect_diff = intersect_center - intersect1
+
+        intersect_distance = (np.sqrt(np.sum(intersect_diff*intersect_diff)) *
+                              np.sign(np.dot(intersect_diff.flatten(), rays_ellipse[:,int(beam.N/2)])))
+        print('difference in intersection')
+        print(intersect_distance)
 
         i_vector = intersect_coords - coords_ellipse
 
@@ -1379,7 +1444,10 @@ class CurvedMirror(Mirror):
 
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1)), axes=(1,0))
             delta_theta = np.arccos(np.dot(k_i, k_f))
+            nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.M/2)]
+            delta_ax = delta_theta - 2 * nominal_incidence + linear
             delta_ax = delta_theta - 2*self.alpha + linear
+            print(beam.ax)
             print(delta_ax)
             if self.orientation==0:
                 beam.rotate_nominal(delta_azimuth=2*self.alpha)
@@ -1389,6 +1457,7 @@ class CurvedMirror(Mirror):
                 beam.rotate_beam(delta_ax=-delta_ax)
 
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
+            print(beam.ax)
             delta_cx = ax0 * self.length / 2 * 1.1
             delta_cx += beam.ax * self.length / 2 * 1.1
             delta_cx += 2*np.dot(self.normal,beam.xhat) * self.dx
@@ -1413,22 +1482,37 @@ class CurvedMirror(Mirror):
             k_i = rays_ellipse[:, int(beam.N / 2)]
             k_f = rays_out[:, int(beam.N / 2)]
 
+            nominal = -np.sin(params['beta']+self.delta) * ux + np.cos(params['beta']+self.delta) * uz
+
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
             delta_theta = np.arccos(np.dot(k_i, k_f))
-            delta_ay = delta_theta - 2 * self.alpha + linear
+            ay = np.arccos(np.dot(nominal.flatten(), k_f)) - 2 * self.alpha
+            delta_ay = ay - beam.ay
+            print(delta_theta)
+            nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2)]
+            # delta_ay = delta_theta - 2 * nominal_incidence + linear
+            # delta_ay = delta_theta - 2 * self.alpha + linear# + 2*beam.ay
+            # delta_ay = -2*beam.ay + delta_theta - 2* self.alpha + linear
+            print(beam.ay)
+            print(beam.cy)
             print(delta_ay)
+
             if self.orientation == 1:
                 beam.rotate_nominal(delta_elevation=2 * self.alpha)
                 beam.rotate_beam(delta_ay=delta_ay)
             else:
                 beam.rotate_nominal(delta_elevation=-2 * self.alpha)
                 beam.rotate_beam(delta_ay=-delta_ay)
-
+            print(beam.ay)
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
+            # cy1 = beam.cy + ay0 * delta_z
+            # cy2 = -cy1 + beam.ay * delta_z
+
             delta_cy = ay0 * self.length / 2 * 1.1
             delta_cy += beam.ay * self.length / 2 * 1.1
             delta_cy += 2 * np.dot(self.normal, beam.yhat) * self.dx
             print('change in beam center')
+            # beam.cy = 2 * np.dot(self.normal, beam.yhat) * self.dx + cy2
             print(delta_cy)
             beam.cy = -beam.cy + delta_cy
             print(beam.cy)
@@ -1471,9 +1555,9 @@ class CurvedMirror(Mirror):
 
             if beam.focused_y:
                 # this accounts for change in phase
-                beam.propagation(0,0,2*delta_z)
+                beam.propagation(0,0,2*delta_z+intersect_distance)
             else:
-                mag_y = (beam.zy + 2 * delta_z) / beam.zy
+                mag_y = (beam.zy + 2 * delta_z+intersect_distance) / beam.zy
 
                 # calculate effective distance to propagate
                 z_eff_y = 2 * delta_z / mag_y
@@ -1484,13 +1568,13 @@ class CurvedMirror(Mirror):
             beam.y -= beam.cy
             beam.cy += beam.ay * 2 * delta_z
             beam.y += beam.cy
-            beam.zy += 2*delta_z
+            beam.zy += 2*delta_z+intersect_distance
         else:
             if beam.focused_x:
-                beam.propagation(0,0,2*delta_z)
+                beam.propagation(0,0,2*delta_z+intersect_distance)
             else:
                 # calculate Fresnel scaling magnification
-                mag_x = (beam.zx + 2 * delta_z) / beam.zx
+                mag_x = (beam.zx + 2 * delta_z+intersect_distance) / beam.zx
 
                 # calculate effective distance to propagate
                 z_eff_x = 2 * delta_z / mag_x
@@ -1501,7 +1585,7 @@ class CurvedMirror(Mirror):
             beam.x -= beam.cx
             beam.cx += beam.ax * 2 * delta_z
             beam.x += beam.cx
-            beam.zx += 2*delta_z
+            beam.zx += 2*delta_z+intersect_distance
 
         if self.orientation==0 or self.orientation==2:
             # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
@@ -1629,6 +1713,8 @@ class CurvedMirror(Mirror):
         print('global_x: %.2f' % beam.global_x)
         print('global_y: %.2f' % beam.global_y)
         print('global_z: %.2f' % beam.global_z)
+
+        return intersect_distance
 
     def reflect(self, beam):
         """
@@ -1861,7 +1947,7 @@ class CurvedMirror(Mirror):
         cx = np.copy(beam.cx)
         cy = np.copy(beam.cy)
 
-        self.trace_surface(beam)
+        intersect_distance = self.trace_surface(beam)
         beam.beam_prop(-self.length / 2 * 1.1)
 
         print('x')
@@ -3886,16 +3972,28 @@ class Drift:
                            (nx * kx + ny * ky + nz * kz))
 
         x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
-        print('x intersect: %.4e' % x_intersect)
-        print('component x: %.4e' % self.downstream_component.global_x)
+        print('x intersect: %.10e' % x_intersect)
+        print('component x: %.10e' % self.downstream_component.global_x)
         y_intersect = k[1] / k[2] * (z_intersect - beam.global_z) + beam.global_y
-        print('y intersect: %.4e' % y_intersect)
-        print('component y: %.4e' % self.downstream_component.global_y)
+        print('y intersect: %.10e' % y_intersect)
+        print('component y: %.10e' % self.downstream_component.global_y)
         print('z intersect: %.10e' % z_intersect)
         print('component z: %.10e' % self.downstream_component.z)
         dx = x_intersect - beam.global_x
         dy = y_intersect - beam.global_y
         dz = z_intersect - beam.global_z
+
+        if issubclass(type(self.downstream_component), CurvedMirror):
+
+            print('found curved mirror')
+            intersection = self.downstream_component.find_intersection(beam).flatten()
+            print(intersection)
+            x_intersect = intersection[0]
+            y_intersect = intersection[1]
+            z_intersect = intersection[2]
+            dx = x_intersect - beam.global_x
+            dy = y_intersect - beam.global_y
+            dz = z_intersect - beam.global_z
         # re-calculate propagation distance
         old_z = np.copy(self.dz)
 
