@@ -207,8 +207,8 @@ class Beam:
         self.y = y
 
         # offset coordinates by beam center
-        self.x = self.x + self.cx
-        self.y = self.y + self.cy
+        # self.x = self.x + self.cx
+        # self.y = self.y + self.cy
 
         self.global_x = np.copy(self.cx)
         self.global_y = np.copy(self.cy)
@@ -243,9 +243,9 @@ class Beam:
         # if we're already inside the focal range, we need to multiply by quadratic phase in order for
         # propagation to work properly.
         if self.focused_x:
-            self.wavex *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+            self.wavex *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x)**2)
         if self.focused_y:
-            self.wavey *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+            self.wavey *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y)**2)
 
         # set beam parameters as attribute
         self.beam_params = beam_params
@@ -275,11 +275,11 @@ class Beam:
         """
 
         # update beam center
-        self.cx += self.ax * dz
-        self.cy += self.ay * dz
+        # self.cx += self.ax * dz
+        # self.cy += self.ay * dz
         # move x/y arrays by change in beam center
-        self.x = self.x + self.ax * dz
-        self.y = self.y + self.ay * dz
+        # self.x = self.x + self.ax * dz
+        # self.y = self.y + self.ay * dz
         # update horizontal and vertical radii of curvature by propagation distance
 
         print(self.zx)
@@ -363,11 +363,11 @@ class Beam:
         """
 
         # remove beam center
-        self.x -= self.cx
+        # self.x -= self.cx
         # scale coordinates centered around zero
         self.rescale_x(factor)
         # add beam center back to rescaled coordinates
-        self.x += self.cx
+        # self.x += self.cx
 
     def rescale_y_noshift(self, factor):
         """
@@ -378,11 +378,11 @@ class Beam:
         """
 
         # remove beam center
-        self.y -= self.cy
+        # self.y -= self.cy
         # scale coordinates centered around zero
         self.rescale_y(factor)
         # add beam center back to rescaled coordinates
-        self.y += self.cy
+        # self.y += self.cy
 
     def propagation(self, dz_real, dz_x, dz_y):
         """
@@ -489,17 +489,17 @@ class Beam:
         if self.focused_x:
             # if it stays focused, we need to modify the phase directly
             if x_focused:
-                self.wavex *= np.exp(1j * np.pi / self.lambda0 * (self.x - self.cx)**2 * (1/new_zx - 1/self.zx))
+                self.wavex *= np.exp(1j * np.pi / self.lambda0 * (self.x)**2 * (1/new_zx - 1/self.zx))
             else:
                 print('x becomes unfocused')
-                self.wavex *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx) ** 2)
+                self.wavex *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x) ** 2)
                 self.focused_x = False
         if self.focused_y:
             if y_focused:
-                self.wavey *= np.exp(1j * np.pi / self.lambda0 * (self.y - self.cy) ** 2 * (1 / new_zy - 1 / self.zy))
+                self.wavey *= np.exp(1j * np.pi / self.lambda0 * (self.y) ** 2 * (1 / new_zy - 1 / self.zy))
             else:
                 print('y becomes unfocused')
-                self.wavey *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy) ** 2)
+                self.wavey *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y) ** 2)
                 self.focused_y = False
 
         # update beam z
@@ -581,10 +581,10 @@ class Beam:
         if self.focused_x:
             # if it stays focused, we need to modify the phase directly
             if x_focused:
-                self.wavex *= np.exp(1j * np.pi / self.lambda0 * (self.x - self.cx)**2 * (1/new_zx - 1/old_zx))
+                self.wavex *= np.exp(1j * np.pi / self.lambda0 * (self.x)**2 * (1/new_zx - 1/old_zx))
             else:
                 print('x becomes unfocused')
-                self.wavex *= np.exp(-1j * np.pi / self.lambda0 / old_zx * (self.x - self.cx) ** 2)
+                self.wavex *= np.exp(-1j * np.pi / self.lambda0 / old_zx * (self.x) ** 2)
                 self.focused_x = False
 
                 # now we also need to adjust the size of the grid, to match scale and range settings
@@ -593,7 +593,7 @@ class Beam:
                 new_x = np.linspace(-int(self.M/2), int(self.M/2)-1, self.M) * new_dx
                 if self.x[0] > self.x[1]:
                     new_x = -new_x
-                new_x += self.cx
+                # new_x += self.cx
                 amp_interp = Util.interp_flip(new_x, self.x, np.abs(self.wavex))
                 phase_interp = Util.interp_flip(new_x, self.x, np.unwrap(np.angle(self.wavex)))
                 self.wavex = amp_interp * np.exp(1j * phase_interp)
@@ -609,10 +609,10 @@ class Beam:
                             self.rangeFactor)
         if self.focused_y:
             if y_focused:
-                self.wavey *= np.exp(1j * np.pi / self.lambda0 * (self.y - self.cy) ** 2 * (1 / new_zy - 1 / old_zy))
+                self.wavey *= np.exp(1j * np.pi / self.lambda0 * (self.y) ** 2 * (1 / new_zy - 1 / old_zy))
             else:
                 print('y becomes unfocused')
-                self.wavey *= np.exp(-1j * np.pi / self.lambda0 / old_zy * (self.y - self.cy) ** 2)
+                self.wavey *= np.exp(-1j * np.pi / self.lambda0 / old_zy * (self.y) ** 2)
                 self.focused_y = False
 
                 # now we also need to adjust the size of the grid, to match scale and range settings
@@ -621,7 +621,7 @@ class Beam:
                 new_y = np.linspace(-int(self.N / 2), int(self.N / 2) - 1, self.N) * new_dy
                 if self.y[0] > self.y[1]:
                     new_y = -new_y
-                new_y += self.cy
+                # new_y += self.cy
                 amp_interp = Util.interp_flip(new_y, self.y, np.abs(self.wavey))
                 phase_interp = Util.interp_flip(new_y, self.y, np.unwrap(np.angle(self.wavey)))
                 self.wavey = amp_interp * np.exp(1j * phase_interp)
@@ -889,17 +889,17 @@ class Beam:
 
                 # check if we need to add phase near focus, and alter the focus state
                 if transition_to_x_focus:
-                    self.wavex *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x-self.cx) ** 2)
+                    self.wavex *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x) ** 2)
                     self.focused_x = True
                 if transition_to_x_defocus:
-                    self.wavex *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x-self.cx) ** 2)
+                    self.wavex *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x) ** 2)
                     self.focused_x = False
                 # check if we need to add phase near focus, and alter the focus state
                 if transition_to_y_focus:
-                    self.wavey *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y-self.cy) ** 2)
+                    self.wavey *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y) ** 2)
                     self.focused_y = True
                 if transition_to_y_defocus:
-                    self.wavey *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y-self.cy) ** 2)
+                    self.wavey *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y) ** 2)
                     self.focused_y = False
 
                 # recursively call this method until we've reached the original goal (dz)
