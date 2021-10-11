@@ -1463,6 +1463,14 @@ class Pulse:
             if image_type == 'phase':
                 mask = (profile > 0.01 * np.max(profile)).astype(float)
                 profile = unwrap_phase(np.angle(self.energy_stacks[image_name][index, :, :])) * mask
+                # try to subtract the linear phase
+                mask1d = mask[int(N/2),:].astype(bool)
+                print(np.shape(mask1d))
+                print(np.shape(mask))
+                profile1d = profile[int(N/2),:]
+                linear = np.polyfit((self.energy-self.E0)[mask1d],profile1d[mask1d],1)
+                profile -= np.tile(np.polyval(linear,self.energy-self.E0),(N,1))
+                profile *= mask
                 cmap = plt.get_cmap('jet')
                 cbar_label = 'Phase (rad)'
             else:
@@ -1654,7 +1662,66 @@ class Pulse:
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
 
-    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False, log=False, voigt=False, show_fit=True):
+    def get_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False):
+        """
+        Method to return the spectrum at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+        integrated: bool
+            whether to integrate the spectrum
+
+        Returns
+        -------
+        1D array
+        """
+        # get boundaries
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # get number of pixels
+        M = self.x[image_name].size
+        N = self.y[image_name].size
+
+        # calculate pixel sizes (microns)
+        dx = (maxx - minx) / M
+        dy = (maxy - miny) / N
+
+        # calculate indices for the desired location
+        x_index = int((x_pos - minx) / dx)
+        y_index = int((y_pos - miny) / dy)
+
+        # calculate spectral intensity
+        if integrated:
+            y_data = np.sum(np.abs(self.energy_stacks[image_name]) ** 2, axis=(0, 1))
+        else:
+            y_data = np.abs(self.energy_stacks[image_name][y_index, x_index, :]) ** 2
+
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.energy, y_data)
+        fwhm = sx * 2.355
+
+        # change label depending on bandwidth
+        if fwhm >= 1:
+            width_label = '%.1f eV FWHM' % fwhm
+        elif fwhm > 1e-3:
+            width_label = '%.1f meV FHWM' % (fwhm * 1e3)
+        else:
+            width_label = u'%.1f \u03BCeV FWHM' % (fwhm * 1e6)
+
+        spectrum = y_data
+
+        return spectrum, centroid, fwhm
+
+    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False, log=False, voigt=False, show_fit=True,
+                      show_phase=False):
         """
         Method to plot the spectrum at a given location
         Parameters
@@ -1716,6 +1783,16 @@ class Pulse:
         else:
             width_label = u'%.1f \u03BCeV FWHM' % (fwhm * 1e6)
 
+        profile = np.zeros_like(y_data)
+        if show_phase:
+            mask = (y_data > 0.01 * np.max(y_data))
+            profile = np.unwrap(np.angle(self.energy_stacks[image_name][y_index, x_index, :])) * mask
+            # try to subtract the linear phase
+
+            linear = np.polyfit((self.energy - self.E0)[mask], profile[mask], 1)
+            profile -= np.polyval(linear, self.energy - self.E0)
+            profile *= mask
+
         # plotting
         plt.figure()
         ax = plt.subplot2grid((1, 1), (0, 0))
@@ -1723,10 +1800,14 @@ class Pulse:
             ax.semilogy(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
             if show_fit:
                 ax.semilogy(self.energy - self.E0, gauss_plot, label=width_label)
+            if show_phase:
+                ax.semilogy(self.energy - self.E0, profile, label='spectral phase')
         else:
             ax.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
             if show_fit:
                 ax.plot(self.energy - self.E0, gauss_plot, label=width_label)
+            if show_phase:
+                ax.plot(self.energy - self.E0, profile, label='spectral phase')
         ax.set_ylim(-.05,1.3)
         ax.set_xlabel('Energy (eV)')
         ax.set_ylabel('Intensity (normalized)')

@@ -24,7 +24,7 @@ import scipy.spatial.transform as transform
 import scipy.integrate as integration
 import os
 from .util import Util, LegendreUtil
-from .pitch import TalbotLineout
+from .pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
 
@@ -3201,6 +3201,13 @@ class PPM:
         # self.y = np.copy(self.x) + yoffset
         self.y = np.linspace(-N / 2, N / 2 -1, N) * dx + yoffset
 
+        f_x = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
+        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
+
+        self.xx, self.yy = np.meshgrid(self.x, self.y)
+
+        self.f_x, self.f_y = np.meshgrid(f_x, f_y)
+
         # initialize some attributes
         self.profile = np.zeros((N, N))
         self.x_phase = np.zeros(N)
@@ -3219,6 +3226,16 @@ class PPM:
         self.wy = 0.0
         self.lambda0 = 0.0
         self.group_delay = 0
+
+        self.fit_object = None
+
+        self.downsample = 3
+
+        self.Nd = int(self.N / (2 ** self.downsample))
+        self.Md = int(self.N / (2 ** self.downsample))
+
+    def add_fit_object(self, fit_object):
+        self.fit_object = fit_object
 
     def reset(self):
         # initialize some attributes
@@ -3643,6 +3660,203 @@ class PPM:
         """
         return self.FOV
 
+    def retrieve_wavefront2(self, wfs, focusFOV=10, focus_z=0):
+        """
+        Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
+        :param wfs: WFS object
+            Grating structure that generates Talbot interferometry patterns. Passed to this method to gain access
+            to its attributes.
+        :return wfs_data: dict
+            Includes the following entries
+            x_prime: (M,) ndarray
+                Horizontal coordinates for retrieved high-order phase
+            y_prime: (N,) ndarray
+                Vertical coordinates for retrieved high-order phase
+            x_res: (M,) ndarray
+                Horizontal residual phase (>2nd order) at points in x_prime
+            y_res: (N,) ndarray
+                Vertical residual phase (>2nd order) at points in y_prime
+            coeff_x: (k,) ndarray
+                Legendre coefficients for horizontal phase lineout
+            coeff_y: (k,) ndarray
+                Legendre coefficients for vertical phase lineout
+            z2x: float
+                Distance to horizontal focus
+            z2y: float
+                Distance to vertical focus
+        """
+
+        # print('retrieving wavefront')
+
+        # get Talbot fraction that we're using (fractional Talbot effect)
+        fraction = wfs.fraction
+
+        # Distance from wavefront sensor to PPM,
+        # including correction based on z stage
+        zT = self.z - wfs.z
+
+        # include correction to f0 (distance between focus and grating)
+        # based on z stage
+        f0 = wfs.f0
+        print('f0: %.3f' % f0)
+        # print('zT: %.2f' % zT)
+
+        # magnification of Talbot pattern
+        mag = (zT + f0) / f0
+
+        # number of pixels to sum across to get lineout
+        lineout_width = int(wfs.pitch / self.dx * 5 * mag)
+
+        im1 = self.profile
+
+        # expected spatial frequency of Talbot pattern (1/m)
+        peak = 1. / mag / wfs.pitch
+
+        fc = peak * self.dx
+
+        x_mask = ((self.f_x - fc / self.dx) ** 2 + self.f_y ** 2) < (fc / 4 / self.dx) ** 2
+        x_mask = x_mask * (((self.f_x - fc / self.dx) ** 2 + self.f_y ** 2) >
+                           (fc / 4. / self.dx - 2. / self.N / self.dx) ** 2)
+        x_mask = x_mask.astype(float)
+        y_mask = ((self.f_x) ** 2 + (self.f_y - fc / self.dx) ** 2) < (fc / 4 / self.dx) ** 2
+        y_mask = y_mask * (((self.f_x) ** 2 + (self.f_y - fc / self.dx) ** 2) >
+                           (fc / 4. / self.dx - 2. / self.N / self.dx) ** 2)
+        y_mask = y_mask.astype(float)
+
+        # parameters for calculating Legendre coefficients
+        wfs_param = {
+            "dg": wfs.x_pitch_units,  # wavefront sensor pitch (m)
+            "fraction": fraction,  # wavefront sensor fraction
+            "dx": self.dx,  # PPM pixel size
+            "zT": zT,  # distance between WFS and PPM
+            "lambda0": self.lambda0,  # beam wavelength
+            "downsample": 3,  # Fourier downsampling power of 2
+            "zf": f0  # nominal distance from focus to grating
+        }
+
+        talbot_image_x = TalbotImage(im1, fc, fraction)
+        recovered_beam, wfs_param_out = talbot_image_x.get_legendre(self.fit_object, wfs_param, threshold=.1)
+
+        wfs_param['dg'] = wfs.y_pitch_units
+
+        talbot_image_y = TalbotImage(im1, fc, fraction)
+        recovered_beam_y, wfs_param_out_y = talbot_image_y.get_legendre(self.fit_object, wfs_param, threshold=.1)
+
+        # check validity
+        # right now this is requiring that the peak is within half of the masked radius in the Fourier plane
+        validity = ((np.abs(wfs_param_out['h_peak'] - peak) < (peak / 8)) and
+                    (np.abs(wfs_param_out['v_peak'] - peak) < (peak / 8)))
+
+        # for now require that centroid data is also valid
+        self.wavefront_is_valid = validity
+
+        wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
+        mask = np.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
+                      256 - int(self.Md / 2):256 + int(self.Md / 2)]) > 0
+        wave *= mask
+
+        mask_x = mask[int(self.Nd / 2), :]
+        mask_y = mask[:, int(self.Md / 2)]
+
+        x_prime = recovered_beam.x[256, 256 - int(self.Md / 2):256 + int(self.Md / 2)] * 1e6
+        y_prime = recovered_beam.y[256 - int(self.Nd / 2):256 + int(self.Nd / 2), 256] * 1e6
+        x_prime = x_prime[mask_x]
+        y_prime = y_prime[mask_y]
+        x_res = wave[int(self.Nd / 2), :][mask_x]
+        y_res = wave[:, int(self.Md / 2)][mask_y]
+        # print('x_res: %d' % np.size(x_res))
+
+        # going to try getting the third order Legendre polynomial here and try to get it to zero using benders
+        try:
+            leg_x = np.polynomial.legendre.legfit(x_prime * 1e-6, x_res, 3)
+            leg_y = np.polynomial.legendre.legfit(y_prime * 1e-6, y_res, 3)
+            coma_x = leg_x[3]
+            coma_y = leg_y[3]
+        except:
+            self.wavefront_is_valid = False
+            coma_x = 0
+            coma_y = 0
+
+        # setting rms_x/rms_y to third order Legendre coefficient for now.
+        rms_x = np.std(x_res)
+        rms_y = np.std(y_res)
+
+        x_width = np.std(x_res)
+        y_width = np.std(y_res)
+
+        # zf_x = -(recovered_beam.zx - zT - f0) * 1e3
+        # zf_y = -(recovered_beam_y.zy - zT - f0) * 1e3
+
+        zf_x = -(recovered_beam.zx)
+        zf_y = -(recovered_beam_y.zy)
+
+        # annotated Fourier transform
+        F0 = np.abs(wfs_param_out['F0'])
+
+        F0 = F0 / np.max(F0)
+        F0 += x_mask + y_mask
+
+        # plane to propagate to relative to IP (focus_z is given in mm)
+        z_plane = focus_z * 1e-3
+
+        # propagate to focus
+        # recovered_beam.beam_prop(-zT - f0 + z_plane)
+        # focus = recovered_beam.wave
+        # dx_focus = recovered_beam.dx
+        # dy_focus = recovered_beam.dy
+        # print('dx: %.2e' % dx_focus)
+        # print('dy: %.2e' % dy_focus)
+        # focus = np.abs(focus)**2/np.max(np.abs(focus)**2)
+
+        # focus_PPM = PPM('focus', FOV=focusFOV * 1e-6, N=256)
+        # focus_PPM.propagate(recovered_beam)
+        #
+        # focus = focus_PPM.profile / np.max(focus_PPM.profile)
+        # focus_horizontal = focus_PPM.x_lineout / np.max(focus_PPM.x_lineout)
+        # focus_vertical = focus_PPM.y_lineout / np.max(focus_PPM.y_lineout)
+        # focus_fwhm_horizontal = focus_PPM.wx
+        # focus_fwhm_vertical = focus_PPM.wy
+        #
+        # xf = focus_PPM.x * 1e6
+
+        # x_focus = recovered_beam.x[0, :]
+        # y_focus = recovered_beam.y[:, 0]
+        # x_interp = np.linspace(-256, 255, 512, dtype=float)*focusFOV*1e-6/512
+        # f = interpolation.interp2d(x_focus, y_focus, focus, fill_value=0)
+        # focus = f(x_interp, x_interp)
+        # focus_horizontal = np.sum(focus, axis=0)
+        # focus_vertical = np.sum(focus, axis=1)
+
+        # rms_x = np.std(x_res)
+        # rms_y = np.std(y_res)
+
+        # output. See method docstring for descriptions.
+        wfs_data = {
+            'x_res': x_res,
+            'x_prime': x_prime,
+            'y_res': y_res,
+            'y_prime': y_prime,
+            'z_x': zf_x,
+            'z_y': zf_y,
+            'rms_x': rms_x,
+            'rms_y': rms_y,
+            'coma_x': coma_x,
+            'coma_y': coma_y,
+            'F0': F0,
+            # 'focus': focus,
+            # 'xf': x_interp*1e6,
+            # 'xf': xf,
+            # 'focus_fwhm_horizontal': focus_fwhm_horizontal,
+            # 'focus_fwhm_vertical': focus_fwhm_vertical,
+            # 'focus_horizontal': focus_horizontal,
+            # 'focus_vertical': focus_vertical,
+            'wave': wave,
+            # 'dxf': dx_focus,
+            # 'dyf': dy_focus
+        }
+
+        return wfs_data, wfs_param_out
+
     def retrieve_wavefront(self, wfs):
         """
         Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
@@ -3681,11 +3895,13 @@ class PPM:
         mag = (zT + wfs.f0) / wfs.f0
 
         # number of pixels to sum across to get lineout
-        lineout_width = int(wfs.pitch / self.dx * 5 * mag)
+        lineout_width = int(wfs.pitch / self.dx * 10 * mag)
 
         # lineout boundaries in pixels (distance from center)
         x_lim = int(self.wx/self.dx)
         y_lim = int(self.wy/self.dx)
+        print('x_lim')
+        print(x_lim)
 
         # calculated beam center in pixels
         x_center = int(self.cx/self.dx) + self.N/2
@@ -3710,7 +3926,7 @@ class PPM:
 
         # parameters for calculating Legendre coefficients
         param = {
-                "dg": wfs.pitch,  # wavefront sensor pitch (m)
+                "dg": wfs.x_pitch_units,  # wavefront sensor pitch (m)
                 "fraction": fraction,  # wavefront sensor fraction
                 "dx": self.dx,  # PPM pixel size
                 "zT": zT,  # distance between WFS and PPM
@@ -3719,8 +3935,17 @@ class PPM:
 
         # calculate Legendre coefficients
         print('getting Legendre coefficients')
-        z_x, coeff_x, x_prime, x_res = self.xline.get_legendre(param)
-        z_y, coeff_y, y_prime, y_res = self.yline.get_legendre(param)
+        z_x, coeff_x, x_prime, x_res, fit_object = self.xline.get_legendre(param)
+
+        param = {
+            "dg": wfs.y_pitch_units,  # wavefront sensor pitch (m)
+            "fraction": fraction,  # wavefront sensor fraction
+            "dx": self.dx,  # PPM pixel size
+            "zT": zT,  # distance between WFS and PPM
+            "lambda0": self.lambda0  # beam wavelength
+        }
+
+        z_y, coeff_y, y_prime, y_res, fit_object = self.yline.get_legendre(param)
         print('found Legendre coefficients')
 
         # pixel size for retrieved wavefront
@@ -4114,11 +4339,51 @@ class WFS:
         # initialize some calculated attributes
         self.x_pitch = 0.
         self.y_pitch = 0.
+        self.x_pitch_units = 0
+        self.y_pitch_units = 0
         self.grating_x = np.zeros(0)
         self.grating_y = np.zeros(0)
         self.xhat = None
         self.yhat = None
         self.zhat = None
+
+    def plan_pitch(self, ppm_object, E0, f0=100, use_pitch=True):
+        """
+        Method to calculate the ideal checkerboard grating period for a given geometry, photon energy
+        Parameters
+        ----------
+        ppm_object: PPM
+            Used to find the distance to detection plane
+        E0: float
+            photon energy (eV)
+        f0: float
+            estimated distance to source/focus (m)
+
+        Returns
+        -------
+        pitch: float
+            grating period (m)
+        """
+        # distance between grating and detector
+        zT = ppm_object.z - self.z
+
+        # wavelength
+        lambda0 = 1239.8/E0 * 1e-9
+
+        # magnification
+        M = (zT + f0) / f0
+
+        # effective plane wave distance
+        zEff = zT / M
+
+        # optimal grating pitch (width of square)
+        pitch = np.sqrt(8*lambda0*zEff)/2
+
+        print(pitch)
+
+        if use_pitch:
+            self.pitch = pitch
+
 
     def propagate(self,beam):
         """
@@ -4165,6 +4430,9 @@ class WFS:
         # Number of pixels per grating period
         self.x_pitch = np.round(self.pitch/beam.dx)
         self.y_pitch = np.round(self.pitch/beam.dy)
+
+        self.x_pitch_units = self.x_pitch * beam.dx
+        self.y_pitch_units = self.y_pitch * beam.dy
 
         print(self.pitch/beam.dx)
         print(self.pitch/beam.dy)
