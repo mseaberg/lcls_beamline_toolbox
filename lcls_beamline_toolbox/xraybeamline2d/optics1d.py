@@ -3461,7 +3461,7 @@ class PPM:
         """
         self.calc_profile(beam)
 
-    def view_vertical(self, ax_y=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
+    def view_vertical(self, ax=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
         """
         Method to view
         :param normalized: whether to normalize the lineout
@@ -3470,41 +3470,85 @@ class PPM:
 
         gaussian_fit = np.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
 
-        if ax_y is None:
+        if ax is None:
             # generate the figure
             plt.figure()
-            ax_y = plt.subplot2grid((1,1), (0, 0))
+            ax = plt.subplot2grid((1,1), (0, 0))
         if normalized:
             # show the vertical lineout (distance in microns)
             if log:
-                ax_y.semilogy(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
+                ax.semilogy(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
             else:
-                ax_y.plot(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
-                ax_y.set_ylim(0, 1.05)
-            ax_y.set_ylabel('Intensity (normalized)')
+                ax.plot(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
+                ax.set_ylim(0, 1.05)
+            ax.set_ylabel('Intensity (normalized)')
         else:
             # show the vertical lineout (distance in microns)
             if log:
-                ax_y.semilogy(self.y * 1e6, self.y_lineout, label=label)
+                ax.semilogy(self.y * 1e6, self.y_lineout, label=label)
             else:
-                ax_y.plot(self.y * 1e6, self.y_lineout, label=label)
+                ax.plot(self.y * 1e6, self.y_lineout, label=label)
             gaussian_fit *= np.max(self.y_lineout)
-            ax_y.set_ylabel('Intensity (arbitrary units)')
+            ax.set_ylabel('Intensity (arbitrary units)')
         # also plot the Gaussian fit
         if show_fit:
             if log:
-                ax_y.semilogy(self.y*1e6, gaussian_fit, label='fit')
+                ax.semilogy(self.y*1e6, gaussian_fit, label='fit')
             else:
-                ax_y.plot(self.y * 1e6, gaussian_fit, label='fit')
+                ax.plot(self.y * 1e6, gaussian_fit, label='fit')
         if legend:
-            ax_y.legend()
-        ax_y.set_xlabel('Y Coordinates (\u03BCm)')
+            ax.legend()
+        ax.set_xlabel('Y Coordinates (\u03BCm)')
         # show a grid
-        ax_y.grid(True)
+        ax.grid(True)
         # set limits
 
 
-        return ax_y
+        return ax
+
+    def view_horizontal(self, ax=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
+        """
+        Method to view
+        :param normalized: whether to normalize the lineout
+        :return:
+        """
+
+        gaussian_fit = np.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
+
+        if ax is None:
+            # generate the figure
+            plt.figure()
+            ax = plt.subplot2grid((1,1), (0, 0))
+        if normalized:
+            # show the vertical lineout (distance in microns)
+            if log:
+                ax.semilogy(self.x * 1e6, self.x_lineout / np.max(self.x_lineout), label=label)
+            else:
+                ax.plot(self.x * 1e6, self.x_lineout / np.max(self.x_lineout), label=label)
+                ax.set_ylim(0, 1.05)
+            ax.set_ylabel('Intensity (normalized)')
+        else:
+            # show the vertical lineout (distance in microns)
+            if log:
+                ax.semilogy(self.x * 1e6, self.x_lineout, label=label)
+            else:
+                ax.plot(self.x * 1e6, self.x_lineout, label=label)
+            gaussian_fit *= np.max(self.x_lineout)
+            ax.set_ylabel('Intensity (arbitrary units)')
+        # also plot the Gaussian fit
+        if show_fit:
+            if log:
+                ax.semilogy(self.x*1e6, gaussian_fit, label='fit')
+            else:
+                ax.plot(self.x * 1e6, gaussian_fit, label='fit')
+        if legend:
+            ax.legend()
+        ax.set_xlabel('Y Coordinates (\u03BCm)')
+        # show a grid
+        ax.grid(True)
+        # set limits
+
+        return ax
 
     def view_beam(self):
         """
@@ -4022,7 +4066,8 @@ class CRL:
         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
     """
 
-    def __init__(self, name, diameter=300e-6, roc=50e-6, E0=None, f=None, material='Be', z=0, dx=0, orientation=0):
+    def __init__(self, name, diameter=300e-6, roc=50e-6, E0=None, f=None, material='Be', z=0, dx=0, orientation=0,
+                 absorb=True):
         """
         Method to create a CRL object.
         :param name: str
@@ -4053,6 +4098,7 @@ class CRL:
         self.E0 = E0
         self.f = f
         self.material = material
+        self.absorb = absorb
         self.dx = dx
         self.z = z
         self.global_x = 0
@@ -4126,7 +4172,10 @@ class CRL:
         # phase shift at center of beam
         phase_shift = np.interp(beamc, beamx, thickness)*delta*2*np.pi/beam.lambda0
 
-        transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask# * np.exp(1j*phase_shift)
+        if self.absorb:
+            transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask# * np.exp(1j*phase_shift)
+        else:
+            transmission = np.exp(1j * phase) * mask
 
         # adjust beam properties
         new_zx = 1 / (1 / beamz + p2 * beam.lambda0 / np.pi)
