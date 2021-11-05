@@ -115,9 +115,9 @@ class Mirror:
         self.beam_ax = 0
         self.beam_ay = 0
         self.show_figures = False
-        self.x_intersect = 0
-        self.y_intersect = 0
-        self.z_intersect = 0
+        self.x_intersect = 0.0
+        self.y_intersect = 0.0
+        self.z_intersect = 0.0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
@@ -1205,25 +1205,6 @@ class CurvedMirror(Mirror):
         intersect_coords[1,:] = y_intersect
         intersect_coords[2,:] = z_intersect
 
-        # intersect_center = np.reshape(intersect_coords[:,int(beam.N/2)],(3,1))
-        #
-        # intersect1 = np.reshape(np.array([self.x_intersect, self.y_intersect, self.z_intersect]),(3,1))
-        # print(intersect1)
-        # print(mirror_center)
-        #
-        # # intersect1 += np.reshape(beam_center, (3, 1))
-        # # now subtract mirror center so that beam coordinates are in global coordinates,
-        # # but with origin at mirror center
-        # intersect1 -= np.reshape(mirror_center, (3, 1))
-        # intersect1 += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
-        # intersect1 = np.tensordot(transform_matrix, intersect1, axes=(1, 0))
-        # intersect_diff = intersect_center - intersect1
-        #
-        # intersect_distance = (np.sqrt(np.sum(intersect_diff*intersect_diff)) *
-        #                       np.sign(np.dot(intersect_diff.flatten(), rays_ellipse[:,int(beam.N/2)])))
-        # print('difference in intersection')
-        # print(intersect_distance)
-
         # vectors pointing from beam location to mirror intersection
         i_vector = intersect_coords - coords_ellipse
 
@@ -1312,272 +1293,275 @@ class CurvedMirror(Mirror):
             mask = np.logical_and(mask, coords_ellipse[0, :] > 0)
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta']))
 
-        # p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
-        # linear = p_coeff[-2]
-        # # subtract best fit parabola
-        # total_distance -= np.polyval(p_coeff,x_eff)
+        p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
+        linear = p_coeff[-2]
+        # subtract best fit parabola
+        total_distance -= np.polyval(p_coeff,x_eff)
         #
-        # # interpolated mask in uniformly spaced coordinates
-        # mask2 = Util.interp_flip(x_out,x_eff[mask],mask[mask])
-        # mask2[mask2<.9] = 0
-        # # mask2 = mask2.astype(int)
-        # mask2 = mask2 > 0.5
-        # #
-        # if figon:
-        #     plt.figure()
-        #     # plt.plot(x_out,mask2)
-        #     plt.plot(x_eff[mask],mask[mask])
-        #     #
-        #     plt.figure()
-        #     # plt.plot(x_out[mask2],distance_interp[mask2])
-        #     plt.plot(x_eff[mask],total_distance[mask])
-        #     plt.title('distance inside mirror footprint')
-        # # plt.plot(x_out,mask2)
+        distance_interp = Util.interp_flip(x_out,x_eff[mask],total_distance[mask])
+
+        mask2 = Util.interp_flip(x_out,x_eff[mask],mask[mask])
+        mask2[mask2<.9] = 0
+        # mask2 = mask2.astype(int)
+        mask2 = mask2 > 0.5
         #
-        # # effective radius of curvature
-        # z_out = 1/2/p_coeff[-3]
-        # print('zout: %.6f' % z_out)
-        #
-        # # amplitude interpolated onto regularly spaced grid
-        # abs_out = Util.interp_flip(x_out, x_eff[mask], np.abs(wave[mask]))
-        #
-        # # unwrapped phase at entrance plane
-        # angle_in = np.unwrap(np.angle(wave))
-        #
-        # if figon:
-        #     plt.figure()
-        #     plt.plot(x_eff[mask],np.abs(wave[mask]))
-        #     plt.plot(x_out,abs_out)
-        #     plt.plot(x_out,mask2)
-        #     plt.title("where's the beam?")
-        #     #
-        #     plt.figure()
-        #     plt.plot(x_eff[mask])
-        #     plt.title('exit plane coordinates')
-        #
-        # # need to track quadratic phase through the mirror reflection as well (if beam isn't "focused")
-        # if self.orientation==0 or self.orientation==2:
-        #     if not beam.focused_x:
-        #         print('adding quadratic phase')
-        #         quadratic = np.pi / beam.lambda0 / beam.zx * (beam.x) ** 2
-        #
-        #         # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
-        #
-        #         if figon:
-        #             plt.figure()
-        #             plt.plot(quadratic)
-        #             plt.plot(angle_in)
-        #             plt.title('quadratic phase and other phase')
-        #         angle_in += quadratic
-        # else:
-        #     if not beam.focused_y:
-        #         print('adding quadratic phase')
-        #         quadratic = np.pi / beam.lambda0 / beam.zy * (beam.y) ** 2
-        #
-        #         # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
-        #
-        #         if figon:
-        #             plt.figure()
-        #             plt.plot(quadratic)
-        #             plt.plot(angle_in)
-        #             plt.title('quadratic phase and other phase')
-        #         angle_in += quadratic
-        #
-        # total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
-        #
-        # try:
-        #     p_coeff = np.polyfit(x_eff[mask], total_phase[mask], 2)
-        # except:
-        #     print('problem with mask')
-        #     p_coeff = np.zeros(3)
-        # z_2 = np.pi / beam.lambda0 / p_coeff[-3]
-        #
-        # z_total = 1 / (1 / z_out + 1 / z_2)
-        # print('new z: %.6f' % z_total)
-        #
-        # linear += p_coeff[-2] * beam.lambda0/2/np.pi
-        #
-        # # subtract linear phase, this will be accounted for in beam angle
-        # total_phase -= np.polyval(p_coeff[-2:], x_eff)
-        #
-        # if self.orientation==0 or self.orientation==2:
-        #     if not beam.focused_x:
-        #         total_phase -= np.polyval([p_coeff[-3],0,0],x_eff)
-        # else:
-        #     if not beam.focused_y:
-        #         total_phase -= np.polyval([p_coeff[-3], 0, 0], x_eff)
-        #
-        # # interpolate phase onto uniformly spaced grid
-        # phase_interp = Util.interp_flip(x_out, x_eff, total_phase)
-        #
-        # # define wavefront at exit
-        # wave = abs_out * np.exp(1j * phase_interp)
-        # wave *= mask2
-        #
-        # if figon:
-        #     plt.figure()
-        #     plt.plot(np.abs(wave))
-        #     plt.plot(np.abs(beam.wavex))
-        #
-        # ax0 = np.copy(beam.ax)
-        # ay0 = np.copy(beam.ay)
-        #
-        # # figure out where the beam is in global coordinates
-        # # change in angle
-        # if self.orientation==0 or self.orientation==2:
-        #     k_i = rays_ellipse[:,int(beam.M/2)]
-        #     k_f = rays_out[:,int(beam.M/2)]
-        #
-        #     delta_theta = np.arccos(np.dot(k_i, k_f))
-        #
-        #     nominal = -np.sin(params['beta'] + self.delta) * ux + np.cos(params['beta'] + self.delta) * uz
-        #
-        #     k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
-        #     # delta_theta = np.arccos(np.dot(k_i, k_f))
-        #     ax = np.arccos(np.dot(nominal.flatten(), k_f)) - 2 * self.alpha
-        #     delta_ax = ax - beam.ax - linear
-        #     print(delta_theta)
-        #     print(beam.ax)
-        #     print(delta_ax)
-        #     if self.orientation==0:
-        #         beam.rotate_nominal(delta_azimuth=2*self.alpha)
-        #         beam.rotate_beam(delta_ax=delta_ax)
-        #     else:
-        #         beam.rotate_nominal(delta_azimuth=-2*self.alpha)
-        #         beam.rotate_beam(delta_ax=-delta_ax)
-        #
-        #     # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
-        #     print(beam.ax)
-        #     # delta_cx = ax0 * self.length / 2 * 1.1
-        #     # delta_cx += beam.ax * self.length / 2 * 1.1
-        #     # delta_cx += 2*np.dot(self.normal,beam.xhat) * self.dx
-        #     # print('change in beam center')
-        #     # print(delta_cx)
-        #     # beam.cx = -beam.cx + delta_cx
-        #     # print(beam.cx)
-        #     # flip sign of coordinates to account for reflection
-        #     beam.x = -x_out
-        #
-        #     beam.new_fx()
-        #
-        #     print('is beam in the correct direction?')
-        #     print(np.arccos(np.dot(beam.zhat, k_f)))
-        #     print(np.arccos(np.dot(beam.zhat, k_f_global[:,0])))
-        #     print(params['beta'])
-        #     print(k_f)
-        #     print(k_f_global)
-        #
-        #     beam.wavex = wave
-        #     # print(np.arccos(np.dot(beam.zhat,np.matmul(np.linalg.inv(transform_matrix),np.reshape(k_f,(3,1))))))
-        # else:
-        #     k_i = rays_ellipse[:, int(beam.N / 2)]
-        #     k_f = rays_out[:, int(beam.N / 2)]
-        #
-        #     nominal = -np.sin(params['beta']+self.delta) * ux + np.cos(params['beta']+self.delta) * uz
-        #
-        #     k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
-        #     delta_theta = np.arccos(np.dot(k_i, k_f))
-        #     ay = np.arccos(np.dot(nominal.flatten(), k_f)) - 2 * self.alpha
-        #     # decided "linear" should be subtracted based on the test of keeping it in the wavefront phase
-        #     delta_ay = ay - beam.ay - linear
-        #     print(delta_theta)
-        #
-        #     print(beam.ay)
-        #     print(delta_ay)
-        #
-        #     if self.orientation == 1:
-        #         beam.rotate_nominal(delta_elevation=2 * self.alpha)
-        #         beam.rotate_beam(delta_ay=delta_ay)
-        #     else:
-        #         beam.rotate_nominal(delta_elevation=-2 * self.alpha)
-        #         beam.rotate_beam(delta_ay=-delta_ay)
-        #     print(beam.ay)
-        #
-        #     # flip sign of coordinates to account for reflection
-        #     beam.y = -x_out
-        #
-        #     beam.new_fx()
-        #
-        #     print('is beam in the correct direction?')
-        #     print(np.arccos(np.dot(beam.zhat, k_f)))
-        #     print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0])))
-        #     print(params['beta'])
-        #     print(k_f)
-        #     print(k_f_global)
-        #
-        #     beam.wavey = wave
-        #
-        # # now figure out global coordinates
-        # # get back into global coordinates using inverse of transformation matrix, just looking at central ray
-        # inv_transform = np.linalg.inv(transform_matrix)
-        #
-        # # rotate into global coordinate system, but origin is still at ellipse center
-        # origin_global = np.tensordot(inv_transform, origin, axes=(1,0))
-        #
-        # # subtract ellipse center, so that now this is relative to the mirror center
-        # origin_global -= np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
-        #
-        # # now add the mirror center in global coordinates, so that this should be the beam location
-        # # in global coordinates
-        # origin_global += np.reshape(mirror_center, (3, 1))
-        # # origin_global -= np.reshape(self.normal*dx,(3,1))
-        # print(origin_global)
-        # # now shift origin to ellipse origin
-        #
-        # beam.global_x = origin_global[0,0]
-        # beam.global_y = origin_global[1,0]
-        # beam.global_z = origin_global[2,0]
-        #
-        # if self.orientation==0 or self.orientation==2:
-        #     # calculate Fresnel scaling magnification
-        #
-        #     if beam.focused_y:
-        #         # this accounts for change in phase
-        #         beam.propagation(0,0,2*delta_z)
-        #     else:
-        #         mag_y = (beam.zy + 2 * delta_z) / beam.zy
-        #
-        #         # calculate effective distance to propagate
-        #         z_eff_y = 2 * delta_z / mag_y
-        #
-        #         # scaled propagation
-        #         beam.propagation(0, 0, z_eff_y)
-        #         beam.rescale_y_noshift(mag_y)
-        #     # beam.y -= beam.cy
-        #     # beam.cy += beam.ay * 2 * delta_z
-        #     # beam.y += beam.cy
-        #     beam.zy += 2*delta_z
-        # else:
-        #     if beam.focused_x:
-        #         beam.propagation(0,0,2*delta_z)
-        #     else:
-        #         # calculate Fresnel scaling magnification
-        #         mag_x = (beam.zx + 2 * delta_z) / beam.zx
-        #
-        #         # calculate effective distance to propagate
-        #         z_eff_x = 2 * delta_z / mag_x
-        #
-        #         # scaled propagation
-        #         beam.propagation(0, 0, z_eff_x)
-        #         beam.rescale_x_noshift(mag_x)
-        #     # beam.x -= beam.cx
-        #     # beam.cx += beam.ax * 2 * delta_z
-        #     # beam.x += beam.cx
-        #     beam.zx += 2*delta_z
-        #
-        # if self.orientation==0 or self.orientation==2:
-        #     # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
-        #     beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
-        # else:
-        #
-        #     # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
-        #     beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
-        #
-        # beam.new_fx()
-        #
-        # print('global_x: %.2f' % beam.global_x)
-        # print('global_y: %.2f' % beam.global_y)
-        # print('global_z: %.2f' % beam.global_z)
+        if figon:
+            plt.figure()
+            # plt.plot(x_out,mask2)
+            plt.plot(x_eff[mask],mask[mask])
+            #
+            plt.figure()
+            # plt.plot(x_out[mask2],distance_interp[mask2])
+            plt.plot(x_eff[mask],total_distance[mask])
+            plt.title('distance inside mirror footprint')
+        # plt.plot(x_out,mask2)
+
+        z_out = 1/2/p_coeff[-3]
+        print('zout: %.6f' % z_out)
+
+        abs_out = Util.interp_flip(x_out, x_eff[mask], np.abs(wave[mask]))
+        angle_out = Util.interp_flip(x_out, x_eff[mask], np.unwrap(np.angle(wave[mask])))
+
+        angle_in = np.unwrap(np.angle(wave))
+
+        # plt.figure()
+        # plt.plot(angle_out*mask2)
+        if figon:
+            plt.figure()
+            plt.plot(x_eff[mask],np.abs(wave[mask]))
+            plt.plot(x_out,abs_out)
+            plt.plot(x_out,mask2)
+            plt.title("where's the beam?")
+            #
+            plt.figure()
+            plt.plot(x_eff[mask])
+            plt.title('exit plane coordinates')
+
+        if self.orientation==0 or self.orientation==2:
+            if not beam.focused_x:
+                print('adding quadratic phase')
+                quadratic = np.pi / beam.lambda0 / beam.zx * (beam.x) ** 2
+
+                # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
+
+                if figon:
+                    plt.figure()
+                    plt.plot(quadratic)
+                    plt.plot(angle_in)
+                    plt.title('quadratic phase and other phase')
+                angle_in += quadratic
+        else:
+            if not beam.focused_y:
+                print('adding quadratic phase')
+                quadratic = np.pi / beam.lambda0 / beam.zy * (beam.y) ** 2
+
+                # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
+
+                if figon:
+                    plt.figure()
+                    plt.plot(quadratic)
+                    plt.plot(angle_in)
+                    plt.title('quadratic phase and other phase')
+                angle_in += quadratic
+
+        total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
+            # beam.focused_x = True
+        try:
+            # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
+            p_coeff = np.polyfit(x_eff[mask], total_phase[mask], 2)
+        except:
+            print('problem with mask')
+            p_coeff = np.zeros(3)
+        z_2 = np.pi / beam.lambda0 / p_coeff[-3]
+
+        z_total = 1 / (1 / z_out + 1 / z_2)
+        print('new z: %.6f' % z_total)
+
+        linear += p_coeff[-2] * beam.lambda0/2/np.pi
+
+        total_phase -= np.polyval(p_coeff[-2:], x_eff)
+
+        if self.orientation==0 or self.orientation==2:
+            if not beam.focused_x:
+                total_phase -= np.polyval([p_coeff[-3],0,0],x_eff)
+        else:
+            if not beam.focused_y:
+                total_phase -= np.polyval([p_coeff[-3], 0, 0], x_eff)
+
+        phase_interp = Util.interp_flip(x_out, x_eff, total_phase)
+
+        # total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
+
+        wave = abs_out * np.exp(1j * phase_interp)
+        wave *= mask2
+
+        if figon:
+            plt.figure()
+            plt.plot(np.abs(wave))
+            plt.plot(np.abs(beam.wavex))
+
+        # beam.x = -x_out
+
+        ax0 = np.copy(beam.ax)
+        ay0 = np.copy(beam.ay)
+
+        # figure out where the beam is in global coordinates
+        # change in angle
+        if self.orientation==0 or self.orientation==2:
+            k_i = rays_ellipse[:,int(beam.M/2)]
+            k_f = rays_out[:,int(beam.M/2)]
+
+            k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1)), axes=(1,0))
+            delta_theta = np.arccos(np.dot(k_i, k_f))
+            nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.M/2)]
+            delta_ax = delta_theta - 2 * nominal_incidence + linear
+            delta_ax = delta_theta - 2*self.alpha - linear
+            print(beam.ax)
+            print(delta_ax)
+            if self.orientation==0:
+                beam.rotate_nominal(delta_azimuth=2*self.alpha)
+                beam.rotate_beam(delta_ax=delta_ax)
+            else:
+                beam.rotate_nominal(delta_azimuth=-2*self.alpha)
+                beam.rotate_beam(delta_ax=-delta_ax)
+
+            # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
+            print(beam.ax)
+            delta_cx = ax0 * self.length / 2 * 1.1
+            delta_cx += beam.ax * self.length / 2 * 1.1
+            delta_cx += 2*np.dot(self.normal,beam.xhat) * self.dx
+            print('change in beam center')
+            print(delta_cx)
+            # beam.cx = -beam.cx + delta_cx
+            # print(beam.cx)
+            beam.x = -x_out
+
+            beam.new_fx()
+
+            print('is beam in the correct direction?')
+            print(np.arccos(np.dot(beam.zhat, k_f)))
+            print(np.arccos(np.dot(beam.zhat, k_f_global[:,0])))
+            print(params['beta'])
+            print(k_f)
+            print(k_f_global)
+
+            beam.wavex = wave
+            # print(np.arccos(np.dot(beam.zhat,np.matmul(np.linalg.inv(transform_matrix),np.reshape(k_f,(3,1))))))
+        else:
+            k_i = rays_ellipse[:, int(beam.N / 2)]
+            k_f = rays_out[:, int(beam.N / 2)]
+
+            k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
+            delta_theta = np.arccos(np.dot(k_i, k_f))
+            nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2)]
+            delta_ay = delta_theta - 2 * nominal_incidence + linear
+            delta_ay = delta_theta - 2 * self.alpha - linear
+            print(beam.ay)
+            # print(beam.cy)
+            print(delta_ay)
+
+            if self.orientation == 1:
+                beam.rotate_nominal(delta_elevation=2 * self.alpha)
+                beam.rotate_beam(delta_ay=delta_ay)
+            else:
+                beam.rotate_nominal(delta_elevation=-2 * self.alpha)
+                beam.rotate_beam(delta_ay=-delta_ay)
+            print(beam.ay)
+            # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
+            # cy1 = beam.cy + ay0 * delta_z
+            # cy2 = -cy1 + beam.ay * delta_z
+
+            delta_cy = ay0 * self.length / 2 * 1.1
+            delta_cy += beam.ay * self.length / 2 * 1.1
+            delta_cy += 2 * np.dot(self.normal, beam.yhat) * self.dx
+            print('change in beam center')
+            # beam.cy = 2 * np.dot(self.normal, beam.yhat) * self.dx + cy2
+            print(delta_cy)
+            # beam.cy = -beam.cy + delta_cy
+            print(beam.cy)
+            beam.y = -x_out
+
+            beam.new_fx()
+
+            print('is beam in the correct direction?')
+            print(np.arccos(np.dot(beam.zhat, k_f)))
+            print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0])))
+            print(params['beta'])
+            print(k_f)
+            print(k_f_global)
+
+            beam.wavey = wave
+
+        # now figure out global coordinates
+        # get back into global coordinates using inverse of transformation matrix, just looking at central ray
+        inv_transform = np.linalg.inv(transform_matrix)
+
+        # rotate into global coordinate system, but origin is still at ellipse center
+        origin_global = np.tensordot(inv_transform, origin, axes=(1,0))
+
+        # subtract ellipse center, so that now this is relative to the mirror center
+        origin_global -= np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+
+        # now add the mirror center in global coordinates, so that this should be the beam location
+        # in global coordinates
+        origin_global += np.reshape(mirror_center, (3, 1))
+        # origin_global -= np.reshape(self.normal*dx,(3,1))
+        print(origin_global)
+        # now shift origin to ellipse origin
+
+        beam.global_x = origin_global[0,0]
+        beam.global_y = origin_global[1,0]
+        beam.global_z = origin_global[2,0]
+
+        if self.orientation==0 or self.orientation==2:
+            # calculate Fresnel scaling magnification
+
+            if beam.focused_y:
+                # this accounts for change in phase
+                beam.propagation(0,0,2*delta_z)
+            else:
+                mag_y = (beam.zy + 2 * delta_z) / beam.zy
+
+                # calculate effective distance to propagate
+                z_eff_y = 2 * delta_z / mag_y
+
+                # scaled propagation
+                beam.propagation(0, 0, z_eff_y)
+                beam.rescale_y_noshift(mag_y)
+            # beam.y -= beam.cy
+            # beam.cy += beam.ay * 2 * delta_z
+            # beam.y += beam.cy
+            beam.zy += 2*delta_z
+        else:
+            if beam.focused_x:
+                beam.propagation(0,0,2*delta_z)
+            else:
+                # calculate Fresnel scaling magnification
+                mag_x = (beam.zx + 2 * delta_z) / beam.zx
+
+                # calculate effective distance to propagate
+                z_eff_x = 2 * delta_z / mag_x
+
+                # scaled propagation
+                beam.propagation(0, 0, z_eff_x)
+                beam.rescale_x_noshift(mag_x)
+            # beam.x -= beam.cx
+            # beam.cx += beam.ax * 2 * delta_z
+            # beam.x += beam.cx
+            beam.zx += 2*delta_z
+
+        if self.orientation==0 or self.orientation==2:
+            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+            beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
+        else:
+
+            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+            beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
+
+        beam.new_fx()
+        print('global_x: %.2f' % beam.global_x)
+        print('global_y: %.2f' % beam.global_y)
+        print('global_z: %.2f' % beam.global_z)
 
     def reflect(self, beam):
         """
