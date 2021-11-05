@@ -1208,22 +1208,22 @@ class CurvedMirror(Mirror):
 
         intersect_center = np.reshape(intersect_coords[:,int(beam.N/2)],(3,1))
 
-        intersect1 = np.reshape(np.array([self.x_intersect, self.y_intersect, self.z_intersect]),(3,1))
-        print(intersect1)
-        print(mirror_center)
-
-        # intersect1 += np.reshape(beam_center, (3, 1))
-        # now subtract mirror center so that beam coordinates are in global coordinates,
-        # but with origin at mirror center
-        intersect1 -= np.reshape(mirror_center, (3, 1))
-        intersect1 += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
-        intersect1 = np.tensordot(transform_matrix, intersect1, axes=(1, 0))
-        intersect_diff = intersect_center - intersect1
-
-        intersect_distance = (np.sqrt(np.sum(intersect_diff*intersect_diff)) *
-                              np.sign(np.dot(intersect_diff.flatten(), rays_ellipse[:,int(beam.N/2)])))
-        print('difference in intersection')
-        print(intersect_distance)
+        # intersect1 = np.reshape(np.array([self.x_intersect, self.y_intersect, self.z_intersect]),(3,1))
+        # print(intersect1)
+        # print(mirror_center)
+        #
+        # # intersect1 += np.reshape(beam_center, (3, 1))
+        # # now subtract mirror center so that beam coordinates are in global coordinates,
+        # # but with origin at mirror center
+        # intersect1 -= np.reshape(mirror_center, (3, 1))
+        # intersect1 += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+        # intersect1 = np.tensordot(transform_matrix, intersect1, axes=(1, 0))
+        # intersect_diff = intersect_center - intersect1
+        #
+        # intersect_distance = (np.sqrt(np.sum(intersect_diff*intersect_diff)) *
+        #                       np.sign(np.dot(intersect_diff.flatten(), rays_ellipse[:,int(beam.N/2)])))
+        # print('difference in intersection')
+        # print(intersect_distance)
 
         i_vector = intersect_coords - coords_ellipse
 
@@ -1555,9 +1555,9 @@ class CurvedMirror(Mirror):
 
             if beam.focused_y:
                 # this accounts for change in phase
-                beam.propagation(0,0,2*delta_z+intersect_distance)
+                beam.propagation(0,0,2*delta_z)
             else:
-                mag_y = (beam.zy + 2 * delta_z+intersect_distance) / beam.zy
+                mag_y = (beam.zy + 2 * delta_z) / beam.zy
 
                 # calculate effective distance to propagate
                 z_eff_y = 2 * delta_z / mag_y
@@ -1568,13 +1568,13 @@ class CurvedMirror(Mirror):
             # beam.y -= beam.cy
             # beam.cy += beam.ay * 2 * delta_z
             # beam.y += beam.cy
-            beam.zy += 2*delta_z+intersect_distance
+            beam.zy += 2*delta_z
         else:
             if beam.focused_x:
-                beam.propagation(0,0,2*delta_z+intersect_distance)
+                beam.propagation(0,0,2*delta_z)
             else:
                 # calculate Fresnel scaling magnification
-                mag_x = (beam.zx + 2 * delta_z+intersect_distance) / beam.zx
+                mag_x = (beam.zx + 2 * delta_z) / beam.zx
 
                 # calculate effective distance to propagate
                 z_eff_x = 2 * delta_z / mag_x
@@ -1585,7 +1585,7 @@ class CurvedMirror(Mirror):
             # beam.x -= beam.cx
             # beam.cx += beam.ax * 2 * delta_z
             # beam.x += beam.cx
-            beam.zx += 2*delta_z+intersect_distance
+            beam.zx += 2*delta_z
 
         if self.orientation==0 or self.orientation==2:
             # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
@@ -1713,8 +1713,6 @@ class CurvedMirror(Mirror):
         print('global_x: %.2f' % beam.global_x)
         print('global_y: %.2f' % beam.global_y)
         print('global_z: %.2f' % beam.global_z)
-
-        return intersect_distance
 
     def reflect(self, beam):
         """
@@ -1947,7 +1945,7 @@ class CurvedMirror(Mirror):
         cx = np.copy(beam.cx)
         cy = np.copy(beam.cy)
 
-        intersect_distance = self.trace_surface(beam)
+        self.trace_surface(beam)
         beam.beam_prop(-self.length / 2 * 1.1)
 
         print('x')
