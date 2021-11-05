@@ -1200,42 +1200,23 @@ class CurvedMirror(Mirror):
         x_intersect = -b*np.sqrt(np.ones_like(z_intersect)-z_intersect**2/a**2)
         y_intersect = rays_ellipse[1,:]/rays_ellipse[2,:]*(z_intersect-coords_ellipse[2,:]) + coords_ellipse[1,:]
 
-
         intersect_coords = np.zeros((3,np.size(z_intersect)))
         intersect_coords[0,:] = x_intersect
         intersect_coords[1,:] = y_intersect
         intersect_coords[2,:] = z_intersect
 
-        intersect_center = np.reshape(intersect_coords[:,int(beam.N/2)],(3,1))
-
-        # intersect1 = np.reshape(np.array([self.x_intersect, self.y_intersect, self.z_intersect]),(3,1))
-        # print(intersect1)
-        # print(mirror_center)
-        #
-        # # intersect1 += np.reshape(beam_center, (3, 1))
-        # # now subtract mirror center so that beam coordinates are in global coordinates,
-        # # but with origin at mirror center
-        # intersect1 -= np.reshape(mirror_center, (3, 1))
-        # intersect1 += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
-        # intersect1 = np.tensordot(transform_matrix, intersect1, axes=(1, 0))
-        # intersect_diff = intersect_center - intersect1
-        #
-        # intersect_distance = (np.sqrt(np.sum(intersect_diff*intersect_diff)) *
-        #                       np.sign(np.dot(intersect_diff.flatten(), rays_ellipse[:,int(beam.N/2)])))
-        # print('difference in intersection')
-        # print(intersect_distance)
-
+        # vectors pointing from beam location to mirror intersection
         i_vector = intersect_coords - coords_ellipse
 
+        # length of each vector
         distance_1 = np.sqrt(np.sum(i_vector*i_vector,axis=0))
 
+        # define ellipse normals along mirror surface
         ellipse_normal = np.zeros_like(rays)
         ellipse_normal[2,:] = -b/a**2*z_intersect*(1-z_intersect**2/a**2)**(-.5)
+        ellipse_normal[0,:] = np.ones_like(z_intersect)
 
-        if self.orientation==0 or self.orientation==1:
-            ellipse_normal[0,:] = np.ones_like(z_intersect)
-        else:
-            ellipse_normal[0, :] = np.ones_like(z_intersect)
+        # normalize
         ellipse_normal = ellipse_normal/np.sqrt(np.sum(ellipse_normal*ellipse_normal,axis=0))
 
         # calculate ray direction after interaction with ellipse
@@ -1269,15 +1250,7 @@ class CurvedMirror(Mirror):
             plt.grid()
             plt.title('entrance/exit planes, mirror intersection')
 
-        # plt.figure()
-        # plt.plot(coords[0,:],plane_intersect[0,:])
-
-        # filter out nans
-        # mask = np.logical_not(np.isnan(x_intersect))
-        #
-        # # plt.figure()
-        # # plt.plot(z_intersect, x_intersect)
-        #
+        # total distance for each beam ray
         total_distance = (distance_1+distance_2)
         #
         if figon:
@@ -1286,23 +1259,19 @@ class CurvedMirror(Mirror):
             plt.plot(intersect_coords[2,:],distance_2)
             plt.plot(intersect_coords[2,:],distance_1+distance_2)
             plt.title('distances')
-        # # plt.plot(beam.x,beam.x**2/2/2.45)
-        # # plt.figure()
-        # # plt.plot(beam.x,total_distance-total_distance[int(beam.N/2)])
-        # # plt.plot(beam.x,-(plane_intersect[0,:]-np.mean(plane_intersect[0,:]))**2/2/2.45)
-        #
+
         # find location of central ray in exit plane
         origin = np.reshape(plane_intersect[:,int(beam.M/2)],(3,1))
 
+        # put beam center at origin
         shifted_plane = plane_intersect-origin
 
+        # angle that exit plane makes with ellipse x-axis
         alpha = np.arctan(shifted_plane[2,0]/shifted_plane[0,0])
 
+        # effective beam coordinates at exit plane (not uniformly spaced)
         x_eff = shifted_plane[0,:]/np.cos(alpha)
-        #
-        # xwidth = np.max(x_eff)-np.min(x_eff)
-        # dx = xwidth/beam.M
-        # xcenter = x_eff[int(beam.M/2)]
+
         # calculate desired pixel size due to expected change in beam size
         if self.orientation==0 or self.orientation==2:
             dx = beam.dx * (beam.zx + self.length/2*1.1)/beam.zx * (self.q - self.length/2*1.1)/self.q
@@ -1311,15 +1280,17 @@ class CurvedMirror(Mirror):
             dx = beam.dy * (beam.zy + self.length / 2 * 1.1) / beam.zy * (self.q - self.length / 2 * 1.1) / self.q
             x_out = np.linspace(-beam.N / 2 * dx, (beam.N / 2 - 1) * dx, beam.N)
         # mask defining mirror acceptance
-        # if self.orientation==0 or self.orientation==1:
-        if True:
+        if self.q>=0:
             mask = np.logical_and(coords_ellipse[0,:]>intersect_coords[0,:], plane_intersect[0,:]>intersect_coords[0,:])
         else:
             mask = np.logical_and(coords_ellipse[0, :] < intersect_coords[0, :],
-                                  plane_intersect[0, :] < intersect_coords[0, :])
-        # mask = np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta'])
+                                  plane_intersect[0, :] > intersect_coords[0, :])
+
         # second order fit to ray distance
-        mask = np.logical_and(mask, coords_ellipse[0,:]<0)
+        if self.q>=0:
+            mask = np.logical_and(mask, coords_ellipse[0,:]<0)
+        else:
+            mask = np.logical_and(mask, coords_ellipse[0, :] > 0)
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta']))
 
         p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
