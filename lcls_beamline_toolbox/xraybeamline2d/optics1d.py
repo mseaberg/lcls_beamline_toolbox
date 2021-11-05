@@ -1319,13 +1319,6 @@ class CurvedMirror(Mirror):
         z_out = 1/2/p_coeff[-3]
         print('zout: %.6f' % z_out)
 
-        # distance_interp -= np.polyval(p_coeff,x_out)
-
-        # real_out = Util.interp_flip(x_out,x_eff-xcenter,np.real(beam.wavex))
-        # imag_out = Util.interp_flip(x_out,x_eff-xcenter,np.imag(beam.wavex))
-
-
-
         abs_out = Util.interp_flip(x_out, x_eff[mask], np.abs(wave[mask]))
         angle_out = Util.interp_flip(x_out, x_eff[mask], np.unwrap(np.angle(wave[mask])))
 
@@ -1411,7 +1404,6 @@ class CurvedMirror(Mirror):
 
         ax0 = np.copy(beam.ax)
         ay0 = np.copy(beam.ay)
-
 
         # figure out where the beam is in global coordinates
         # change in angle
@@ -1567,120 +1559,6 @@ class CurvedMirror(Mirror):
             beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
 
         beam.new_fx()
-        # beam.wavex = abs_out * np.exp(1j * phase_interp)
-        # # beam.wavex = (real_out + 1j*imag_out)*np.exp(1j*2*np.pi/beam.lambda0*distance_interp)
-        # beam.wavex *= mask2
-        #
-        # cx = np.copy(beam.cx)
-        # cx += delta_z*beam.ax*2
-        #
-        # beam.x = -(x_out)
-        #
-        # beam.new_fx()
-
-
-        # plt.figure()
-        # plt.plot(x_out[mask2],angle_out[mask2])
-        # plt.title('other phase inside footprint')
-        #
-        #
-        #
-        # # beam.wavex *= np.exp(-1j*np.pi/beam.lambda0/z_2*(x_out)**2)
-        # # beam.focused_x = False
-        #
-        # # plt.figure()
-        # # plt.plot(beam.x,mask)
-        # # plt.plot(beam.x,distance_interp*2*np.pi/beam.lambda0)
-        # # plt.ylim(-1,1)
-        #
-        # mask = np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta'])
-        # mask = Util.interp_flip(x_out, x_eff - xcenter, mask)
-        # mask[mask<1] = 0
-        #
-        # if self.orientation == 0:
-        #     plt.figure()
-        #     plt.plot(np.abs(beam.wavex))
-        #     plt.plot(np.unwrap(np.angle(beam.wavex))*mask2)
-        #     plt.title('phase before changing beam.z')
-        #
-        #     beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M/2)], old_zx=z_2)
-        #
-        #     plt.figure()
-        #     plt.plot(np.abs(beam.wavex))
-        #     plt.plot(np.unwrap(np.angle(beam.wavex)) * mask2)
-        #     plt.title('phase after changing beam.z')
-        #
-        #     # now transfer origin back to global coordinates to put the beam in the right spot
-        #     origin_shift = origin - np.reshape(np.array([x0, 0, z0]),(3,1))
-        #     origin_shift = origin - np.reshape(x0 * ellipse_x - z0 * ellipse_z,(3,1))
-        #     print('origin')
-        #     print(origin_shift)
-        #     r = transform.Rotation.from_rotvec(self.sagittal * rotation_angle)
-        #     R = r.as_matrix()
-        # elif self.orientation==1:
-        #     plt.figure()
-        #     plt.plot(np.abs(beam.wavey))
-        #     plt.plot(np.unwrap(np.angle(beam.wavey)) * mask2)
-        #     plt.title('phase before changing beam.z')
-        #
-        #     beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.M / 2)], old_zy=z_2)
-        #
-        #     plt.figure()
-        #     plt.plot(np.abs(beam.wavey))
-        #     plt.plot(np.unwrap(np.angle(beam.wavey)) * mask2)
-        #     plt.title('phase after changing beam.z')
-        #
-        #     # now transfer origin back to global coordinates to put the beam in the right spot
-        #     origin_shift = origin - np.reshape(np.array([0, x0, z0]), (3, 1))
-        #     origin_shift = origin - np.reshape(x0 * ellipse_x - z0 * ellipse_z,(3,1))
-        #     print('origin')
-        #     print(origin_shift)
-        #     r = transform.Rotation.from_rotvec(self.sagittal * rotation_angle)
-        #     R = r.as_matrix()
-        #
-        # elif self.orientation==2:
-        #     plt.figure()
-        #     plt.plot(np.abs(beam.wavex))
-        #     plt.plot(np.unwrap(np.angle(beam.wavex)) * mask2)
-        #
-        #     beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
-        #
-        #     # now transfer origin back to global coordinates to put the beam in the right spot
-        #     origin_shift = origin - np.reshape(np.array([-x0, 0, z0]), (3, 1))
-        #     origin_shift = origin - np.reshape(x0 * ellipse_x - z0 * ellipse_z,(3,1))
-        #     print('origin')
-        #     print(origin_shift)
-        #     r = transform.Rotation.from_rotvec(self.sagittal * rotation_angle)
-        #     R = r.as_matrix()
-        # else:
-        #     plt.figure()
-        #     plt.plot(np.abs(beam.wavey))
-        #     plt.plot(np.unwrap(np.angle(beam.wavey)) * mask2)
-        #
-        #     beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.M / 2)], old_zy=z_2)
-        #
-        #     # now transfer origin back to global coordinates to put the beam in the right spot
-        #     origin_shift = origin - np.reshape(np.array([0, -x0, z0]), (3, 1))
-        #     origin_shift = origin - np.reshape(x0 * ellipse_x - z0 * ellipse_z,(3,1))
-        #     print('origin')
-        #     print(origin_shift)
-        #     r = transform.Rotation.from_rotvec(self.sagittal * rotation_angle)
-        #     R = r.as_matrix()
-        # # rotate into global coordinates
-        # origin_rotate = np.matmul(R, origin_shift)
-        # # add back mirror coordinates
-        # print(origin_rotate)
-        # origin_rotate += np.reshape(np.array([self.global_x, self.global_y, self.z])+
-        #                             self.normal*self.dx,(3, 1))
-        # print('global origin')
-        # print(origin_rotate)
-        # print(self.z)
-        #
-        # # now rotate outward rays into global coordinates
-        # # beam.global_z = origin
-        # beam.global_z = origin_rotate[2,0]
-        # beam.global_y = origin_rotate[1,0]
-        # beam.global_x = origin_rotate[0,0]
         print('global_x: %.2f' % beam.global_x)
         print('global_y: %.2f' % beam.global_y)
         print('global_z: %.2f' % beam.global_z)
