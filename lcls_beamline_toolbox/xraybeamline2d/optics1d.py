@@ -115,9 +115,9 @@ class Mirror:
         self.beam_ax = 0
         self.beam_ay = 0
         self.show_figures = False
-        self.x_intersect = 0
-        self.y_intersect = 0
-        self.z_intersect = 0
+        self.x_intersect = 0.0
+        self.y_intersect = 0.0
+        self.z_intersect = 0.0
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
@@ -1446,7 +1446,7 @@ class CurvedMirror(Mirror):
             delta_theta = np.arccos(np.dot(k_i, k_f))
             nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.M/2)]
             delta_ax = delta_theta - 2 * nominal_incidence + linear
-            delta_ax = delta_theta - 2*self.alpha + linear
+            delta_ax = delta_theta - 2*self.alpha - linear
             print(beam.ax)
             print(delta_ax)
             if self.orientation==0:
@@ -1482,17 +1482,11 @@ class CurvedMirror(Mirror):
             k_i = rays_ellipse[:, int(beam.N / 2)]
             k_f = rays_out[:, int(beam.N / 2)]
 
-            nominal = -np.sin(params['beta']+self.delta) * ux + np.cos(params['beta']+self.delta) * uz
-
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
             delta_theta = np.arccos(np.dot(k_i, k_f))
-            ay = np.arccos(np.dot(nominal.flatten(), k_f)) - 2 * self.alpha
-            delta_ay = ay - beam.ay
-            print(delta_theta)
             nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2)]
-            # delta_ay = delta_theta - 2 * nominal_incidence + linear
-            # delta_ay = delta_theta - 2 * self.alpha + linear# + 2*beam.ay
-            # delta_ay = -2*beam.ay + delta_theta - 2* self.alpha + linear
+            delta_ay = delta_theta - 2 * nominal_incidence + linear
+            delta_ay = delta_theta - 2 * self.alpha - linear
             print(beam.ay)
             # print(beam.cy)
             print(delta_ay)
