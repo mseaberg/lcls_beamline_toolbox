@@ -834,13 +834,17 @@ class CurvedMirror(Mirror):
             else:
                 z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
 
-            # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length /2 * np.cos(delta), N)
+            params = {
+                'L': L,
+                'a': np.sqrt(a2),
+                'b': np.sqrt(b2),
+                'beta': beta,
+                'delta': delta,
+                'x0': x0,
+                'z0': z0
+            }
 
-            # hyperbola equation (using center of hyperbola as origin)
-            x1 = np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
-
-            return z1, x1, z0, x0, delta
+            return params
 
         # concave hyperbolic mirror
         elif p<0 and q>=0:
@@ -868,13 +872,17 @@ class CurvedMirror(Mirror):
             else:
                 z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
 
-            # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+            params = {
+                'L': L,
+                'a': np.sqrt(a2),
+                'b': np.sqrt(b2),
+                'beta': beta,
+                'delta': delta,
+                'x0': x0,
+                'z0': z0
+            }
 
-            # hyperbola equation (using center of hyperbola as origin)
-            x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
-
-            return z1, x1, z0, x0, delta
+            return params
 
     def calc_misalignment(self, beam, cz):
         """
@@ -1010,16 +1018,28 @@ class CurvedMirror(Mirror):
 
         a = params['a']
         b = params['b']
-        aq = b ** 2 / a ** 2 + (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2
-        bq = (-2 * coords_ellipse[2, :] * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 +
-              2 * coords_ellipse[0, :] * rays_ellipse[0, :] / rays_ellipse[2, :])
-        cq = (coords_ellipse[2, :] ** 2 * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 -
-              2 * coords_ellipse[0, :] * coords_ellipse[2, :] * rays_ellipse[0, :] / rays_ellipse[2, :] +
-              coords_ellipse[0, :] ** 2 - b ** 2)
+
+        if self.q>=0:
+            aq = b ** 2 / a ** 2 + (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2
+            bq = (-2 * coords_ellipse[2, :] * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 +
+                  2 * coords_ellipse[0, :] * rays_ellipse[0, :] / rays_ellipse[2, :])
+            cq = (coords_ellipse[2, :] ** 2 * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 -
+                  2 * coords_ellipse[0, :] * coords_ellipse[2, :] * rays_ellipse[0, :] / rays_ellipse[2, :] +
+                  coords_ellipse[0, :] ** 2 - b ** 2)
+        else:
+            aq = -b ** 2 / a **2 + (rays_ellipse[0,:] / rays_ellipse[2,:]) ** 2
+            bq = (-2 * coords_ellipse[2,:] * (rays_ellipse[0,:]/rays_ellipse[2,:]) ** 2 +
+                  2 * coords_ellipse[0,:] * rays_ellipse[0,:]/rays_ellipse[2,:])
+            cq = ((coords_ellipse[2,:] * rays_ellipse[0,:]/rays_ellipse[2,:])**2 -
+                  2 * coords_ellipse[0,:] * coords_ellipse[2,:] * rays_ellipse[0,:]/rays_ellipse[2,:] +
+                  coords_ellipse[0,:]**2 + b ** 2)
 
         z_intersect = (-bq + np.sqrt(bq ** 2 - 4 * aq * cq)) / 2 / aq
 
-        x_intersect = -b * np.sqrt(np.ones_like(z_intersect) - z_intersect ** 2 / a ** 2)
+        if self.q>=0:
+            x_intersect = -b * np.sqrt(np.ones_like(z_intersect) - z_intersect ** 2 / a ** 2)
+        else:
+            x_intersect = b * np.sqrt(z_intersect**2/a**2 - np.ones_like(z_intersect))
         y_intersect = rays_ellipse[1, :] / rays_ellipse[2, :] * (z_intersect - coords_ellipse[2, :]) + coords_ellipse[1,:]
 
         intersect_point = np.reshape(np.array([x_intersect,y_intersect,z_intersect]), (3,1))
@@ -1062,11 +1082,8 @@ class CurvedMirror(Mirror):
         # define ellipse coordinate unit vectors
         # rotation angle to rotate mirror vectors into ellipse coordinates
         # mirror is already rotated by delta when drifts are added to beamline
-        if self.orientation==0 or self.orientation==1:
-            ellipse_rotate = params['delta']
-        # in orientation 2 or 3 case, the mirror surface is "above" the incident beam (+x direction)
-        else:
-            ellipse_rotate = params['delta']
+        ellipse_rotate = params['delta']
+
         re = transform.Rotation.from_rotvec(-self.sagittal*ellipse_rotate)
         Re = re.as_matrix()
 
@@ -1082,7 +1099,7 @@ class CurvedMirror(Mirror):
         # go through all orientation options
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
-            rays_x = (beam.x)/beam.zx
+            rays_x = beam.x/beam.zx
             # transverse unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates, but with beam centered at zero
@@ -1094,7 +1111,7 @@ class CurvedMirror(Mirror):
             beamx = beam.x
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
-            rays_x = (beam.y)/beam.zy
+            rays_x = beam.y/beam.zy
             # transverse unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
@@ -1105,7 +1122,7 @@ class CurvedMirror(Mirror):
             beamx = beam.y
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
-            rays_x = (beam.x)/beam.zx
+            rays_x = beam.x/beam.zx
             # transverse unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates (but centered at origin)
@@ -1116,7 +1133,7 @@ class CurvedMirror(Mirror):
             beamx = beam.x
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
-            rays_x = (beam.y)/beam.zy
+            rays_x = beam.y/beam.zy
             # transverse unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
@@ -1134,12 +1151,14 @@ class CurvedMirror(Mirror):
         # are defined based on mirror unit vectors
         coords += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
 
+        print('x0 and z0')
+        print(params['x0'])
+        print(params['z0'])
+
         # now write beam coordinates in ellipse coordinates
         transform_matrix = np.tensordot(np.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)),
                                         np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
         coords_ellipse = np.tensordot(transform_matrix, coords, axes=(1, 0))
-
-        # coords_ellipse += np.reshape(ux * params['x0'] + uz * params['z0'],(3,1))
 
         # calculate z component of rays (enforcing unit vector)
         rays_z = np.sqrt(np.ones_like(rays_x) - rays_x ** 2)
@@ -1152,20 +1171,8 @@ class CurvedMirror(Mirror):
         # now write rays in ellipse coordinates
         rays_ellipse = np.tensordot(transform_matrix, rays, axes=(1,0))
 
-        # # add offsets to find beam coordinates relative to mirror
-        # # (still need to offset by ellipse center after rotating into ellipse coordinates)
-        # coords += np.reshape((np.array([beam.global_x, beam.global_y, beam.global_z]) -
-        #                       np.array([self.global_x, self.global_y, self.z]) -
-        #                       self.normal * self.dx), (3, 1))
-        # # now rotate beam into ellipse coordinates, taking into account mirror offset and/or angular misalignment
-        # coords = np.tensordot(R, coords, axes=(1, 0))
-        # rays = np.tensordot(R, rays, axes=(1,0))
-
         # calculate ellipse for plotting purposes
         z1, x1, z0, x0, delta = self.calc_ellipse(self.p, self.q, self.alpha)
-        # if self.orientation==2 or self.orientation==3:
-        #     x1 = -x1
-        #     x0 = -x0
 
         if figon:
             plt.figure()
@@ -1176,10 +1183,7 @@ class CurvedMirror(Mirror):
             plt.grid()
             plt.title('incoming rays and mirror')
 
-
-
-
-            # solve quadratic eqn for ellipse/line intersection
+        # solve quadratic eqn for ellipse/line intersection
         a = params['a']
         b = params['b']
         aq = b**2/a**2 + (rays_ellipse[0,:]/rays_ellipse[2,:])**2
@@ -1189,8 +1193,10 @@ class CurvedMirror(Mirror):
               2*coords_ellipse[0,:]*coords_ellipse[2,:]*rays_ellipse[0,:]/rays_ellipse[2,:]+
               coords_ellipse[0,:]**2-b**2)
 
+        # quadratic equation
         z_intersect = (-bq+np.sqrt(bq**2-4*aq*cq))/2/aq
 
+        # find x and y based on z
         x_intersect = -b*np.sqrt(np.ones_like(z_intersect)-z_intersect**2/a**2)
         y_intersect = rays_ellipse[1,:]/rays_ellipse[2,:]*(z_intersect-coords_ellipse[2,:]) + coords_ellipse[1,:]
 
