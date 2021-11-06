@@ -3234,7 +3234,8 @@ class Crystal(Mirror):
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :]) < self.length / 2)
 
         p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
-        linear = p_coeff[-2]
+        # linear = p_coeff[-2]
+        linear = 0
         # subtract best fit parabola
         total_distance -= np.polyval(p_coeff,x_eff)
         #
@@ -3304,7 +3305,8 @@ class Crystal(Mirror):
                     plt.title('quadratic phase and other phase')
                 angle_in += quadratic
 
-        total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
+        # total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
+        total_phase = angle_in
             # beam.focused_x = True
         try:
             # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
@@ -3314,8 +3316,13 @@ class Crystal(Mirror):
             p_coeff = np.zeros(3)
         z_2 = np.pi / beam.lambda0 / p_coeff[-3]
 
+        plt.figure()
+        plt.plot(total_phase[mask])
+
         z_total = 1 / (1 / z_out + 1 / z_2)
         print('new z: %.6f' % z_total)
+        print(z_2)
+        z_total = z_2
 
         linear += p_coeff[-2] * beam.lambda0/2/np.pi
 
@@ -3355,7 +3362,7 @@ class Crystal(Mirror):
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1)), axes=(1,0))
             delta_theta = np.arccos(np.dot(k_i, k_f))
 
-            delta_ax = delta_theta - self.alpha -self.beta0 #- linear
+            delta_ax = delta_theta - self.alpha -self.beta0 - linear
             print(beam.ax)
             print(delta_ax)
             if self.orientation==0:
