@@ -2963,11 +2963,13 @@ class Crystal(Mirror):
         :return: None
         """
         # if we're operating in zero order, just acts like a mirror
-        if self.order == 0:
-            self.reflect(beam)
-        # if we're in first order, calculate diffraction
-        elif self.order == 1:
-            self.diffract(beam)
+        # if self.order == 0:
+        #     self.reflect(beam)
+        # # if we're in first order, calculate diffraction
+        # elif self.order == 1:
+        #     self.diffract(beam)
+        self.trace_surface(beam)
+        beam.beam_prop(-self.length / 2 * 1.1)
 
     def calc_kf(self, z_s, k_iy, alpha_in, slope_error, lambda0):
         # calculate diffraction angle at every point on the grating
@@ -3100,7 +3102,8 @@ class Crystal(Mirror):
         if figon:
             plt.figure()
             plt.plot(coords_crystal[2,:],coords_crystal[0,:])
-            plt.plot(z1, x1)
+            # plt.plot(z1, x1)
+            plt.plot([-self.length/2,self.length/2],[0,0])
             plt.quiver(coords_crystal[2,:],coords_crystal[0,:],rays_crystal[2,:],rays_crystal[0,:])
             plt.ylim(-.5,.5)
             plt.grid()
@@ -3112,7 +3115,7 @@ class Crystal(Mirror):
         x_intersect = np.zeros_like(z_intersect)
 
         # find y based on z
-        y_intersect = rays_crystal[1,:]/rays_crystal[2,:]*(z_intersect-coords_crystal[2,:]) + coords_ellipse[1,:]
+        y_intersect = rays_crystal[1,:]/rays_crystal[2,:]*(z_intersect-coords_crystal[2,:]) + coords_crystal[1,:]
 
         intersect_coords = np.zeros((3,np.size(z_intersect)))
         intersect_coords[0,:] = x_intersect
@@ -3136,12 +3139,28 @@ class Crystal(Mirror):
         crystal_normal[0,:] = np.ones_like(z_intersect) * np.cos(self.alphaAsym)
         crystal_normal[2,:] = np.ones_like(z_intersect) * np.sin(self.alphaAsym)
 
-        c_parallel = np.sum(crystal_normal * crystal_z, axis=0) * crystal_z * self.lambda0/self.d
+        c_parallel = np.sum(crystal_normal* uz, axis=0) * uz * self.lambda0/self.d
 
-        rays_y = np.sum(rays_crystal * crystal_y, axis=0) * crystal_y
-        rays_z = np.sum(rays_crystal * crystal_z, axis=0) * crystal_z + c_parallel
+        plt.figure()
+        plt.plot(c_parallel[2,:])
+        plt.title('parallel component')
+        print(np.shape(c_parallel))
+
+        print(np.shape(uy))
+        print(np.shape(rays_crystal))
+
+        rays_y = np.sum(rays_crystal * uy, axis=0) * uy
+        print(np.shape(rays_y))
+
+        rays_z = np.sum(rays_crystal * uz, axis=0) * uz + c_parallel
         rays_x = np.sqrt(np.ones_like(z_intersect) - np.sum(rays_y*rays_y,axis=0)-
-                         np.sum(rays_z*rays_z,axis=0)) * crystal_x
+                         np.sum(rays_z*rays_z,axis=0)) * ux
+
+        plt.figure()
+        plt.plot(rays_z[0, :])
+        plt.plot(rays_z[1, :])
+        plt.plot(rays_z[2, :])
+        plt.plot(rays_crystal[2, :])
 
         rays_out = rays_x + rays_y + rays_z
 
@@ -3172,7 +3191,6 @@ class Crystal(Mirror):
         if figon:
             plt.figure()
             plt.plot(coords_crystal[2, :], coords_crystal[0, :])
-            plt.plot(z1, x1)
             plt.plot(z_intersect, x_intersect)
             plt.plot(plane_intersect[2,:],plane_intersect[0,:])
             # plt.ylim(-.5, .5)
@@ -3319,8 +3337,9 @@ class Crystal(Mirror):
 
         if figon:
             plt.figure()
-            plt.plot(np.abs(wave))
-            plt.plot(np.abs(beam.wavex))
+            plt.plot(np.abs(wave),label='new amplitude')
+            plt.plot(np.abs(beam.wavex),label='old amplitude')
+            plt.legend()
 
         # beam.x = -x_out
 
@@ -3336,7 +3355,7 @@ class Crystal(Mirror):
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1)), axes=(1,0))
             delta_theta = np.arccos(np.dot(k_i, k_f))
 
-            delta_ax = delta_theta - self.alpha -self.beta0 - linear
+            delta_ax = delta_theta - self.alpha -self.beta0 #- linear
             print(beam.ax)
             print(delta_ax)
             if self.orientation==0:
