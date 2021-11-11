@@ -1483,7 +1483,7 @@ class CurvedMirror(Mirror):
             print(delta_cx)
             # beam.cx = -beam.cx + delta_cx
             # print(beam.cx)
-            beam.x = -x_out
+            beam.x = x_out
 
             beam.new_fx()
 
@@ -1528,7 +1528,7 @@ class CurvedMirror(Mirror):
             print(delta_cy)
             # beam.cy = -beam.cy + delta_cy
             print(beam.cy)
-            beam.y = -x_out
+            beam.y = x_out
 
             beam.new_fx()
 
