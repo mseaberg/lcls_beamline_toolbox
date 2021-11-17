@@ -3543,7 +3543,7 @@ class PPM:
                 ax.plot(self.x * 1e6, gaussian_fit, label='fit')
         if legend:
             ax.legend()
-        ax.set_xlabel('Y Coordinates (\u03BCm)')
+        ax.set_xlabel('X Coordinates (\u03BCm)')
         # show a grid
         ax.grid(True)
         # set limits
