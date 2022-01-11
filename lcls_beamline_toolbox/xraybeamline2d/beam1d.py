@@ -1418,6 +1418,78 @@ class Pulse:
 
         return ax_profile, ax_x, ax_y
 
+    def get_projection(self, image_name):
+
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # calculate the profile
+        # profile = np.sum(np.abs(self.energy_stacks[image_name])**2, axis=2)
+        profile = np.sum(np.abs(self.time_stacks[image_name]) ** 2, axis=2)
+        x_lineout = np.sum(profile, axis=0)
+        y_lineout = np.sum(profile, axis=1)
+
+        cx, cy, wx, wy, fwx_guess, fwy_guess = Pulse.beam_analysis(self.x[image_name], self.y[image_name],
+                                                                   x_lineout, y_lineout)
+        data_dict = {'profile': profile, 'x_centroid': cx, 'y_centroid': cy,
+                     'x_fwhm': wx, 'y_fwhm': wy, 'xmin': minx, 'xmax': maxx,
+                     'ymin': miny, 'ymax': maxy}
+
+        return data_dict
+
+    def get_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+        min_E = np.min(self.energy) - self.E0
+        max_E = np.max(self.energy) - self.E0
+
+        # horizontal slice
+        if dim == 'x':
+            # slice index
+            N = self.x[image_name].size
+            dx = (maxx - minx) / N
+            index = int((slice_pos - minx) / dx)
+
+            profile = np.abs(self.energy_stacks[image_name][index, :, :]) ** 2
+            profile = profile / np.max(profile)
+            if image_type == 'phase':
+                mask = (profile > 0.01 * np.max(profile)).astype(float)
+                profile = unwrap_phase(np.angle(self.energy_stacks[image_name][index, :, :])) * mask
+                # try to subtract the linear phase
+                mask1d = mask[int(N / 2), :].astype(bool)
+                print(np.shape(mask1d))
+                print(np.shape(mask))
+                profile1d = profile[int(N / 2), :]
+                linear = np.polyfit((self.energy - self.E0)[mask1d], profile1d[mask1d], 1)
+                profile -= np.tile(np.polyval(linear, self.energy - self.E0), (N, 1))
+                profile *= mask
+
+        # vertical slice
+        elif dim == 'y':
+            # slice index
+            N = self.y[image_name].size
+            dx = (maxy - miny) / N
+            index = int((slice_pos - miny) / dx)
+
+            profile = np.abs(self.energy_stacks[image_name][:, index, :]) ** 2
+            profile = profile / np.max(profile)
+            if image_type == 'phase':
+                mask = (profile > 0.01 * np.max(profile)).astype(float)
+                profile = unwrap_phase(np.angle(self.energy_stacks[image_name][:, index, :])) * mask
+
+        else:
+            profile = np.zeros((256, 256))
+
+        data_dict = {'profile': profile, 'Emin': min_E, 'Emax': max_E, 'dx': dx}
+
+        return data_dict
+
     def imshow_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
         """
         Method to show a slice along space and energy

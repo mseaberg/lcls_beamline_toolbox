@@ -4386,8 +4386,8 @@ class WFS:
         self.azimuth = 0
         self.elevation = 0
         # initialize some calculated attributes
-        self.x_pitch = 0.
-        self.y_pitch = 0.
+        self.x_pitch = None
+        self.y_pitch = None
         self.x_pitch_units = 0
         self.y_pitch_units = 0
         self.grating_x = np.zeros(0)
@@ -4477,8 +4477,10 @@ class WFS:
         M = np.size(beam.x)
 
         # Number of pixels per grating period
-        self.x_pitch = np.round(self.pitch/beam.dx)
-        self.y_pitch = np.round(self.pitch/beam.dy)
+        if self.x_pitch is None:
+            self.x_pitch = np.round(self.pitch/beam.dx)
+        if self.y_pitch is None:
+            self.y_pitch = np.round(self.pitch/beam.dy)
 
         self.x_pitch_units = self.x_pitch * beam.dx
         self.y_pitch_units = self.y_pitch * beam.dy
@@ -4518,6 +4520,10 @@ class WFS:
 
             self.grating_x = np.exp(1j*np.pi*self.grating_x)
             self.grating_y = np.exp(1j*np.pi*self.grating_y)
+
+        # shift grating if there is an offset
+        self.grating_x = np.roll(self.grating_x, int(np.round(beam.cx/beam.dx)))
+        self.grating_y = np.roll(self.grating_y, int(np.round(beam.cy / beam.dy)))
 
         # multiply beam by grating
         beam.wavex *= self.grating_x
