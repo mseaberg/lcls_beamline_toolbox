@@ -4818,7 +4818,7 @@ class PPM:
 
         return ax_y
 
-    def view_beam(self):
+    def view_beam(self, title=None):
         """
         Method to view beam after the fact. Will be zero intensity everywhere if calc_profile (or propagate)
         haven't been called yet.
@@ -4858,7 +4858,10 @@ class PPM:
         # label coordinates
         ax_profile.set_xlabel('X coordinates (%s)' % units)
         ax_profile.set_ylabel('Y coordinates (%s)' % units)
-        ax_profile.set_title(self.name)
+        if title is None:
+            ax_profile.set_title(self.name)
+        else:
+            ax_profile.set_title(title)
 
         # show the vertical lineout (distance in microns)
         ax_y.plot(self.y_lineout/np.max(self.y_lineout), self.y * mult)
