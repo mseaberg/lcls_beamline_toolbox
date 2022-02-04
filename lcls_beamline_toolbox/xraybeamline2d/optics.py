@@ -2964,7 +2964,7 @@ class PPM_Device(PPM):
         port = PV(self.epics_name + 'PortName_RBV').get()
 
         if port is None:
-            self.epics_name = self.imager_prefix + 'DATA1:'
+            self.epics_name = self.imager_prefix + 'IMAGE1:'
             self.acquisition_period = PV(self.imager_prefix + 'AcquirePeriod_RBV').get()
         
 
@@ -4569,7 +4569,8 @@ class WFS_Device(WFS):
             'PF1K4': 763.515,
             #'PF1K4': 763.66694 - .0093,
             'PF2K4': 768.583,
-            'PF2K2': 792.319 - .0093,
+            #'PF2K2': 792.319 - .0093,
+            'PF2K2': 792.319 - .0093
         }
 
         f0_dict = {
@@ -4579,7 +4580,8 @@ class WFS_Device(WFS):
             'PF1K4': 1.768,
             #'PF1K4': 763.66694-.0093 - 761.89013,
             'PF2K4': 0.996,
-            'PF2K2': 2.3097
+            #'PF2K2': 2.3097
+            'PF2K2': 2.319 - .0093
         }
 
         #state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()

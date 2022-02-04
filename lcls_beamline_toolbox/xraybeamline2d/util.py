@@ -721,12 +721,12 @@ class Util:
         return norm_data
 
     @staticmethod
-    def gaussian_stats(x_data, y_data):
+    def gaussian_stats(x_data, y_data, thresh=0.1):
 
         # normalize input (and subtract any offset)
         y_norm = Util.normalize_trace(y_data)
         # threshold input
-        y_data_thresh = Util.threshold_array(y_norm, 0.1)
+        y_data_thresh = Util.threshold_array(y_norm, thresh)
 
         # calculate centroid
         cx = np.sum(y_data_thresh * x_data) / np.sum(y_data_thresh)
