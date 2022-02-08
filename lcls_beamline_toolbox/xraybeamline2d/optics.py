@@ -4141,7 +4141,7 @@ class PPM_Device(PPM):
             'IM3K2': 781.9,
             'IM4K2': 783.455,
             'IM5K2': 787.417,
-            'IM6K2': 792.167,
+            'IM6K2': 792.8188-.03,
             'IM7K2': 798.5,
             'IM1L1': 745.4046250,
             'IM2L1': 759.02,
@@ -4804,7 +4804,7 @@ class PPM_Data(PPM):
             'IM3K2': 781.9,
             'IM4K2': 783.455,
             'IM5K2': 787.417,
-            'IM6K2': 792.167,
+            'IM6K2': 792.8188-.03,
             'IM7K2': 798.5,
             'IM1L1': 745.4046250,
             'IM2L1': 759.02,
@@ -4932,7 +4932,7 @@ class PPM_Data(PPM):
     def add_fit_object(self, fit_object):
         self.fit_object = fit_object
 
-    def retrieve_wavefront(self, wfs, focusFOV=10, focus_z=0):
+    def retrieve_wavefront(self, wfs, focusFOV=10, focus_z=0, fft_object=None, ifft_object=None):
         """
         Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
         :param wfs: WFS object
@@ -5007,7 +5007,10 @@ class PPM_Data(PPM):
         }
 
         talbot_image = TalbotImage(im1, fc, fraction)
-        recovered_beam, wfs_param_out = talbot_image.get_legendre(self.fit_object, wfs_param, threshold=.1)
+        recovered_beam, wfs_param_out = talbot_image.get_legendre(self.fit_object, wfs_param, threshold=.1, fft_object=fft_object, ifft_object=ifft_object)
+
+        Nout, Mout = np.shape(recovered_beam.wave)
+        amp = np.abs(recovered_beam.wave[int(Nout/2 - self.Nd/2):int(Nout/2 + self.Nd/2), int(Mout/2 - self.Md/2):int(Mout/2 + self.Md/2)])
 
         # check validity
         # right now this is requiring that the peak is within half of the masked radius in the Fourier plane
@@ -5018,15 +5021,18 @@ class PPM_Data(PPM):
         self.wavefront_is_valid = validity
 
         wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
-        mask = np.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
-                      256 - int(self.Md / 2):256 + int(self.Md / 2)]) > 0
+
+        center = int(self.N / 2**3)
+
+        mask = np.abs(recovered_beam.wave[center - int(self.Nd / 2):center + int(self.Nd / 2),
+                      center - int(self.Md / 2):center + int(self.Md / 2)]) > 0
         wave *= mask
 
         mask_x = mask[int(self.Nd / 2), :]
         mask_y = mask[:, int(self.Md / 2)]
 
-        x_prime = recovered_beam.x[256, 256 - int(self.Md / 2):256 + int(self.Md / 2)] * 1e6
-        y_prime = recovered_beam.y[256 - int(self.Nd / 2):256 + int(self.Nd / 2), 256] * 1e6
+        x_prime = recovered_beam.x[center, center - int(self.Md / 2):center + int(self.Md / 2)] * 1e6
+        y_prime = recovered_beam.y[center - int(self.Nd / 2):center + int(self.Nd / 2), center] * 1e6
         x_prime = x_prime[mask_x]
         y_prime = y_prime[mask_y]
         x_res = wave[int(self.Nd / 2), :][mask_x]
@@ -5035,8 +5041,8 @@ class PPM_Data(PPM):
 
         # going to try getting the third order Legendre polynomial here and try to get it to zero using benders
         try:
-            leg_x = np.polynomial.legendre.legfit(x_prime * 1e-6, x_res, 3)
-            leg_y = np.polynomial.legendre.legfit(y_prime * 1e-6, y_res, 3)
+            leg_x = np.polynomial.legendre.legfit((x_prime-np.mean(x_prime)) * 1e-6, x_res, 3)
+            leg_y = np.polynomial.legendre.legfit((y_prime-np.mean(y_prime)) * 1e-6, y_res, 3)
             coma_x = leg_x[3]
             coma_y = leg_y[3]
         except:
@@ -5107,6 +5113,7 @@ class PPM_Data(PPM):
             'coma_x': coma_x,
             'coma_y': coma_y,
             'F0': F0,
+            'amp': amp,
             'focus': focus,
             # 'xf': x_interp*1e6,
             'xf': xf,
@@ -6249,7 +6256,9 @@ class WFS_Data(WFS):
             'PF1L0': [28.4, 29.9, 31.7, 33.9, 36.6],
             'PF1K4': [35.8, 35.8, 35.8, 35.8, 34.6],
             'PF2K4': [33.3],
-            'PF1K2': [32, 36.4]
+            'PF1K2': [32, 36.4],
+            'PF2K2': [36.4,36.4,36.4,36.4,32.0]
+
         }
 
         z_dict = {
@@ -6259,6 +6268,7 @@ class WFS_Data(WFS):
             #'PF1K4': 763.66694 - .0093,
             'PF2K4': 768.583,
             'PF1K2': 786.918,
+            'PF2K2': 792.319-.0093
         }
 
         f0_dict = {
@@ -6268,7 +6278,8 @@ class WFS_Data(WFS):
             'PF1K4': 1.768,
             #'PF1K4': 763.66694-.0093 - 761.89013,
             'PF2K4': 0.996,
-            'PF1K2': 1.668
+            'PF1K2': 1.668,
+            'PF2K2': 2.3097
         }
 
         #state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()

@@ -35,6 +35,16 @@ class Util:
         return y
 
     @staticmethod
+    def pyfft(a, fft_object):
+        fft_object.input_array[:] = fft.ifftshift(a)
+        return fft.fftshift(fft_object())
+
+    @staticmethod
+    def ipyfft(a, ifft_object):
+        ifft_object.input_array[:] = fft.ifftshift(a)
+        return fft.fftshift(ifft_object())
+
+    @staticmethod
     def nfft(a):
         """
         Class method for 2D FFT with zero frequency at center
