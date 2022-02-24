@@ -2206,6 +2206,62 @@ class Pulse:
 
         return centroid, fwhm
 
+    def get_pulse(self, image_name, x_pos=0, y_pos=0):
+        """
+        Method to plot the temporal pulse structure at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+
+        Returns
+        -------
+
+        """
+
+        # get boundaries
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # get number of pixels
+        M = self.x[image_name].size
+        N = self.y[image_name].size
+
+        # calculate pixel sizes (microns)
+        dx = (maxx - minx) / M
+        dy = (maxy - miny) / N
+
+        # calculate indices for the desired location
+        x_index = int((x_pos - minx) / dx)
+        y_index = int((y_pos - miny) / dy)
+
+        # calculate temporal intensity
+        y_data = np.abs(self.time_stacks[image_name][y_index, x_index, :]) ** 2
+
+        # find peak
+        index = np.argmax(y_data)
+
+        # distance between array center and peak
+        shift = int(np.size(y_data) / 2 - index)
+
+        y_data = np.roll(y_data, shift)
+
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
+        fwhm = int(sx * 2.355)
+
+        pulse = y_data
+
+        return pulse, centroid, fwhm
+
+
+
     def plot_pulse(self, image_name, x_pos=0, y_pos=0, shift=None):
         """
         Method to plot the temporal pulse structure at a given location

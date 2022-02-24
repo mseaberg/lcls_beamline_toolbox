@@ -2860,7 +2860,7 @@ class Slit:
         z location along beamline
     """
 
-    def __init__(self, name, x_width=5e-3, y_width=5e-3, dx=0, dy=0, z=None):
+    def __init__(self, name, x_width=5e-3, y_width=5e-3, dx=0, dy=0, z=None, transmission=0):
         """
         Method to create a Slit object.
         :param name: str
@@ -2879,6 +2879,7 @@ class Slit:
         self.name = name
         self.x_width = x_width
         self.y_width = y_width
+        self.transmission = transmission
         self.dx = dx
         self.dy = dy
         self.z = z
@@ -2900,6 +2901,9 @@ class Slit:
         # define slit aperture in beam coordinates
         aperture_x = (np.abs(beam.x - self.dx) < self.x_width / 2).astype(float)
         aperture_y = (np.abs(beam.y - self.dy) < self.y_width / 2).astype(float)
+
+        aperture_x[aperture_x<1] = self.transmission
+        aperture_y[aperture_y<1] = self.transmission
 
         # multiply beam by aperture
         beam.wavex *= aperture_x
