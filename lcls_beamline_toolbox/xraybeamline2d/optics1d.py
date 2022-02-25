@@ -27,6 +27,7 @@ from .util import Util, LegendreUtil
 from .pitch import TalbotLineout
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
+import xraydb
 
 
 class Mirror:
@@ -118,10 +119,11 @@ class Mirror:
         self.x_intersect = 0.0
         self.y_intersect = 0.0
         self.z_intersect = 0.0
+        self.use_reflectivity = False
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
-                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw', 'show_figures']
+                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw', 'show_figures', 'use_reflectivity']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -1271,11 +1273,24 @@ class CurvedMirror(Mirror):
         # calculate ray direction after interaction with ellipse
         rays_out = rays_ellipse - 2 * np.sum(rays_ellipse*ellipse_normal,axis=0) * ellipse_normal
 
+        incidence_angle = (rays_out[0, :] - rays_ellipse[0, :]) / 2
+
+        reflectivity = xraydb.mirror_reflectivity('B4C',incidence_angle, beam.photonEnergy, 2.52)
+
         if figon:
             plt.figure()
             plt.plot(beamx,rays_ellipse[0,:])
             plt.plot(beamx,rays_out[0,:])
             plt.title('rays in y direction')
+
+            plt.figure()
+            plt.plot(beamx, incidence_angle)
+
+            plt.figure()
+            plt.plot(beamx, reflectivity)
+
+
+
 
         # now find intersection with exit plane
         # we can define this simply as having a normal vector in the direction of the central ray
@@ -1363,6 +1378,11 @@ class CurvedMirror(Mirror):
             # plt.plot(x_out[mask2],distance_interp[mask2])
             plt.plot(x_eff[mask],total_distance[mask])
             plt.title('distance inside mirror footprint')
+
+            plt.figure()
+            plt.plot(beamx[mask]*1e3, incidence_angle[mask]*1e3)
+            plt.xlabel('incident beam coordinates (mm)')
+            plt.ylabel('incidence angle (mrad)')
         # plt.plot(x_out,mask2)
 
         z_out = 1/2/p_coeff[-3]
@@ -1441,7 +1461,11 @@ class CurvedMirror(Mirror):
 
         # total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
 
+        reflectivity_interp = Util.interp_flip(x_out, x_eff, reflectivity)
+
         wave = abs_out * np.exp(1j * phase_interp)
+        if self.use_reflectivity:
+            wave *= np.sqrt(reflectivity_interp)
         wave *= mask2
 
         if figon:
