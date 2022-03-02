@@ -2211,6 +2211,7 @@ class Crystal(Mirror):
 
         # initialize some arrays
         shapeError2 = np.zeros_like(beam.x)
+        shapeError_sagittal = np.zeros_like(beam.y)
         k_ix = 0
         k_iy = 0
         k_iz = 0
@@ -2251,6 +2252,7 @@ class Crystal(Mirror):
             self.f = -beam.zx * (np.abs(np.sin(self.beta0)/np.sin(self.alpha))**2)
             # self.f = -beam.zx
             beamz = beam.zx
+            beamz_y = beam.zy
 
             wavefront = np.copy(beam.wavex)
             if beam.focused_x:
@@ -2283,6 +2285,7 @@ class Crystal(Mirror):
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
             beamz = beam.zy
+            beamz_y = beam.zx
 
             wavefront = np.copy(beam.wavey)
 
@@ -2315,6 +2318,7 @@ class Crystal(Mirror):
             self.f = -beam.zx * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zx
             beamz = beam.zx
+            beamz_y = beam.zy
 
             wavefront = np.copy(beam.wavex)
 
@@ -2349,6 +2353,7 @@ class Crystal(Mirror):
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
             beamz = beam.zy
+            beamz_y = beam.zx
 
             wavefront = np.copy(beam.wavey)
 
@@ -2377,12 +2382,16 @@ class Crystal(Mirror):
                 Ms = mirror_shape[1]
                 # mirror coordinates
                 max_xs = self.length / 2
+                max_ys = self.width / 2
                 # mirror coordinates
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+                ys = np.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
 
                 # just take central line for 1d shape error
                 shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs,
                                         self.shapeError[int(Ns / 2), :])
+
+                shapeError_sagittal = np.interp(yi_1d, ys, self.shapeError[:, int(Ms / 2)])
 
 
         # zi_1d is centered around cz, and beam is centered on cz
@@ -2390,6 +2399,7 @@ class Crystal(Mirror):
         # to make the mask, we need coordinates that are centered on the crystal,
         # with no offset this is zi_1d, with offset this is z_c = zi_1d - self.dx / np.tan(total_alpha)
         z_c = zi_1d - self.dx / np.tan(total_alpha)
+        y_c = yi_1d
 
         # beam-centered coordinates are zi_1d - cz (meaning zero at beam center) - we will call this z_b
         # This implies that z_b = z_c + self.dx / np.tan(total_alpha) - cz, which is consistent with the
@@ -2402,11 +2412,17 @@ class Crystal(Mirror):
         mask = np.abs(z_c) <= self.length / 2
         print(np.sum(mask)/np.size(z_c))
 
+        mask_sagittal = np.abs(y_c) <= self.width / 2
+
         # perform a Legendre fit on the shape error, limited to the size of the crystal
         shapePoly = LegendreUtil(z_c[mask], shapeError2[mask], 16)
 
+        shapePoly_sagittal = LegendreUtil(y_c[mask_sagittal], shapeError_sagittal[mask_sagittal], 16)
+
         # get second order term of Legendre fit for curved crystal calculation
         second_order = shapePoly.quad_coeff()
+
+        second_order_sagittal = shapePoly.quad_coeff()
 
         # take derivative to get slope error
         slope_error = np.gradient(shapeError2, z_c) * 1e-9
@@ -2469,6 +2485,47 @@ class Crystal(Mirror):
         # f2 = -object_distance
         self.f = f2
         print('Calculated distance to focus: %.6f' % f2)
+
+        #### Sagittal focusing (y-direction)
+
+        R_s = 1 / (2 * second_order_sagittal * 1e-9)
+        print(R_s)
+        # use equation for curved grating sagittal imaging condition.
+        f_s = 1 / ((np.sin(self.alpha) + np.sin(self.beta0)) / R_s - 1 / beamz_y)
+        #
+        print('Calculated distance to sagittal focus: %.6f' % f_s)
+
+        # limit fit to size of crystal
+        mask_z = np.abs(z_c) <= self.length / 2
+        mask_y = np.abs(y_c) <= self.width / 2
+
+        # subtract second order from shape error
+        shape_sagittal_subtract = np.copy(shapeError_sagittal)
+        shape_sagittal_subtract[mask_y] -= shapePoly_sagittal.legval(2)
+
+        shape_sagittal_subtract *= 1e-9
+
+        p_int_y = np.zeros(3)
+
+        high_order_y = (-2*np.pi / beam.lambda0 * (np.sin(total_alpha) + np.sin(self.beta0 - self.delta))
+                        * shape_sagittal_subtract)
+
+        offset_y = cy - self.dy
+        # account for any decentering
+
+        #### might need to add back in
+        # Add 2nd order phase to p_scaled
+        p_int_y[-3] += -1 / (2 * f_s)
+        #####
+
+        p_centered_y = Util.recenter_coeff(p_int_y, offset_y)
+
+        # 2nd order phase (factoring out pi/lambda)
+        p2nd_y = 2 * p_centered_y[-3]
+
+        # 1st order phase (factoring out 2 pi/lambda)
+        # (only add any 1st order phase due to de-centering since the rest is already accounted for in delta_k).
+        p1st_y = p_centered_y[-2] - p_int_y[-2]
 
         # calculate desired slope at each point of the grating
         x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
@@ -2612,6 +2669,7 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavex *= z_mask * np.exp(1j * high_order) * C
+            beam.wavey *= np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
@@ -2623,8 +2681,9 @@ class Crystal(Mirror):
             # beam.zx = 1 / (1 / beam.zx + p2nd)
             # beam.zx = 1 / p2nd
             new_zx = 1 / p2nd
+            new_zy = 1 / p2nd_y
             print('z: %.2f' % new_zx)
-            beam.change_z(new_zx=new_zx)
+            beam.change_z(new_zx=new_zx, new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -2634,7 +2693,7 @@ class Crystal(Mirror):
             beam.rotate_nominal(delta_azimuth=self.alpha+self.beta0)
             delta_ax = -beam.ax + np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ay = np.arcsin(delta_k[1])
+            delta_ay = np.arcsin(delta_k[1]) + p1st_y
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2650,6 +2709,7 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavey *= z_mask * np.exp(1j * high_order) * C
+            beam.wavex *= np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
@@ -2661,7 +2721,8 @@ class Crystal(Mirror):
             # beam.zy = 1 / (1 / beam.zy + p2nd)
             # beam.zy = 1 / p2nd
             new_zy = 1 / p2nd
-            beam.change_z(new_zy=new_zy)
+            new_zx = 1 / p2nd_y
+            beam.change_z(new_zx=new_zx, new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -2671,7 +2732,7 @@ class Crystal(Mirror):
             beam.rotate_nominal(delta_elevation=self.alpha + self.beta0)
             delta_ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ax = -np.arcsin(delta_k[1])
+            delta_ax = -np.arcsin(delta_k[1]) - p1st_y
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2687,6 +2748,7 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavex *= z_mask * np.exp(1j * high_order) * C
+            beam.wavey *= np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
@@ -2698,8 +2760,9 @@ class Crystal(Mirror):
             # beam.zx = 1 / (1 / beam.zx + p2nd)
             # beam.zx = 1 / p2nd
             new_zx = 1 / p2nd
+            new_zy = 1 / p2nd_y
             print('z: %.2f' % new_zx)
-            beam.change_z(new_zx=new_zx)
+            beam.change_z(new_zx=new_zx, new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -2713,7 +2776,7 @@ class Crystal(Mirror):
             # delta_ax = -beam.ax - np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
 
-            delta_ay = np.arcsin(delta_k[1])
+            delta_ay = np.arcsin(delta_k[1]) + p1st_y
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2729,6 +2792,7 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavey *= z_mask * np.exp(1j * high_order) * C
+            beam.wavex *= np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
@@ -2740,7 +2804,8 @@ class Crystal(Mirror):
             # beam.zy = 1 / (1 / beam.zy + p2nd)
             # beam.zy = 1 / p2nd
             new_zy = 1 / p2nd
-            beam.change_z(new_zy=new_zy)
+            new_zx = 1 / p2nd_y
+            beam.change_z(new_zx=new_zx, new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -2750,7 +2815,7 @@ class Crystal(Mirror):
             beam.rotate_nominal(delta_elevation=-self.alpha - self.beta0)
             delta_ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.beta0)) - p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ax = np.arcsin(delta_k[1])
+            delta_ax = np.arcsin(delta_k[1]) + p1st_y
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
