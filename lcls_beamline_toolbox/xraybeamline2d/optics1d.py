@@ -2030,8 +2030,9 @@ class Crystal(Mirror):
         # get bragg peak angle
         self.bragg = self.crystal.get_Bragg_angle(self.E0) - self.crystal.get_dtheta(self.E0, alpha=alphaAsym)
 
-        # calculate proper angle of incidence for energy E0 (general case is asymmetric)
-        self.alpha = self.bragg + self.alphaAsym
+        if 'alpha' not in kwargs.keys():
+            # calculate proper angle of incidence for energy E0 (general case is asymmetric)
+            self.alpha = self.bragg + self.alphaAsym
 
         # define nominal beam k_i
         k_ix = -np.sin(self.alpha)
