@@ -190,7 +190,7 @@ class Beam:
 
         # set photon energy and calculate wavelength, wavenumber
         self.photonEnergy = beam_params['photonEnergy']
-        self.lambda0 = 1239.8 / beam_params['photonEnergy'] * 1e-9
+        self.lambda0 = 1239.842 / beam_params['photonEnergy'] * 1e-9
         self.k0 = 2.0 * np.pi / self.lambda0
 
         # get array shape
@@ -950,7 +950,7 @@ class Pulse:
 
         self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
         # calculate wavelengths
-        self.wavelength = 1239.8/self.energy*1e-9
+        self.wavelength = 1239.842/self.energy*1e-9
 
         # total energy range
         E_range = np.max(self.energy) - np.min(self.energy)
@@ -2397,7 +2397,7 @@ class GaussianSource:
         self.N = int(beam_params['N'])
         self.photonEnergy = beam_params['photonEnergy']
         # calculate wavelength (m)
-        self.wavelength = 1239.8 / self.photonEnergy * 1e-9
+        self.wavelength = 1239.842 / self.photonEnergy * 1e-9
         # calculate Rayleigh ranges (m)
         self.zRx = np.pi * self.sigma_x ** 2 / self.wavelength
         self.zRy = np.pi * self.sigma_y ** 2 / self.wavelength

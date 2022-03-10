@@ -2016,7 +2016,7 @@ class Crystal(Mirror):
         self.material = material
         self.pol = pol
         self.E0 = E0
-        self.lambda0 = 1239.8 / E0 * 1e-9
+        self.lambda0 = 1239.842 / E0 * 1e-9
 
         # define xrt crystal for reflectivity and crystal parameters
         if self.material == 'Si':
