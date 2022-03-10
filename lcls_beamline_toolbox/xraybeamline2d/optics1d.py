@@ -1266,7 +1266,7 @@ class Mono:
         # set grating focal length
         self.grating.f = self.f
         # set grating energy
-        self.grating.lambda0 = 1239.8/E0*1e-9
+        self.grating.lambda0 = 1239.842/E0*1e-9
 
         # calculate some reference angles
         self.m_ref = np.arctan(.012 / .68) / 2
@@ -1275,7 +1275,7 @@ class Mono:
 
         # calculate reference energy
         lambda1 = np.cos(self.alpha_ref) - np.cos(np.arcsin(self.cff * np.sin(self.alpha_ref))) / self.grating.n0
-        self.energy_ref = 1239.8 / (lambda1 * 1e9)
+        self.energy_ref = 1239.842 / (lambda1 * 1e9)
 
         # set pre-mirror alpha (angle of incidence when beam is centered on pre-mirror)
         self.m2.alpha = self.m_ref
@@ -1327,7 +1327,7 @@ class Mono:
         # calculate corresponding wavelength
         lambda1 = (np.cos(alpha) - np.cos(np.arcsin(self.cff * np.sin(alpha)))) / self.grating.n0
         # convert to photon energy (eV)
-        energy1 = 1239.8 / (lambda1 * 1e9)
+        energy1 = 1239.842 / (lambda1 * 1e9)
 
         # interpolate to find the proper angle for this energy
         alpha0 = Util.interp_flip(self.e0, energy1, alpha)
@@ -1342,7 +1342,7 @@ class Mono:
             grating glancing diffraction angle (radians)
         """
         # calculate wavelength
-        lambda0 = 1239.8 / self.e0 * 1e-9
+        lambda0 = 1239.842 / self.e0 * 1e-9
         # calculate diffraction angle based on grating equation
         beta = np.arccos(np.cos(alpha) - self.grating.n0 * lambda0)
         return beta
@@ -1357,7 +1357,7 @@ class Mono:
         self.beta_ref = self.cff * self.alpha_ref
 
         lambda1 = np.cos(self.alpha_ref) - np.cos(np.arcsin(self.cff * np.sin(self.alpha_ref))) / self.grating.n0
-        self.energy_ref = 1239.8 / (lambda1 * 1e9)
+        self.energy_ref = 1239.842 / (lambda1 * 1e9)
 
     def propagate(self, beam):
         """
@@ -4487,7 +4487,7 @@ class WFS:
         zT = ppm_object.z - self.z
 
         # wavelength
-        lambda0 = 1239.8/E0 * 1e-9
+        lambda0 = 1239.842/E0 * 1e-9
 
         # magnification
         M = (zT + f0) / f0
