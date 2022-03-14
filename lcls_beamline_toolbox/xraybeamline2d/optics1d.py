@@ -652,7 +652,7 @@ class CurvedMirror(Mirror):
 
         # concave elliptical mirror
         if q>=0 and p>=0:
-
+            print('elliptical')
             # calculated ellipse values
             L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
             a2 = (p + q) ** 2 / 4  # a^2 for ellipse
@@ -681,7 +681,7 @@ class CurvedMirror(Mirror):
 
         # convex hyperbolic mirror
         elif q<0 and p>=0:
-            print('hyperbolic')
+            print('convex hyperbolic')
             # calculated hyperbola values
             L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
             print('L %.2f' % L)
@@ -715,7 +715,7 @@ class CurvedMirror(Mirror):
 
         # concave hyperbolic mirror
         elif p<0 and q>=0:
-            print('hyperbolic')
+            print('concave hyperbolic')
             # calculated hyperbola values
             L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
             print('L %.2f' % L)
@@ -1009,6 +1009,8 @@ class CurvedMirror(Mirror):
         # calculate effect of ellipse misalignment
         p_misalign = self.calc_misalignment(beam, cz)
 
+        print(p_misalign)
+
         # apply benders
         bend_coeff = self.bend(cz)
 
@@ -1092,6 +1094,7 @@ class CurvedMirror(Mirror):
             # adjust beam quadratic phase
             # beam.zx = 1 / (1 / beam.zx + quadratic)
             new_zx = 1 / (1 / beam.zx + quadratic)
+            print(new_zx)
             beam.change_z(new_zx=new_zx)
 
             # adjust beam position due to mirror de-centering
