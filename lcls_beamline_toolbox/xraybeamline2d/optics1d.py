@@ -2705,7 +2705,7 @@ class Crystal(Mirror):
             beam.rotate_nominal(delta_azimuth=self.alpha+self.beta0)
             delta_ax = -beam.ax + np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ay = np.arcsin(delta_k[1]) + p1st_y
+            delta_ay = -beam.ay + np.arcsin(delta_k[1]) + p1st_y
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2744,7 +2744,7 @@ class Crystal(Mirror):
             beam.rotate_nominal(delta_elevation=self.alpha + self.beta0)
             delta_ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ax = -np.arcsin(delta_k[1]) - p1st_y
+            delta_ax = -beam.ax + -np.arcsin(delta_k[1]) - p1st_y
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2788,7 +2788,7 @@ class Crystal(Mirror):
             # delta_ax = -beam.ax - np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
 
-            delta_ay = np.arcsin(delta_k[1]) + p1st_y
+            delta_ay = -beam.ay - np.arcsin(delta_k[1]) - p1st_y
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2827,7 +2827,7 @@ class Crystal(Mirror):
             beam.rotate_nominal(delta_elevation=-self.alpha - self.beta0)
             delta_ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.beta0)) - p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ax = np.arcsin(delta_k[1]) + p1st_y
+            delta_ax = -beam.ax + np.arcsin(delta_k[1]) + p1st_y
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
