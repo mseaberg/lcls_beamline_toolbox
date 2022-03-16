@@ -747,6 +747,14 @@ class CurvedMirror(Mirror):
 
             return z1, x1, z0, x0, delta
 
+        elif p<0 and q<0:
+            print('convex elliptical')
+            L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+            print('L %.2f' % L)
+
+            a2 = (p + q) ** 2 / 4  # a^2 for ellipse
+            b2 = a2 - (L / 2) ** 2  # b^2 for ellipse
+
 
 
     def calc_misalignment(self, beam, cz):
