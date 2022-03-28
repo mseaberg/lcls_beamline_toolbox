@@ -886,7 +886,7 @@ class Pulse:
             full width of time window in fs (related to energy sampling)
         """
         # set some attributes
-        self.beam_params = beam_params
+        self.beam_params = beam_params.copy()
         self.tau = tau
         self.time_window = time_window
         self.num_spikes = num_spikes

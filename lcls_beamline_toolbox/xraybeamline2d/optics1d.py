@@ -27,6 +27,8 @@ from .util import Util, LegendreUtil
 from .pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
+import xraydb
+from lcls_beamline_toolbox.xrayinteraction import interaction
 
 
 class Mirror:
@@ -114,10 +116,11 @@ class Mirror:
         self.beam_cy = 0
         self.beam_ax = 0
         self.beam_ay = 0
+        self.material = 'B4C'
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
-                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw']
+                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw','material']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -595,6 +598,10 @@ class CurvedMirror(Mirror):
             print('Mirror is longer than distance to focus. Adjusting length to be compatible.')
             self.length = 2 * self.q * .9
 
+        # get some material properties
+        mirror_material = interaction.Mirror(name=name,range='HXR',material=self.material)
+        self.density = mirror_material.density
+
     def bend(self, cz):
         """
         Method to calculate polynomial coefficients due to bender influence
@@ -625,6 +632,86 @@ class CurvedMirror(Mirror):
         # pBend = [p3rd, p2nd, p1st]
 
         return pBend
+
+    def calc_reflectivity(self, E0):
+        """
+        Method to calculate reflectivity across mirror, accounting for varying angle of incidence
+        :param E0: float
+            photon energy in eV
+        :return z1: (N,) ndarray
+            ellipse z-axis coordinates
+        :return reflectivity: (N,) ndarray
+            reflectivity at each z
+        :return inc_angle: (N,) ndarray
+            reflectivity at each z
+        """
+        z1, x1, z0, x0, delta = self.calc_ellipse(self.p, self.q, self.alpha)
+
+        x1m = -np.sin(delta) * (z1 - z0) + np.cos(delta) * (x1 - x0) + x0
+        #     x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0) + x0
+
+        x1m -= np.min(x1m)
+        # calculate local incidence angle
+        inc_angle = np.gradient(x1m, z1) + self.alpha
+
+        z1 -= z0
+
+        # plt.figure()
+        # plt.plot(z1-z0,x1m)
+        #
+        # plt.figure()
+        # plt.plot(z1-z0, inc_angle)
+
+        reflectivity = xraydb.mirror_reflectivity(self.material, inc_angle, E0, self.density)
+
+        # plt.figure()
+        # plt.plot(z1-z0,reflectivity)
+
+        return z1, reflectivity, inc_angle
+
+    def calc_shape(self, p=None, q=None, alpha=None):
+
+        if p is None:
+            p = self.p
+        if q is None:
+            q = self.q
+        if alpha is None:
+            alpha = self.alpha
+
+        z1, x1, z0, x0, delta = self.calc_ellipse(p, q, alpha)
+
+        x1m = -np.sin(delta) * (z1 - z0) + np.cos(delta) * (x1 - x0) + x0
+        #     x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0) + x0
+
+        x1m -= np.min(x1m)
+
+        z1 -= z0
+
+        return z1, x1m
+
+    def calc_ROC(self, p=None, q=None, alpha=None):
+
+        if p is None:
+            p = self.p
+        if q is None:
+            q = self.q
+        if alpha is None:
+            alpha = self.alpha
+
+        z1, x1, z0, x0, delta = self.calc_ellipse(p, q, alpha)
+
+        x1m = -np.sin(delta) * (z1 - z0) + np.cos(delta) * (x1 - x0) + x0
+        #     x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0) + x0
+
+        x1m -= np.min(x1m)
+
+        z1 -= z0
+
+        p = np.polyfit(z1,x1m,2)
+        A = p[0]
+        R = 1/2/A
+
+        return R
 
     def calc_ellipse(self, p, q, alpha):
         """
