@@ -4519,7 +4519,8 @@ class WFS:
 
     """
 
-    def __init__(self, name, pitch=None, duty_cycle=0.1, z=None, f0=100, phase=False, enabled=True, fraction=1):
+    def __init__(self, name, pitch=None, duty_cycle=0.1, z=None, f0=100, phase=False, enabled=True, fraction=1,
+                 grating_phase=np.pi):
         """
         Method to initialize a wavefront sensor.
         :param name: str
@@ -4543,6 +4544,7 @@ class WFS:
         # set attributes
         self.name = name
         self.pitch = pitch
+        self.grating_phase = grating_phase
         self.duty_cycle = duty_cycle
         self.f0 = f0
         self.z = z
@@ -4686,8 +4688,8 @@ class WFS:
         # convert to checkerboard pi phase grating if desired
         if self.phase:
 
-            self.grating_x = np.exp(1j*np.pi*self.grating_x)
-            self.grating_y = np.exp(1j*np.pi*self.grating_y)
+            self.grating_x = np.exp(1j*self.grating_phase*self.grating_x)
+            self.grating_y = np.exp(1j*self.grating_phase*self.grating_y)
 
         # shift grating if there is an offset
         self.grating_x = np.roll(self.grating_x, int(np.round(beam.cx/beam.dx)))
