@@ -124,16 +124,22 @@ class Beamline:
                     # azimuth += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, azimuth))
                 elif device.orientation == 1:
-                    device.sagittal, device.normal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
+                    sagittal, normal, transverse = Util.rotate_3d(xhat,yhat,zhat,
                                                                                        delta=device.alpha+device.delta,
                                                                                        dir='elevation')
+                    device.sagittal = -sagittal
+                    device.normal = normal
+                    device.transverse = transverse
                     xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0,dir='elevation')
                     # device.global_alpha = device.alpha + elevation
                     # elevation += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, elevation))
                 elif device.orientation == 2:
-                    device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat, yhat, zhat,
+                    normal, sagittal, transverse = Util.rotate_3d(xhat, yhat, zhat,
                                                                                        delta=-device.alpha-device.delta)
+                    device.normal = -normal
+                    device.sagittal = -sagittal
+                    device.transverse = transverse
 
                     xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0)
 
@@ -142,9 +148,12 @@ class Beamline:
                     # print('after %s: %.4f' % (device.name, azimuth))
 
                 elif device.orientation == 3:
-                    device.sagittal, device.normal, device.transverse = Util.rotate_3d(xhat, yhat, zhat,
+                    sagittal, normal, transverse = Util.rotate_3d(xhat, yhat, zhat,
                                                                                        delta=-device.alpha-device.delta,
                                                                                        dir='elevation')
+                    device.sagittal = sagittal
+                    device.normal = -normal
+                    device.transverse = transverse
                     xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0,
                                                       dir='elevation')
 
@@ -322,6 +331,45 @@ class Beamline:
 
         # return the output of the beamline
         return beam
+
+    def scan(self, beam_in, axes=None, scan_start=None, scan_stop=None, scan_steps=0, imagers=None, measurements=None):
+        """
+        Method to scan one or multiple axes together
+        """
+        if axes is not None:
+            scan_dict_list = []
+            if isinstance(axes, list):
+                for num, axis in enumerate(axes):
+                    axis_dict = {}
+                    # parse device and axis
+                    dot_index = axis.find('.')
+                    device_name = axis[:dot_index]
+                    axis_name = axis[dot_index+1:]
+                    # get actual axis
+                    device = getattr(self, device_name)
+                    axis_dict['device'] = device
+                    axis_dict['axis'] = axis_name
+                    axis_dict['pos'] = np.linspace(scan_start[num], scan_stop[num], scan_steps)
+
+                    scan_dict_list.append(axis_dict)
+
+            elif isinstance(axes, str):
+                # parse device and axis
+                dot_index = axes.find('.')
+                device_name = axes[:dot_index]
+                axis_name = axes[dot_index + 1:]
+
+                axis_dict = {'device': getattr(self, device_name), 'axis': axis_name,
+                             'pos': np.linspace(scan_start, scan_stop, scan_steps)}
+
+                scan_dict_list.append(axis_dict)
+
+        # initialize measurements
+        measurement_dict = {}
+        if isinstance(imagers, list):
+            for num, imager in enumerate(imagers):
+                pass
+            pass
 
     def propagate_until(self, beam_in, last_device, include_last=True):
         """
