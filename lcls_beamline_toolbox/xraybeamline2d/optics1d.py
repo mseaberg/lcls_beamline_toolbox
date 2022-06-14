@@ -2354,6 +2354,7 @@ class Crystal(Mirror):
             beamz_y = beam.zy
 
             wavefront = np.copy(beam.wavex)
+
             if beam.focused_x:
                 print('subtracting second order')
                 wavefront *= np.exp(-1j * np.pi / beam.lambda0 / beam.zx * (beam.x - beam.cx) ** 2)
@@ -2541,6 +2542,14 @@ class Crystal(Mirror):
         ##############################
         beam_slope_error = np.gradient(np.unwrap(np.angle(wavefront)),z_b*np.sin(total_alpha))*beam.lambda0/2/np.pi
         ##############################
+        # plt.figure()
+        # plt.plot(np.angle(wavefront))
+        # plt.plot(np.unwrap(np.angle(wavefront)))
+
+        # beam_slope_error = np.nan_to_num(beam_slope_error,posinf=0,neginf=0)
+        beam_slope_p = np.polynomial.legendre.legfit(z_b*np.sin(total_alpha),beam_slope_error,16,w=np.abs(wavefront)**2)
+        beam_slope_error = np.polynomial.legendre.legval(z_b*np.sin(total_alpha),beam_slope_p)
+        # plt.plot(beam_slope_error)
 
         # plt.figure()
         # plt.plot(z_b, beam_slope_error)
@@ -2699,7 +2708,6 @@ class Crystal(Mirror):
         high_order_temp = integration.cumtrapz(slope_error, z_c, initial=0)
         high_order_temp[mask] -= shapePoly.legval(2)
 
-
         # plt.plot(zi[int(Ns / 2), mask_z], shapePoly_z.legval(2))
         # plt.plot(zi[int(Ns / 2), mask_z], shape_lineout_z[mask_z])
 
@@ -2762,6 +2770,10 @@ class Crystal(Mirror):
             C = C1
         else:
             C = C2
+
+        # plt.figure()
+        # plt.plot(np.abs(C))
+        # plt.plot(beam_slope_error)
 
         # handle beam re-pointing depending on the orientation
         if self.orientation == 0:
@@ -2930,6 +2942,9 @@ class Crystal(Mirror):
         # plt.plot(np.abs(beam.wavex))
         # plt.figure()
         # plt.plot(np.angle(beam.wavex))
+
+        # plt.figure()
+        # plt.plot(np.abs(beam.wavex))
 
         return
 
