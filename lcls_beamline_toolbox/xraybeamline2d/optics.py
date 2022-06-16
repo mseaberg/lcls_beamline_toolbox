@@ -2005,6 +2005,10 @@ class CurvedMirror(Mirror):
                 f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
                 shapeError2 = f(zi_1d - self.dx / np.tan(self.total_alpha), yi_1d - self.dy)
 
+                ## this might be slightly wrong...
+                if self.orientation==1 or self.orientation==3:
+                    shapeError2 = np.rot90(shapeError2)
+
         # figure out aperturing due to mirror's finite size
         z_mask = (np.abs(zi - self.dx / np.tan(self.total_alpha)) < self.length / 2).astype(float)
         y_mask = (np.abs(yi - self.dy) < self.width / 2).astype(float)
