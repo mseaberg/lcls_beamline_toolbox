@@ -117,10 +117,22 @@ class Mirror:
         self.transverse = None
         self.sagittal = None
         self.normal = None
+        self.correction = 0
+        self.beam_cx = 0
+        self.beam_cy = 0
+        self.beam_ax = 0
+        self.beam_ay = 0
+        self.show_figures = False
+        self.x_intersect = 0.0
+        self.y_intersect = 0.0
+        self.z_intersect = 0.0
+        self.use_reflectivity = False
+        self.material = 'B4C'
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
-                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw']
+                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw', 'show_figures', 'use_reflectivity',
+                             'material']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -130,6 +142,56 @@ class Mirror:
 
         # set some calculated attributes
         self.projectWidth = np.abs(self.length * (self.alpha + self.delta))
+
+    def find_intersection(self, beam):
+
+        ux = np.reshape(np.array([1, 0, 0]), (3, 1))
+        uy = np.reshape(np.array([0, 1, 0]), (3, 1))
+        uz = np.reshape(np.array([0, 0, 1]), (3, 1))
+
+        beam_center = np.array([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = np.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+
+        # define ellipse coordinate unit vectors
+        # rotation angle to rotate mirror vectors into ellipse coordinates
+        # mirror is already rotated by delta when drifts are added to beamline
+        mirror_rotate = 0.0
+
+        re = transform.Rotation.from_rotvec(-self.sagittal * mirror_rotate)
+        Re = re.as_matrix()
+
+        mirror_x = np.matmul(Re, self.normal)
+        mirror_y = self.sagittal
+        mirror_z = np.matmul(Re, self.transverse)
+
+        central_ray = np.reshape(beam.zhat, (3,1))
+
+        coords = np.reshape(beam_center, (3,1))
+
+        coords -= np.reshape(mirror_center, (3, 1))
+
+        # now write beam coordinates in ellipse coordinates
+        transform_matrix = np.tensordot(np.reshape([mirror_x, mirror_y, mirror_z], (3, 3)),
+                                        np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        coords_mirror = np.tensordot(transform_matrix, coords, axes=(1, 0))
+
+        # now write rays in ellipse coordinates
+        rays_mirror = np.tensordot(transform_matrix, central_ray, axes=(1, 0))
+
+        z_intersect = coords_mirror[2, :] - rays_mirror[2, :] / rays_mirror[0, :] * coords_mirror[0, :]
+        x_intersect = np.reshape(np.array(0.0),(1,))
+        y_intersect = rays_mirror[1, :] / rays_mirror[2, :] * (z_intersect - coords_mirror[2, :]) + coords_mirror[1,:]
+
+        intersect_point = np.reshape(np.array([x_intersect,y_intersect,z_intersect]), (3,1))
+
+        inv_transform = np.linalg.inv(transform_matrix)
+
+        # rotate into global coordinate system, but origin is still at ellipse center
+        intersect_global = np.tensordot(inv_transform, intersect_point, axes=(1, 0))
+
+        intersect_global += np.reshape(mirror_center, (3, 1))
+
+        return intersect_global
 
     def enable_motors(self, *axes):
         """
