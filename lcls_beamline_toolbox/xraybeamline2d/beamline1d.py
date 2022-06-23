@@ -125,12 +125,12 @@ class Beamline:
                     # print('after %s: %.4f' % (device.name, azimuth))
                 elif device.orientation == 1:
                     sagittal, normal, transverse = Util.rotate_3d(xhat,yhat,zhat,
-                                                                                       delta=device.alpha+device.delta,
+                                                                                       delta=-device.alpha-device.delta,
                                                                                        dir='elevation')
                     device.sagittal = -sagittal
                     device.normal = normal
                     device.transverse = transverse
-                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0,dir='elevation')
+                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=-device.alpha-device.beta0,dir='elevation')
                     # device.global_alpha = device.alpha + elevation
                     # elevation += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, elevation))
@@ -149,12 +149,12 @@ class Beamline:
 
                 elif device.orientation == 3:
                     sagittal, normal, transverse = Util.rotate_3d(xhat, yhat, zhat,
-                                                                                       delta=-device.alpha-device.delta,
+                                                                                       delta=device.alpha+device.delta,
                                                                                        dir='elevation')
                     device.sagittal = sagittal
                     device.normal = -normal
                     device.transverse = transverse
-                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0,
+                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.alpha + device.beta0,
                                                       dir='elevation')
 
                     # device.global_alpha = elevation - device.alpha

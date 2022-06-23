@@ -835,7 +835,7 @@ class Util:
 
         if dir=='elevation':
             # an "elevation" rotation corresponds to a rotation about the xhat unit vector
-            r1 = transform.Rotation.from_rotvec(-xhat * delta)
+            r1 = transform.Rotation.from_rotvec(xhat * delta)
             Rx = r1.as_matrix()
             xhat = np.matmul(Rx, xhat)
             yhat = np.matmul(Rx, yhat)
@@ -847,6 +847,24 @@ class Util:
             xhat = np.matmul(Ry, xhat)
             yhat = np.matmul(Ry, yhat)
             zhat = np.matmul(Ry, zhat)
+        elif dir=='roll':
+            # a roll rotation corresponds to a rotation about the zhat unit vector
+            r2 = transform.Rotation.from_rotvec(zhat * delta)
+            Ry = r2.as_matrix()
+            xhat = np.matmul(Ry, xhat)
+            yhat = np.matmul(Ry, yhat)
+            zhat = np.matmul(Ry, zhat)
+
+        return xhat, yhat, zhat
+
+    @staticmethod
+    def optics_adjustment(xhat,yhat,zhat,pitch=None,yaw=None,roll=None):
+        if pitch is not None:
+            xhat, yhat, zhat = Util.rotate_3d(xhat,yhat,zhat,delta=pitch,dir='azimuth')
+        if yaw is not None:
+            xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=yaw, dir='elevation')
+        if roll is not None:
+            xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=roll, dir='roll')
 
         return xhat, yhat, zhat
 
