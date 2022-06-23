@@ -7,6 +7,7 @@ import scipy.special
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
 from scipy.integrate import cumtrapz
+from scipy.interpolate import interp2d
 
 
 class Util:
@@ -38,6 +39,54 @@ class Util:
             #     y = np.interp(np.flipud(x), xp, fp, left=0, right=0)
 
         return y
+
+    @staticmethod
+    def interp_flip2d(x, y, xp, yp, fp):
+        if len(np.shape(xp))>1:
+            xp1 = xp[0,:]
+        else:
+            xp1 = xp
+        if len(np.shape(yp))>1:
+            yp1 = yp[:,0]
+        else:
+            yp1 = yp
+        if len(np.shape(x))>1:
+            x1 = x[0,:]
+        else:
+            x1 = x
+        if len(np.shape(y))>1:
+            y1 = y[:,0]
+        else:
+            y1 = y
+
+        if xp1[0] > xp1[1]:
+            xp1 = np.flipud(xp1)
+            fp = np.fliplr(fp)
+        if yp1[0] > yp1[1]:
+            yp1 = np.flipud(yp1)
+            fp = np.flipud(fp)
+            # if x[0] > x[1]:
+                # y = np.interp(np.flipud(x), np.flipud(xp), np.flipud(fp), left=0, right=0)
+        f = interp2d(xp1, yp1, fp)
+        out = f(x1, y1)
+
+        return out
+
+    @staticmethod
+    def polyfit2d(x, y, degree, axis=0):
+        if len(np.shape(x))>1:
+            if axis==0:
+                x1 = x[:,0]
+                y1 = y[:,0]
+            else:
+                x1 = x[0,:]
+                y1 = y[0,:]
+        else:
+            x1 = x
+            y1 = y
+
+        return np.polyfit(x1, y1, degree)
+
 
     @staticmethod
     def nfft(a):
