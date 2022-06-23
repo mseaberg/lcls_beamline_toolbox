@@ -2095,6 +2095,11 @@ class CurvedMirror(Mirror):
             new_zx = 1 / (1 / beam.zx + quadratic)
             beam.change_z(new_zx=new_zx)
 
+            # account for roll
+            x2 = beam.x * np.cos(self.roll) + beam.y * np.sin(self.roll)
+            shapeChange = np.pi/beam.lambda0/new_zx*(x2**2 - beam.x**2)
+            beam.wave *= np.exp(1j*shapeChange)
+
             # adjust beam position due to mirror de-centering
             delta_cx = 2 * self.dx * np.cos(self.total_alpha)
             beam.cx = -beam.cx + delta_cx
@@ -2119,6 +2124,11 @@ class CurvedMirror(Mirror):
             # beam.zy = 1 / (1 / beam.zy + quadratic)
             new_zy = 1 / (1 / beam.zy + quadratic)
             beam.change_z(new_zy=new_zy)
+
+            # account for roll
+            y2 = -beam.x * np.sin(-self.roll) + beam.y * np.cos(-self.roll)
+            shapeChange = np.pi / beam.lambda0 / new_zy * (y2 ** 2 - beam.y ** 2)
+            beam.wave *= np.exp(1j * shapeChange)
 
             # adjust beam position due to mirror de-centering
             delta_cy = 2 * self.dx * np.cos(self.total_alpha)
@@ -2145,6 +2155,11 @@ class CurvedMirror(Mirror):
             new_zx = 1 / (1 / beam.zx + quadratic)
             beam.change_z(new_zx=new_zx)
 
+            # account for roll
+            x2 = beam.x * np.cos(self.roll) + beam.y * np.sin(self.roll)
+            shapeChange = np.pi / beam.lambda0 / new_zx * (x2 ** 2 - beam.x ** 2)
+            beam.wave *= np.exp(1j * shapeChange)
+
             # adjust beam position due to mirror de-centering
             delta_cx = -2 * self.dx * np.cos(self.total_alpha)
             beam.cx = -beam.cx + delta_cx
@@ -2169,6 +2184,11 @@ class CurvedMirror(Mirror):
             # beam.zy = 1 / (1 / beam.zy + quadratic)
             new_zy = 1 / (1 / beam.zy + quadratic)
             beam.change_z(new_zy=new_zy)
+
+            # account for roll
+            y2 = -beam.x * np.sin(-self.roll) + beam.y * np.cos(-self.roll)
+            shapeChange = np.pi / beam.lambda0 / new_zy * (y2 ** 2 - beam.y ** 2)
+            beam.wave *= np.exp(1j * shapeChange)
 
             # adjust beam position due to mirror de-centering
             delta_cy = -2 * self.dx * np.cos(self.total_alpha)
