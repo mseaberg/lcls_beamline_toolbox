@@ -2606,6 +2606,8 @@ class CurvedMirror(Mirror):
             print(k_f-k_f_n)
 
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1,1)), axes=(1,0))
+            k_f_global = k_f_global/np.sqrt(np.sum(np.abs(k_f_global**2)))
+
             delta_theta = np.arccos(np.dot(k_i-k_i_s, k_f-k_f_s)
                                     /np.sqrt(np.abs(np.sum((k_i-k_i_s)**2))*np.abs(np.sum((k_f-k_f_s)**2))))
             delta_roll = np.arccos(np.dot(k_i-k_i_n, k_f-k_f_n)
@@ -2613,7 +2615,7 @@ class CurvedMirror(Mirror):
             nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.N/2),int(beam.M/2)]
             delta_ax = delta_theta - 2 * nominal_incidence + linear
             delta_ax = delta_theta - 2*self.alpha - linear
-            delta_ay = delta_roll-linear_y
+            delta_ay = delta_roll#-linear_y
             print(delta_theta)
             print(beam.ax)
             print(delta_ax)
@@ -2634,8 +2636,6 @@ class CurvedMirror(Mirror):
             print(delta_cx)
             # beam.cx = -beam.cx + delta_cx
             # print(beam.cx)
-            print(np.shape(x_out))
-            print(np.shape(y_out))
 
             x_out, y_out = np.meshgrid(x_out, y_out)
             beam.x = x_out
@@ -2673,6 +2673,7 @@ class CurvedMirror(Mirror):
             k_f_n[2] = 0
 
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1,1)), axes=(1, 0))
+            k_f_global = k_f_global / np.sqrt(np.sum(np.abs(k_f_global ** 2)))
             delta_theta = np.arccos(np.dot(k_i - k_i_s, k_f - k_f_s)
                                     / np.sqrt(np.abs(np.sum((k_i - k_i_s) ** 2)) * np.abs(np.sum((k_f - k_f_s) ** 2))))
             delta_roll = np.arccos(np.dot(k_i - k_i_n, k_f - k_f_n)
@@ -2680,7 +2681,7 @@ class CurvedMirror(Mirror):
             nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2),int(beam.M/2)]
             delta_ay = delta_theta - 2 * nominal_incidence + linear
             delta_ay = delta_theta - 2 * self.alpha - linear
-            delta_ax = delta_roll-linear_y
+            delta_ax = delta_roll#-linear_y
             print(beam.ay)
             # print(beam.cy)
             print(delta_ay)
@@ -2712,7 +2713,10 @@ class CurvedMirror(Mirror):
 
             print('is beam in the correct direction?')
             print(np.arccos(np.dot(beam.zhat, k_f)))
-            print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0, 0])))
+            print('zhat: {}'.format(beam.zhat))
+            print('kfg: {}'.format(k_f_global[:,0,0]))
+            print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0,0])))
+            # print(np.dot(beam.zhat, k_f_global[:, 0, 0]))
             print(params['beta'])
             print(k_f)
             print(k_f_global)
