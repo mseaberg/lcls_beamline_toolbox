@@ -175,7 +175,7 @@ class Beamline:
                                                                                    device.transverse,
                                                                                    delta=device.roll,
                                                                                    dir='roll')
-                xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.roll * 2, dir='roll')
+                # xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.roll * 2, dir='roll')
 
                 # update k
                 k = np.copy(zhat)

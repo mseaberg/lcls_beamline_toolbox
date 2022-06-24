@@ -2368,6 +2368,7 @@ class CurvedMirror(Mirror):
         else:
             mask = np.logical_and(mask, coords_ellipse[0, :,:] > 0)
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :,:] - z0) < self.length / 2 * np.cos(params['delta']))
+        mask = np.logical_and(mask, np.abs(intersect_coords[1,:,:]) < self.width/2)
 
         if self.orientation==0 or self.orientation==2:
             mask_x = np.sum(mask,axis=0)>0
@@ -2386,8 +2387,12 @@ class CurvedMirror(Mirror):
             linear = p_coeff_x[-2]
             linear_y = p_coeff_y[-2]
 
+        print('linear terms')
+        print(linear)
+        print(linear_y)
+
         # subtract best fit parabola in x-direction and best fit line in y direction
-        total_distance -= np.polyval(p_coeff_x,x_eff)# - np.polyval(p_coeff_y[:-2],y_eff)
+        total_distance -= np.polyval(p_coeff_x,x_eff)# + np.polyval(p_coeff_y[:-2],y_eff)
         #
         # distance_interp = Util.interp_flip2d(x_out,y_eff, y_eff[mask],x_eff[mask],total_distance[mask])
 
@@ -2527,8 +2532,9 @@ class CurvedMirror(Mirror):
         print('new z y: %.6f' % z_total_y)
 
         linear += p_coeff_x[-2] * beam.lambda0/2/np.pi
+        linear_y += p_coeff_y[-2] * beam.lambda0/2/np.pi
 
-        total_phase -= np.polyval(p_coeff_x[-2:], x_eff)
+        total_phase -= np.polyval(p_coeff_x[-2:], x_eff)# + np.polyval(p_coeff_y[-2:], y_eff)
 
         if self.orientation==0 or self.orientation==2:
             if not beam.focused_x:
@@ -2578,19 +2584,29 @@ class CurvedMirror(Mirror):
             k_i = rays_ellipse[:,int(beam.N/2),int(beam.M/2)]
             k_f = rays_out[:,int(beam.N/2),int(beam.M/2)]
 
+            # find component of k_i and k_f along the sagittal direction
+            k_i_s = np.copy(k_i)
+            k_i_s[0] = 0
+            k_i_s[2] = 0
+            k_f_s = np.copy(k_f)
+            k_f_s[0] = 0
+            k_f_s[2] = 0
+
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1,1)), axes=(1,0))
-            delta_theta = np.arccos(np.dot(k_i, k_f))
+            delta_theta = np.arccos(np.dot(k_i-k_i_s, k_f-k_f_s))
+            delta_roll = np.arccos(np.dot(k_i_s, k_f_s))
             nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.N/2),int(beam.M/2)]
             delta_ax = delta_theta - 2 * nominal_incidence + linear
             delta_ax = delta_theta - 2*self.alpha - linear
+            delta_ay = -linear_y
             print(beam.ax)
             print(delta_ax)
             if self.orientation==0:
                 beam.rotate_nominal(delta_azimuth=2*self.alpha)
-                beam.rotate_beam(delta_ax=delta_ax)
+                beam.rotate_beam(delta_ax=delta_ax,delta_ay=delta_roll)
             else:
                 beam.rotate_nominal(delta_azimuth=-2*self.alpha)
-                beam.rotate_beam(delta_ax=-delta_ax)
+                beam.rotate_beam(delta_ax=-delta_ax,delta_ay=-delta_roll)
 
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             print(beam.ax)
@@ -2623,21 +2639,31 @@ class CurvedMirror(Mirror):
             k_i = rays_ellipse[:, int(beam.N / 2),int(beam.M/2)]
             k_f = rays_out[:, int(beam.N / 2),int(beam.M/2)]
 
+            # find component of k_i and k_f along the sagittal direction
+            k_i_s = np.copy(k_i)
+            k_i_s[0] = 0
+            k_i_s[2] = 0
+            k_f_s = np.copy(k_f)
+            k_f_s[0] = 0
+            k_f_s[2] = 0
+
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1,1)), axes=(1, 0))
-            delta_theta = np.arccos(np.dot(k_i, k_f))
+            delta_theta = np.arccos(np.dot(k_i-k_i_s, k_f-k_f_s))
+            delta_roll = np.arccos(np.dot(k_i_s, k_f_s))
             nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2),int(beam.M/2)]
             delta_ay = delta_theta - 2 * nominal_incidence + linear
             delta_ay = delta_theta - 2 * self.alpha - linear
+            delta_ax = -linear_y
             print(beam.ay)
             # print(beam.cy)
             print(delta_ay)
 
             if self.orientation == 1:
                 beam.rotate_nominal(delta_elevation=2 * self.alpha)
-                beam.rotate_beam(delta_ay=delta_ay)
+                beam.rotate_beam(delta_ay=delta_ay,delta_ax=-delta_roll)
             else:
                 beam.rotate_nominal(delta_elevation=-2 * self.alpha)
-                beam.rotate_beam(delta_ay=-delta_ay)
+                beam.rotate_beam(delta_ay=-delta_ay,delta_ax=delta_roll)
             print(beam.ay)
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             # cy1 = beam.cy + ay0 * delta_z
