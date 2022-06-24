@@ -2377,15 +2377,17 @@ class CurvedMirror(Mirror):
             p_coeff_x = np.polyfit(x_eff[0,:][mask_x],total_distance[int(beam.N/2),:][mask_x],2)
             p_coeff_y = np.polyfit(y_eff[:,0][mask_y],total_distance[:,int(beam.M/2)][mask_y],2)
             linear = p_coeff_x[-2]
+            linear_y = p_coeff_y[-2]
         else:
             mask_x = np.sum(mask, axis=1) > 0
             mask_y = np.sum(mask, axis=0) > 0
             p_coeff_x = np.polyfit(x_eff[:,0][mask_x], total_distance[:,int(beam.M/2)][mask_x], 2)
             p_coeff_y = np.polyfit(y_eff[0,:][mask_y], total_distance[int(beam.N/2),:][mask_y], 2)
             linear = p_coeff_x[-2]
+            linear_y = p_coeff_y[-2]
 
-        # subtract best fit parabola
-        total_distance -= np.polyval(p_coeff_x,x_eff)
+        # subtract best fit parabola in x-direction and best fit line in y direction
+        total_distance -= np.polyval(p_coeff_x,x_eff)# - np.polyval(p_coeff_y[:-2],y_eff)
         #
         # distance_interp = Util.interp_flip2d(x_out,y_eff, y_eff[mask],x_eff[mask],total_distance[mask])
 
