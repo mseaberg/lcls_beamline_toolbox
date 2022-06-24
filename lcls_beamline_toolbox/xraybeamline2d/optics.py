@@ -2285,9 +2285,6 @@ class CurvedMirror(Mirror):
 
         reflectivity = xraydb.mirror_reflectivity(self.material,incidence_angle, beam.photonEnergy, self.density)
 
-        plt.figure()
-        plt.imshow(incidence_angle)
-
         if figon:
             plt.figure()
             plt.plot(beamx,rays_ellipse[0,:,0])
@@ -2446,9 +2443,6 @@ class CurvedMirror(Mirror):
 
         angle_in = unwrap_phase(np.angle(wave))
 
-        plt.figure()
-        plt.imshow(angle_in*mask)
-
         # plt.figure()
         # plt.plot(angle_out*mask2)
         # if figon:
@@ -2558,9 +2552,6 @@ class CurvedMirror(Mirror):
 
         # reflectivity_interp = Util.interp_flip2d(x_out, y_eff, x_eff, y_eff, reflectivity)
         reflectivity_interp = interpolation.griddata(points, reflectivity.flatten(), (xi_0, xi_1), fill_value=0)
-
-        plt.figure()
-        plt.imshow(phase_interp)
 
         wave = abs_out * np.exp(1j * phase_interp)
         if self.use_reflectivity:
