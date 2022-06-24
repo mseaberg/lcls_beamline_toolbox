@@ -119,7 +119,10 @@ class Beamline:
                     device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
                                                                                        delta=device.alpha+device.delta)
 
+
+
                     xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0)
+
                     # device.global_alpha = device.alpha + azimuth
                     # azimuth += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, azimuth))
@@ -130,6 +133,13 @@ class Beamline:
                     device.sagittal = -sagittal
                     device.normal = normal
                     device.transverse = transverse
+
+                    device.normal, device.sagittal, device.transverse = Util.rotate_3d(device.normal,
+                                                                                       device.sagittal,
+                                                                                       device.transverse,
+                                                                                       delta=device.roll,
+                                                                                       dir='roll')
+
                     xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=-device.alpha-device.beta0,dir='elevation')
                     # device.global_alpha = device.alpha + elevation
                     # elevation += device.alpha + device.beta0
@@ -159,6 +169,13 @@ class Beamline:
                     # device.global_alpha = elevation - device.alpha
                     # elevation -= (device.alpha + device.beta0)
                     # print('after %s: %.4f' % (device.name, elevation))
+
+                device.normal, device.sagittal, device.transverse = Util.rotate_3d(device.normal,
+                                                                                   device.sagittal,
+                                                                                   device.transverse,
+                                                                                   delta=device.roll,
+                                                                                   dir='roll')
+                xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.roll * 2, dir='roll')
 
                 # update k
                 k = np.copy(zhat)
