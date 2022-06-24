@@ -2392,7 +2392,7 @@ class CurvedMirror(Mirror):
         print(linear_y)
 
         # subtract best fit parabola in x-direction and best fit line in y direction
-        total_distance -= np.polyval(p_coeff_x,x_eff) + np.polyval(p_coeff_y[:-2],y_eff)
+        total_distance -= np.polyval(p_coeff_x,x_eff)
         #
         # distance_interp = Util.interp_flip2d(x_out,y_eff, y_eff[mask],x_eff[mask],total_distance[mask])
 
@@ -2534,7 +2534,7 @@ class CurvedMirror(Mirror):
         linear += p_coeff_x[-2] * beam.lambda0/2/np.pi
         linear_y += p_coeff_y[-2] * beam.lambda0/2/np.pi
 
-        total_phase -= np.polyval(p_coeff_x[-2:], x_eff) + np.polyval(p_coeff_y[-2:], y_eff)
+        total_phase -= np.polyval(p_coeff_x[-2:], x_eff)
 
         if self.orientation==0 or self.orientation==2:
             if not beam.focused_x:
@@ -2620,10 +2620,10 @@ class CurvedMirror(Mirror):
             print(delta_ay)
             if self.orientation==0:
                 beam.rotate_nominal(delta_azimuth=2*self.alpha)
-                beam.rotate_beam(delta_ax=delta_ax,delta_ay=delta_ay)
+                beam.rotate_beam(delta_ax=delta_ax)
             else:
                 beam.rotate_nominal(delta_azimuth=-2*self.alpha)
-                beam.rotate_beam(delta_ax=-delta_ax,delta_ay=-delta_ay)
+                beam.rotate_beam(delta_ax=-delta_ax)
 
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             print(beam.ax)
@@ -2687,10 +2687,10 @@ class CurvedMirror(Mirror):
 
             if self.orientation == 1:
                 beam.rotate_nominal(delta_elevation=2 * self.alpha)
-                beam.rotate_beam(delta_ay=delta_ay,delta_ax=-delta_ax)
+                beam.rotate_beam(delta_ay=delta_ay)
             else:
                 beam.rotate_nominal(delta_elevation=-2 * self.alpha)
-                beam.rotate_beam(delta_ay=-delta_ay,delta_ax=delta_ax)
+                beam.rotate_beam(delta_ay=-delta_ay)
             print(beam.ay)
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             # cy1 = beam.cy + ay0 * delta_z
