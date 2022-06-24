@@ -2372,10 +2372,12 @@ class CurvedMirror(Mirror):
         if self.orientation==0 or self.orientation==2:
             p_coeff_x = Util.polyfit2d(x_eff[mask], total_distance[mask], 2, axis=1)
             p_coeff_y = Util.polyfit2d(y_eff[mask], total_distance[mask], 2, axis=0)
+            linear = p_coeff_x[-2]
         else:
             p_coeff_x = Util.polyfit2d(x_eff[mask], total_distance[mask], 2, axis=0)
             p_coeff_y = Util.polyfit2d(y_eff[mask], total_distance[mask], 2, axis=1)
-        linear = p_coeff_x[-2]
+            linear = p_coeff_x[-2]
+
         # subtract best fit parabola
         total_distance -= np.polyval(p_coeff_x,x_eff)
         #
@@ -2650,7 +2652,11 @@ class CurvedMirror(Mirror):
             print(k_f)
             print(k_f_global)
 
-            beam.wave = np.rot90(wave)
+            ## might be an issue here...
+            if self.orientation==1:
+                beam.wave = np.rot90(wave)
+            else:
+                beam.wave = np.rot90(wave,3)
 
         # now figure out global coordinates
         # get back into global coordinates using inverse of transformation matrix, just looking at central ray
@@ -4024,6 +4030,9 @@ class Drift:
         self.z = (downstream_component.z + upstream_component.z) / 2.
         self.global_x = 0
         self.global_y = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
 
     # def propagate(self, beam):
     #     """
@@ -4189,10 +4198,27 @@ class Drift:
         dx = x_intersect - beam.global_x
         dy = y_intersect - beam.global_y
         dz = z_intersect - beam.global_z
+
+        if issubclass(type(self.downstream_component), Mirror):
+
+            print('found curved mirror')
+            intersection = self.downstream_component.find_intersection(beam).flatten()
+            print(intersection)
+            x_intersect = intersection[0]
+            y_intersect = intersection[1]
+            z_intersect = intersection[2]
+            dx = x_intersect - beam.global_x
+            dy = y_intersect - beam.global_y
+            dz = z_intersect - beam.global_z
         # re-calculate propagation distance
         old_z = np.copy(self.dz)
 
+        self.downstream_component.x_intersect = x_intersect
+        self.downstream_component.y_intersect = y_intersect
+        self.downstream_component.z_intersect = z_intersect
+
         self.dz = np.sqrt(dx**2 + dy**2 + dz**2)
+        self.downstream_component.correction = self.dz - old_z
         print('delta z: %.2f' % ((self.dz - old_z)*1e6))
 
         # beam.global_x = x_intersect
@@ -4733,6 +4759,12 @@ class PPM:
         self.threshold = 0.0
         self.azimuth = 0
         self.elevation = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
+        self.x_intersect = 0
+        self.y_intersect = 0
+        self.z_intersect = 0
 
         # set allowed kwargs
         allowed_arguments = ['N', 'dx', 'FOV', 'z', 'blur', 'view_angle_x',
@@ -4759,8 +4791,13 @@ class PPM:
         self.x = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx
         self.y = np.copy(self.x)
 
+        f_x = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
+        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
+
         # get 2D coordinate arrays
         self.xx, self.yy = np.meshgrid(self.x, self.y)
+
+        self.f_x, self.f_y = np.meshgrid(f_x, f_y)
 
         # initialize some attributes
         self.profile = np.zeros((self.N, self.N))
@@ -4810,51 +4847,31 @@ class PPM:
         self.amp_y = np.max(line_y)-np.min(line_y)
 
         # normalize lineouts
-        if np.max(line_x) > 0:
-            line_x -= np.min(line_x)
-            line_x = line_x / np.max(line_x)
-            
-        if np.max(line_y) > 0:
-            line_y -= np.min(line_y)
-            line_y = line_y / np.max(line_y)
+        line_x = line_x / np.max(line_x)
+        line_y = line_y / np.max(line_y)
 
         # set 20% threshold
-        thresh_x = np.max(line_x) * self.threshold
-        thresh_y = np.max(line_y) * self.threshold
+        thresh_x = np.max(line_x) * .2
+        thresh_y = np.max(line_y) * .2
         # subtract threshold and set everything below to zero
         norm_x = line_x - thresh_x
         norm_x[norm_x < 0] = 0
         # re-normalize
-
-        if np.max(norm_x) > 0:
-            norm_x = norm_x / np.max(norm_x)
+        norm_x = norm_x / np.max(norm_x)
 
         # subtract threshold and set everything below to zero
         norm_y = line_y - thresh_y
         norm_y[norm_y < 0] = 0
         # re-normalize
-        if np.max(norm_y) > 0:
-            norm_y = norm_y / np.max(norm_y)
+        norm_y = norm_y / np.max(norm_y)
 
         # calculate centroids
+        cx = np.sum(norm_x * self.x) / np.sum(norm_x)
+        cy = np.sum(norm_y * self.y) / np.sum(norm_y)
 
-        if np.sum(norm_x) > 0:
-            cx = np.sum(norm_x * self.x) / np.sum(norm_x)
-            # calculate second moments. Converted to microns to help with fitting
-            sx = np.sqrt(np.sum(norm_x * (self.x - cx) ** 2) / np.sum(norm_x)) * 1e6
-
-        else:
-            cx = 0
-            sx = 0
-        if np.sum(norm_y) > 0:
-            cy = np.sum(norm_y * self.y) / np.sum(norm_y)
-            # calculate second moments. Converted to microns to help with fitting
-            sy = np.sqrt(np.sum(norm_y * (self.y - cy) ** 2) / np.sum(norm_y)) * 1e6
-
-        else:
-            cy = 0
-            sy = 0
-
+        # calculate second moments. Converted to microns to help with fitting
+        sx = np.sqrt(np.sum(norm_x * (self.x - cx) ** 2) / np.sum(norm_x)) * 1e6
+        sy = np.sqrt(np.sum(norm_y * (self.y - cy) ** 2) / np.sum(norm_y)) * 1e6
         # conversion factor from sigma to fwhm
         fwx_guess = sx * 2.355
         fwy_guess = sy * 2.355
@@ -4914,6 +4931,12 @@ class PPM:
         :return: None
         """
 
+        beam_shift = np.array([self.x_intersect - self.global_x,
+                               self.y_intersect - self.global_y,
+                               self.z_intersect - self.z])
+        x_shift = np.dot(beam_shift, self.xhat)
+        y_shift = np.dot(beam_shift, self.yhat)
+
         # Calculate intensity from complex beam
         profile = np.abs(beam.wave) ** 2
 
@@ -4930,8 +4953,8 @@ class PPM:
             profile = ndimage.filters.gaussian_filter(profile, sigma=(y_width, x_width))
 
         # get beam coordinates for interpolation
-        x = beam.x[0, :]
-        y = beam.y[:, 0]
+        x = beam.x[0,:] + x_shift
+        y = beam.y[:,0] + y_shift
         # interpolating function from Scipy's interp2d. Extrapolation value is set to zero.
         f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
         # do the interpolation to get the profile we'll see on the PPM
