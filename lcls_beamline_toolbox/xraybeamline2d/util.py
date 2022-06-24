@@ -77,10 +77,18 @@ class Util:
         if len(np.shape(x))>1:
             if axis==0:
                 x1 = x[:,0]
-                y1 = y[:,0]
+                if len(np.shape(y))>1:
+                    N,M = np.shape(y)
+                    y1 = y[:,int(M/2)]
+                else:
+                    y1 = y
             else:
                 x1 = x[0,:]
-                y1 = y[0,:]
+                if len(np.shape(y))>1:
+                    N,M = np.shape(y)
+                    y1 = y[int(N/2),:]
+                else:
+                    y1 = y
         else:
             x1 = x
             y1 = y

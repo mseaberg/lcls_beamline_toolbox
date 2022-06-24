@@ -2285,6 +2285,9 @@ class CurvedMirror(Mirror):
 
         reflectivity = xraydb.mirror_reflectivity(self.material,incidence_angle, beam.photonEnergy, self.density)
 
+        plt.figure()
+        plt.imshow(incidence_angle)
+
         if figon:
             plt.figure()
             plt.plot(beamx,rays_ellipse[0,:,0])
@@ -2370,12 +2373,18 @@ class CurvedMirror(Mirror):
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :,:] - z0) < self.length / 2 * np.cos(params['delta']))
 
         if self.orientation==0 or self.orientation==2:
-            p_coeff_x = Util.polyfit2d(x_eff[mask], total_distance[mask], 2, axis=1)
-            p_coeff_y = Util.polyfit2d(y_eff[mask], total_distance[mask], 2, axis=0)
+            mask_x = np.sum(mask,axis=0)>0
+            mask_y = np.sum(mask,axis=1)>0
+            # p_coeff_x = Util.polyfit2d(x_eff[mask], total_distance[mask], 2, axis=1)
+            # p_coeff_y = Util.polyfit2d(y_eff[mask], total_distance[mask], 2, axis=0)
+            p_coeff_x = np.polyfit(x_eff[0,:][mask_x],total_distance[int(beam.N/2),:][mask_x],2)
+            p_coeff_y = np.polyfit(y_eff[:,0][mask_y],total_distance[:,int(beam.M/2)][mask_y],2)
             linear = p_coeff_x[-2]
         else:
-            p_coeff_x = Util.polyfit2d(x_eff[mask], total_distance[mask], 2, axis=0)
-            p_coeff_y = Util.polyfit2d(y_eff[mask], total_distance[mask], 2, axis=1)
+            mask_x = np.sum(mask, axis=1) > 0
+            mask_y = np.sum(mask, axis=0) > 0
+            p_coeff_x = np.polyfit(x_eff[:,0][mask_x], total_distance[:,int(beam.M/2)][mask_x], 2)
+            p_coeff_y = np.polyfit(y_eff[0,:][mask_y], total_distance[int(beam.N/2),:][mask_y], 2)
             linear = p_coeff_x[-2]
 
         # subtract best fit parabola
@@ -2436,6 +2445,9 @@ class CurvedMirror(Mirror):
         # angle_out = interpolation.griddata(points, unwrap_phase(np.angle(wave[j1:j2,i1:i2])).flatten(), xi, fill_value=0)
 
         angle_in = unwrap_phase(np.angle(wave))
+
+        plt.figure()
+        plt.imshow(angle_in*mask)
 
         # plt.figure()
         # plt.plot(angle_out*mask2)
@@ -2500,11 +2512,15 @@ class CurvedMirror(Mirror):
         # try:
         # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
         if self.orientation==0 or self.orientation==2:
-            p_coeff_x = Util.polyfit2d(x_eff[mask], total_phase[mask], 2,axis=1)
-            p_coeff_y = Util.polyfit2d(y_eff[mask], total_phase[mask], 2, axis=0)
+            mask_x = np.sum(mask, axis=0) > 0
+            mask_y = np.sum(mask, axis=1) > 0
+            p_coeff_x = np.polyfit(x_eff[0,:][mask_x], total_phase[int(beam.N/2),:][mask_x], 2)
+            p_coeff_y = np.polyfit(y_eff[:,0][mask_y], total_phase[:,int(beam.M/2)][mask_y], 2)
         else:
-            p_coeff_x = Util.polyfit2d(x_eff[mask], total_phase[mask], 2,axis=0)
-            p_coeff_y = Util.polyfit2d(y_eff[mask], total_phase[mask], 2, axis=1)
+            mask_x = np.sum(mask, axis=1) > 0
+            mask_y = np.sum(mask, axis=0) > 0
+            p_coeff_x = np.polyfit(x_eff[:,0][mask_x], total_phase[:,int(beam.M/2)][mask_x], 2)
+            p_coeff_y = np.polyfit(y_eff[0,:][mask_y], total_phase[int(beam.N/2),:][mask_y], 2)
 
         z_2 = np.pi / beam.lambda0 / p_coeff_x[-3]
         z_2_y = np.pi / beam.lambda0 / p_coeff_y[-3]
@@ -2542,6 +2558,9 @@ class CurvedMirror(Mirror):
 
         # reflectivity_interp = Util.interp_flip2d(x_out, y_eff, x_eff, y_eff, reflectivity)
         reflectivity_interp = interpolation.griddata(points, reflectivity.flatten(), (xi_0, xi_1), fill_value=0)
+
+        plt.figure()
+        plt.imshow(phase_interp)
 
         wave = abs_out * np.exp(1j * phase_interp)
         if self.use_reflectivity:
