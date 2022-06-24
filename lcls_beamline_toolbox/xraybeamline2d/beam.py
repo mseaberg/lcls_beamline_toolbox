@@ -502,7 +502,7 @@ class Beam:
             # else:
             #     xWidth = np.abs(self.x[0] - self.x[-1])
 
-            xWidth = np.abs(self.x[0] - self.x[-1])
+            xWidth = np.abs(self.x[0,0] - self.x[0,-1])
 
             # self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
             #             self.rangeFactor)
@@ -517,7 +517,7 @@ class Beam:
             # else:
             #     yWidth = np.abs(self.y[0] - self.y[-1])
 
-            yWidth = np.abs(self.y[0] - self.y[-1])
+            yWidth = np.abs(self.y[0,0] - self.y[-1,0])
 
             # self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
             #             self.rangeFactor)
@@ -543,8 +543,8 @@ class Beam:
         print('zRy: %.2e' % self.zRy)
 
         # initialize
-        new_x = self.x
-        new_y = self.y
+        new_x = self.x[0,:]
+        new_y = self.y[:,0]
         new_dx = self.dx
         new_dy = self.dy
 
@@ -588,7 +588,7 @@ class Beam:
                 size_ratio = old_zRy / self.zy
                 new_dy = self.dy / size_ratio
                 new_y = np.linspace(-int(self.N / 2), int(self.N / 2) - 1, self.N) * new_dy
-                if self.y[0] > self.y[1]:
+                if self.y[0,0] > self.y[1,0]:
                     new_y = -new_y
 
                 interp_flag = 1
