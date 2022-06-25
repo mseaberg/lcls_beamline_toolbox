@@ -866,8 +866,8 @@ class Util:
         return xhat, yhat, zhat
 
     @staticmethod
-    def general_3d_rotation(xhat, yhat, zhat, vec, delta=0):
-        r1 = transform.Rotation.from_rotvec(vec * delta)
+    def general_3d_rotation(xhat, yhat, zhat, vec):
+        r1 = transform.Rotation.from_rotvec(vec)
         R = r1.as_matrix()
         xhat = np.matmul(R, xhat)
         yhat = np.matmul(R, yhat)

@@ -2799,13 +2799,28 @@ class CurvedMirror(Mirror):
         print(np.shape(beam.x))
         print(np.shape(beam.y))
 
-        beam.xhat,beam.yhat,beam.zhat = Util.general_3d_rotation(beam.xhat,beam.yhat,beam.zhat,self.transverse,delta=self.roll*2)
+        # get angle to rotate beam
+        if self.orientation==0:
+            cross = np.cross(beam.yhat,self.sagittal)
+            sign = np.sign(np.dot(cross,self.transverse))
+
+        elif self.orientation==1:
+            cross = -np.cross(beam.xhat,self.sagittal)
+            sign = np.sign(np.dot(cross,self.transverse))
+        elif self.orientation==2:
+            cross = -np.cross(beam.yhat,self.sagittal)
+            sign = np.sign(np.dot(cross,self.transverse))
+        else:
+            cross = np.cross(beam.xhat,self.sagittal)
+            sign = np.sign(np.dot(cross,self.transverse))
+
+        roll = sign * np.sqrt(np.sum(cross) ** 2) * self.transverse
+        beam.xhat,beam.yhat,beam.zhat = Util.general_3d_rotation(beam.xhat,beam.yhat,beam.zhat,2*roll)
 
         print('is beam in the correct direction?')
-
+        print('zhat: {}'.format(beam.zhat))
+        print('kfg: {}'.format(k_f_global[:, 0, 0]))
         print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0, 0])))
-        print(beam.zhat)
-        print(k_f_global[:,0,0])
 
     def reflect(self, beam):
         """
