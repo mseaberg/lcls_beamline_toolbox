@@ -2613,17 +2613,17 @@ class CurvedMirror(Mirror):
             nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.N/2),int(beam.M/2)]
             delta_ax = delta_theta - 2 * nominal_incidence + linear
             delta_ax = delta_theta - 2*self.alpha - linear
-            delta_ay = delta_roll-linear_y
+            delta_ay = delta_roll#-linear_y
             print(delta_theta)
             print(beam.ax)
             print(delta_ax)
             print(delta_ay)
             if self.orientation==0:
                 beam.rotate_nominal(delta_azimuth=2*self.alpha)
-                beam.rotate_beam(delta_ax=delta_ax)
+                beam.rotate_beam(delta_ax=delta_ax,delta_ay=delta_ay)
             else:
                 beam.rotate_nominal(delta_azimuth=-2*self.alpha)
-                beam.rotate_beam(delta_ax=-delta_ax)
+                beam.rotate_beam(delta_ax=-delta_ax,delta_ay=-delta_ay)
 
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             print(beam.ax)
@@ -2680,17 +2680,17 @@ class CurvedMirror(Mirror):
             nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2),int(beam.M/2)]
             delta_ay = delta_theta - 2 * nominal_incidence + linear
             delta_ay = delta_theta - 2 * self.alpha - linear
-            delta_ax = delta_roll-linear_y
+            delta_ax = delta_roll#-linear_y
             print(beam.ay)
             # print(beam.cy)
             print(delta_ay)
 
             if self.orientation == 1:
                 beam.rotate_nominal(delta_elevation=2 * self.alpha)
-                beam.rotate_beam(delta_ay=delta_ay)
+                beam.rotate_beam(delta_ay=delta_ay,delta_ax=-delta_ax)
             else:
                 beam.rotate_nominal(delta_elevation=-2 * self.alpha)
-                beam.rotate_beam(delta_ay=-delta_ay)
+                beam.rotate_beam(delta_ay=-delta_ay,delta_ax=delta_ax)
             print(beam.ay)
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             # cy1 = beam.cy + ay0 * delta_z
