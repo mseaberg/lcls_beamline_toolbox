@@ -2606,8 +2606,9 @@ class CurvedMirror(Mirror):
             print(k_f-k_f_n)
 
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1,1)), axes=(1,0))
-            delta_theta = np.arccos(np.dot(k_i-k_i_s, k_f-k_f_s)
-                                    /np.sqrt(np.abs(np.sum((k_i-k_i_s)**2))*np.abs(np.sum((k_f-k_f_s)**2))))
+            # delta_theta = np.arccos(np.dot(k_i-k_i_s, k_f-k_f_s)
+            #                         /np.sqrt(np.abs(np.sum((k_i-k_i_s)**2))*np.abs(np.sum((k_f-k_f_s)**2))))
+            delta_theta = np.arccos(np.dot(k_i,k_f))
             delta_roll = np.arccos(np.dot(k_i-k_i_n, k_f-k_f_n)
                                    /np.sqrt(np.abs(np.sum((k_i-k_i_n)**2))*np.abs(np.sum((k_f-k_f_n)**2))))
             nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.N/2),int(beam.M/2)]
@@ -2643,12 +2644,12 @@ class CurvedMirror(Mirror):
 
             beam.new_fx()
 
-            print('is beam in the correct direction?')
-            print(np.arccos(np.dot(beam.zhat, k_f)))
-            print(np.arccos(np.dot(beam.zhat, k_f_global[:,0,0])))
-            print(params['beta'])
-            print(k_f)
-            print(k_f_global)
+            # print('is beam in the correct direction?')
+            # print(np.arccos(np.dot(beam.zhat, k_f)))
+            # print(np.arccos(np.dot(beam.zhat, k_f_global[:,0,0])))
+            # print(params['beta'])
+            # print(k_f)
+            # print(k_f_global)
 
             beam.wave = wave
             # print(np.arccos(np.dot(beam.zhat,np.matmul(np.linalg.inv(transform_matrix),np.reshape(k_f,(3,1))))))
@@ -2673,8 +2674,9 @@ class CurvedMirror(Mirror):
             k_f_n[2] = 0
 
             k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1,1)), axes=(1, 0))
-            delta_theta = np.arccos(np.dot(k_i - k_i_s, k_f - k_f_s)
-                                    / np.sqrt(np.abs(np.sum((k_i - k_i_s) ** 2)) * np.abs(np.sum((k_f - k_f_s) ** 2))))
+            # delta_theta = np.arccos(np.dot(k_i - k_i_s, k_f - k_f_s)
+            #                         / np.sqrt(np.abs(np.sum((k_i - k_i_s) ** 2)) * np.abs(np.sum((k_f - k_f_s) ** 2))))
+            delta_theta = np.arccos(np.dot(k_i, k_f))
             delta_roll = np.arccos(np.dot(k_i - k_i_n, k_f - k_f_n)
                                    / np.sqrt(np.abs(np.sum((k_i - k_i_n) ** 2)) * np.abs(np.sum((k_f - k_f_n) ** 2))))
             nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2),int(beam.M/2)]
@@ -2710,12 +2712,12 @@ class CurvedMirror(Mirror):
 
             beam.new_fx()
 
-            print('is beam in the correct direction?')
-            print(np.arccos(np.dot(beam.zhat, k_f)))
-            print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0, 0])))
-            print(params['beta'])
-            print(k_f)
-            print(k_f_global)
+            # print('is beam in the correct direction?')
+            # print(np.arccos(np.dot(beam.zhat, k_f)))
+            # print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0, 0])))
+            # print(params['beta'])
+            # print(k_f)
+            # print(k_f_global)
 
             ## might be an issue here...
             if self.orientation==1:
@@ -2797,7 +2799,13 @@ class CurvedMirror(Mirror):
         print(np.shape(beam.x))
         print(np.shape(beam.y))
 
-        beam.xhat,beam.yhat,beam.zhat = Util.rotate_3d(beam.xhat,beam.yhat,beam.zhat,delta=self.roll*2,dir='roll')
+        beam.xhat,beam.yhat,beam.zhat = Util.general_3d_rotation(beam.xhat,beam.yhat,beam.zhat,self.transverse,delta=self.roll*2)
+
+        print('is beam in the correct direction?')
+
+        print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0, 0])))
+        print(beam.zhat)
+        print(k_f_global[:,0,0])
 
     def reflect(self, beam):
         """
@@ -2855,7 +2863,6 @@ class CurvedMirror(Mirror):
 
             # small change to total angle of incidence
             self.total_alpha += -beam.ay
-
             k_ix = -np.sin(self.alpha - beam.ay)
             k_iy = -np.sin(beam.ax)
             k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)

@@ -866,6 +866,16 @@ class Util:
         return xhat, yhat, zhat
 
     @staticmethod
+    def general_3d_rotation(xhat, yhat, zhat, vec, delta=0):
+        r1 = transform.Rotation.from_rotvec(vec * delta)
+        R = r1.as_matrix()
+        xhat = np.matmul(R, xhat)
+        yhat = np.matmul(R, yhat)
+        zhat = np.matmul(R, zhat)
+
+        return xhat, yhat, zhat
+
+    @staticmethod
     def optics_adjustment(xhat,yhat,zhat,pitch=None,yaw=None,roll=None):
         if pitch is not None:
             xhat, yhat, zhat = Util.rotate_3d(xhat,yhat,zhat,delta=pitch,dir='azimuth')
