@@ -2471,7 +2471,10 @@ class CurvedMirror(Mirror):
         linear_y += p_coeff_y[-2] * beam.lambda0/2/np.pi
 
         # subtract linear terms since this should be taken care of based on central ray direction
-        # still need to think about why it's not necessary in the sagittal direction
+        # still need to think about why it's not necessary in the sagittal direction. Actually
+        # this is being subtracted here because we are compensating below with a beam direction change.
+        # This is not being done in the sagittal direction so that's why we're only subtracting a
+        # linear phase in the tangential direction.
         if self.orientation==0 or self.orientation==2:
             total_phase -= np.polyval(p_coeff_x[-2:], x_eff)# + np.polyval(p_coeff_y[-2:], y_eff)
         else:
@@ -2555,16 +2558,10 @@ class CurvedMirror(Mirror):
             print(beam.ax)
             print(delta_ax)
             print(delta_ay)
-            # if self.orientation==0:
-            #     beam.rotate_nominal(delta_azimuth=2*self.alpha)
-            #     beam.rotate_beam(delta_ax=delta_ax,delta_ay=delta_ay)
-            # else:
-            #     beam.rotate_nominal(delta_azimuth=-2*self.alpha)
-            #     beam.rotate_beam(delta_ax=-delta_ax,delta_ay=-delta_ay)
-            if self.orientation==0:
-                beam.rotate_beam(delta_ax=linear)
-            else:
-                beam.rotate_beam(delta_ax=linear)
+
+            # compensate for removing linear phase by adjusting beam k-vector
+            beam.rotate_beam(delta_ax=linear)
+
             # beam.rotate_beam(delta_ax=-linear)
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             print(beam.ax)
@@ -2623,22 +2620,9 @@ class CurvedMirror(Mirror):
             print(beam.ay)
             # print(beam.cy)
             print(delta_ay)
-            if self.orientation==1:
-                beam.rotate_beam(delta_ay=linear_y)
-            else:
-                beam.rotate_beam(delta_ay=linear_y)
 
-            # beam.rotate_beam(delta_ay=-linear_y)
-            # if self.orientation == 1:
-            #     beam.rotate_nominal(delta_elevation=2 * self.alpha)
-            #     beam.rotate_beam(delta_ay=delta_ay,delta_ax=-delta_ax)
-            # else:
-            #     beam.rotate_nominal(delta_elevation=-2 * self.alpha)
-            #     beam.rotate_beam(delta_ay=-delta_ay,delta_ax=delta_ax)
-            print(beam.ay)
-            # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
-            # cy1 = beam.cy + ay0 * delta_z
-            # cy2 = -cy1 + beam.ay * delta_z
+            # compensate for removing linear phase by adjusting beam k-vector
+            beam.rotate_beam(delta_ay=linear_y)
 
             delta_cy = ay0 * self.length / 2 * 1.1
             delta_cy += beam.ay * self.length / 2 * 1.1
@@ -2664,12 +2648,6 @@ class CurvedMirror(Mirror):
             print(k_f)
             print(k_f_global)
 
-            ## might be an issue here...
-            # if self.orientation==1:
-            #     beam.wave = np.rot90(wave)
-            # else:
-            #     beam.wave = np.rot90(wave,3)
-
         # now figure out global coordinates
         # get back into global coordinates using inverse of transformation matrix, just looking at central ray
         inv_transform = np.linalg.inv(transform_matrix)
@@ -2691,49 +2669,20 @@ class CurvedMirror(Mirror):
         beam.global_y = origin_global[1,0,0]
         beam.global_z = origin_global[2,0,0]
 
+        # change beam z parameter for sagittal direction (just equal to the distance between
+        # "entrance" and "exit" planes)
         if self.orientation==0 or self.orientation==2:
-        #     # calculate Fresnel scaling magnification
-        # 
-        #     if beam.focused_y:
-        #         # this accounts for change in phase
-        #         beam.propagation(0,0,2*delta_z)
-        #     else:
-        #         mag_y = (beam.zy + 2 * delta_z) / beam.zy
-        # 
-        #         # calculate effective distance to propagate
-        #         z_eff_y = 2 * delta_z / mag_y
-        # 
-        #         # scaled propagation
-        #         beam.propagation(0, 0, z_eff_y)
-        #         beam.rescale_y_noshift(mag_y)
-        #     # beam.y -= beam.cy
-        #     # beam.cy += beam.ay * 2 * delta_z
-        #     # beam.y += beam.cy
             beam.zy += 2*delta_z
         else:
-        #     if beam.focused_x:
-        #         beam.propagation(0,0,2*delta_z)
-        #     else:
-        #         # calculate Fresnel scaling magnification
-        #         mag_x = (beam.zx + 2 * delta_z) / beam.zx
-        # 
-        #         # calculate effective distance to propagate
-        #         z_eff_x = 2 * delta_z / mag_x
-        # 
-        #         # scaled propagation
-        #         beam.propagation(0, 0, z_eff_x)
-        #         beam.rescale_x_noshift(mag_x)
-        #     # beam.x -= beam.cx
-        #     # beam.cx += beam.ax * 2 * delta_z
-        #     # beam.x += beam.cx
             beam.zx += 2*delta_z
 
+        # account for coordinate scaling and/or changes to Rayleigh range,
+        # whether beam is classified as focused or not. I need to think about how much of
+        # this is still necessary after some of the changes above. Some of it is probably redundant,
+        # and some might be wrong depending on the state of focusing.
         if self.orientation==0 or self.orientation==2:
-            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
             beam.change_z_mirror(new_zx=z_total_x, old_zx=z_2, new_zy=beam.zy, old_zy=beam.zy-2*delta_z)
         else:
-
-            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
             beam.change_z_mirror(new_zy=z_total_y, old_zy=z_2_y, new_zx=beam.zx, old_zx=beam.zx-2*delta_z)
 
         beam.new_fx()
@@ -2957,130 +2906,6 @@ class CurvedMirror(Mirror):
         print(beam.global_y)
         print('z')
         print(beam.global_z)
-
-        # # modify beam's wave attribute by mirror aperture and phase error
-        # beam.wave *= mirror * np.exp(1j * high_order)
-        #
-        # # now change outgoing beam k-vector based on mirror orientation, and apply quadratic phase
-        # if self.orientation == 0:
-        #     # take into account mirror reflection causing beam to invert
-        #     beam.x *= -1
-        #
-        #     # adjust beam direction relative to properly aligned axis
-        #     beam.rotate_nominal(delta_azimuth=2 * self.alpha)
-        #     delta_ax = -2 * beam.ax + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
-        #     # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-        #     delta_ay = np.arcsin(delta_k[1])
-        #     beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
-        #
-        #     # adjust beam direction relative to properly aligned axis
-        #     # beam.ax = -beam.ax + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
-        #     # beam.ay += np.arcsin(delta_k[1])
-        #
-        #     # adjust beam quadratic phase
-        #     # beam.zx = 1 / (1 / beam.zx + quadratic)
-        #     new_zx = 1 / (1 / beam.zx + quadratic)
-        #     beam.change_z(new_zx=new_zx)
-        #
-        #     # account for roll
-        #     x2 = beam.x * np.cos(self.roll) + beam.y * np.sin(self.roll)
-        #     shapeChange = np.pi/beam.lambda0/new_zx*(x2**2 - beam.x**2)
-        #     beam.wave *= np.exp(1j*shapeChange)
-        #
-        #     # adjust beam position due to mirror de-centering
-        #     delta_cx = 2 * self.dx * np.cos(self.total_alpha)
-        #     beam.cx = -beam.cx + delta_cx
-        #     beam.x = beam.x + delta_cx
-        #
-        # elif self.orientation == 1:
-        #     # take into account mirror reflection causing beam to invert
-        #     beam.y *= -1
-        #
-        #     # adjust beam direction relative to properly aligned axis
-        #     beam.rotate_nominal(delta_elevation=2 * self.alpha)
-        #     delta_ay = -2 * beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
-        #     # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-        #     delta_ax = -np.arcsin(delta_k[1])
-        #     beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
-        #
-        #     # adjust beam direction relative to properly aligned axis
-        #     # beam.ax += -np.arcsin(delta_k[1])
-        #     # beam.ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
-        #
-        #     # adjust beam quadratic phase
-        #     # beam.zy = 1 / (1 / beam.zy + quadratic)
-        #     new_zy = 1 / (1 / beam.zy + quadratic)
-        #     beam.change_z(new_zy=new_zy)
-        #
-        #     # account for roll
-        #     y2 = -beam.x * np.sin(-self.roll) + beam.y * np.cos(-self.roll)
-        #     shapeChange = np.pi / beam.lambda0 / new_zy * (y2 ** 2 - beam.y ** 2)
-        #     beam.wave *= np.exp(1j * shapeChange)
-        #
-        #     # adjust beam position due to mirror de-centering
-        #     delta_cy = 2 * self.dx * np.cos(self.total_alpha)
-        #     beam.cy = -beam.cy + delta_cy
-        #     beam.y = beam.y + delta_cy
-        #
-        # elif self.orientation == 2:
-        #     # take into account mirror reflection causing beam to invert
-        #     beam.x *= -1
-        #
-        #     # adjust beam direction relative to properly aligned axis
-        #     beam.rotate_nominal(delta_azimuth=-2 * self.alpha)
-        #     delta_ax = -2 * beam.ax - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
-        #     # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-        #     delta_ay = -np.arcsin(delta_k[1])
-        #     beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
-        #
-        #     # adjust beam direction relative to properly aligned axis
-        #     # beam.ax = -beam.ax - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
-        #     # beam.ay += -np.arcsin(delta_k[1])
-        #
-        #     # adjust beam quadratic phase
-        #     # beam.zx = 1 / (1 / beam.zx + quadratic)
-        #     new_zx = 1 / (1 / beam.zx + quadratic)
-        #     beam.change_z(new_zx=new_zx)
-        #
-        #     # account for roll
-        #     x2 = beam.x * np.cos(self.roll) + beam.y * np.sin(self.roll)
-        #     shapeChange = np.pi / beam.lambda0 / new_zx * (x2 ** 2 - beam.x ** 2)
-        #     beam.wave *= np.exp(1j * shapeChange)
-        #
-        #     # adjust beam position due to mirror de-centering
-        #     delta_cx = -2 * self.dx * np.cos(self.total_alpha)
-        #     beam.cx = -beam.cx + delta_cx
-        #     beam.x = beam.x + delta_cx
-        #
-        # elif self.orientation == 3:
-        #     # take into account mirror reflection causing beam to invert
-        #     beam.y *= -1
-        #
-        #     # adjust beam direction relative to properly aligned axis
-        #     beam.rotate_nominal(delta_elevation=-2 * self.alpha)
-        #     delta_ay = -2 * beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
-        #     # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-        #     delta_ax = np.arcsin(delta_k[1])
-        #     beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
-        #
-        #     # adjust beam direction relative to properly aligned axis
-        #     # beam.ax += np.arcsin(delta_k[1])
-        #     # beam.ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
-        #
-        #     # adjust beam quadratic phase
-        #     # beam.zy = 1 / (1 / beam.zy + quadratic)
-        #     new_zy = 1 / (1 / beam.zy + quadratic)
-        #     beam.change_z(new_zy=new_zy)
-        #
-        #     # account for roll
-        #     y2 = -beam.x * np.sin(-self.roll) + beam.y * np.cos(-self.roll)
-        #     shapeChange = np.pi / beam.lambda0 / new_zy * (y2 ** 2 - beam.y ** 2)
-        #     beam.wave *= np.exp(1j * shapeChange)
-        #
-        #     # adjust beam position due to mirror de-centering
-        #     delta_cy = -2 * self.dx * np.cos(self.total_alpha)
-        #     beam.cy = -beam.cy + delta_cy
-        #     beam.y = beam.y + delta_cy
 
         return
 
