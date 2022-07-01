@@ -2439,11 +2439,6 @@ class CurvedMirror(Mirror):
         p_coeff_y = np.polyfit(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y], 2,
                                w=weight_y[mask_y])
 
-        plt.figure()
-        plt.plot(x_eff[int(beam.N/2),:][mask_x], total_phase[int(beam.N/2),:][mask_x])
-        plt.figure()
-        plt.plot(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y])
-
         # calculate effective distance to focus based on total phase
         z_2 = np.pi / beam.lambda0 / p_coeff_x[-3]
         z_2_y = np.pi / beam.lambda0 / p_coeff_y[-3]
@@ -2475,23 +2470,6 @@ class CurvedMirror(Mirror):
             total_phase -= np.polyval([p_coeff_x[-3], 0, 0], x_eff)
         if not beam.focused_y:
             total_phase -= np.polyval([p_coeff_y[-3], 0, 0], y_eff)
-        # if self.orientation==0 or self.orientation==2:
-        #     if not beam.focused_x:
-        #         total_phase -= np.polyval([p_coeff_x[-3],0,0],x_eff)
-        #     if not beam.focused_y:
-        #         # total_phase -= np.polyval([np.pi/beam.lambda0/(beam.zy+self.length*1.1),0,0],y_eff)
-        #         total_phase -= np.polyval([p_coeff_y[-3],0,0],y_eff)
-        # else:
-        #     if not beam.focused_y:
-        #         total_phase -= np.polyval([p_coeff_y[-3], 0, 0], y_eff)
-        #     if not beam.focused_x:
-        #         # total_phase -= np.polyval([np.pi/beam.lambda0/(beam.zx+self.length*1.1),0,0],x_eff)
-        #         total_phase -= np.polyval([p_coeff_x[-3],0,0], x_eff)
-
-        plt.figure()
-        plt.plot(x_eff[int(beam.N / 2), :][mask_x], total_phase[int(beam.N / 2), :][mask_x])
-        plt.figure()
-        plt.plot(y_eff[:, int(beam.M / 2)][mask_y], total_phase[:, int(beam.M / 2)][mask_y])
 
         # interpolate the phase onto the exit plane grid
         points = np.zeros((np.size(x_eff), 2))
@@ -2517,52 +2495,18 @@ class CurvedMirror(Mirror):
         ax0 = np.copy(beam.ax)
         ay0 = np.copy(beam.ay)
 
+        # figure out where the beam is in global coordinates
+        # change in angle
         k_i = rays_ellipse[:, int(beam.N / 2), int(beam.M / 2)]
         k_f = rays_out[:, int(beam.N / 2), int(beam.M / 2)]
 
-        # find component of k_i and k_f along the sagittal direction
-        k_i_s = np.copy(k_i)
-        k_i_s[0] = 0
-        k_i_s[2] = 0
-        k_f_s = np.copy(k_f)
-        k_f_s[0] = 0
-        k_f_s[2] = 0
-
-        # find component of k_i and k_f along the normal direction
-        k_i_n = np.copy(k_i)
-        k_i_n[1] = 0
-        k_i_n[2] = 0
-        k_f_n = np.copy(k_f)
-        k_f_n[1] = 0
-        k_f_n[2] = 0
-
-        print(k_i - k_i_s)
-        print(k_f - k_f_s)
-        print(k_i - k_i_n)
-        print(k_f - k_f_n)
-
         k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1, 1)), axes=(1, 0))
         k_f_global = k_f_global / np.sqrt(np.sum(np.abs(k_f_global ** 2)))
-
-        delta_theta = np.arccos(np.dot(k_i - k_i_s, k_f - k_f_s)
-                                / np.sqrt(np.abs(np.sum((k_i - k_i_s) ** 2)) * np.abs(np.sum((k_f - k_f_s) ** 2))))
-        delta_roll = np.arccos(np.dot(k_i - k_i_n, k_f - k_f_n)
-                               / np.sqrt(np.abs(np.sum((k_i - k_i_n) ** 2)) * np.abs(np.sum((k_f - k_f_n) ** 2))))
-        nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2), int(beam.M / 2)]
-        delta_ax = delta_theta - 2 * nominal_incidence + linear
-        delta_ax = delta_theta - 2 * self.alpha - linear
-        delta_ay = delta_roll  # -linear_y
-        print(delta_theta)
-        print(beam.ax)
-        print(delta_ax)
-        print(delta_ay)
 
         # compensate for removing linear phase by adjusting beam k-vector
         beam.rotate_beam(delta_ax=linear)
         beam.rotate_beam(delta_ay=linear_y)
 
-        # beam.rotate_beam(delta_ax=-linear)
-        # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
         print(beam.ax)
         delta_cx = ax0 * self.length / 2 * 1.1
         delta_cx += beam.ax * self.length / 2 * 1.1
@@ -2584,139 +2528,6 @@ class CurvedMirror(Mirror):
         print(params['beta'])
         print(k_f)
         print(k_f_global)
-        # figure out where the beam is in global coordinates
-        # change in angle
-        # if self.orientation==0 or self.orientation==2:
-        #     k_i = rays_ellipse[:,int(beam.N/2),int(beam.M/2)]
-        #     k_f = rays_out[:,int(beam.N/2),int(beam.M/2)]
-        #
-        #     # find component of k_i and k_f along the sagittal direction
-        #     k_i_s = np.copy(k_i)
-        #     k_i_s[0] = 0
-        #     k_i_s[2] = 0
-        #     k_f_s = np.copy(k_f)
-        #     k_f_s[0] = 0
-        #     k_f_s[2] = 0
-        #
-        #     # find component of k_i and k_f along the normal direction
-        #     k_i_n = np.copy(k_i)
-        #     k_i_n[1] = 0
-        #     k_i_n[2] = 0
-        #     k_f_n = np.copy(k_f)
-        #     k_f_n[1] = 0
-        #     k_f_n[2] = 0
-        #
-        #     print(k_i-k_i_s)
-        #     print(k_f-k_f_s)
-        #     print(k_i-k_i_n)
-        #     print(k_f-k_f_n)
-        #
-        #     k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1,1)), axes=(1,0))
-        #     k_f_global = k_f_global/np.sqrt(np.sum(np.abs(k_f_global**2)))
-        #
-        #     delta_theta = np.arccos(np.dot(k_i-k_i_s, k_f-k_f_s)
-        #                             /np.sqrt(np.abs(np.sum((k_i-k_i_s)**2))*np.abs(np.sum((k_f-k_f_s)**2))))
-        #     delta_roll = np.arccos(np.dot(k_i-k_i_n, k_f-k_f_n)
-        #                            /np.sqrt(np.abs(np.sum((k_i-k_i_n)**2))*np.abs(np.sum((k_f-k_f_n)**2))))
-        #     nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.N/2),int(beam.M/2)]
-        #     delta_ax = delta_theta - 2 * nominal_incidence + linear
-        #     delta_ax = delta_theta - 2*self.alpha - linear
-        #     delta_ay = delta_roll#-linear_y
-        #     print(delta_theta)
-        #     print(beam.ax)
-        #     print(delta_ax)
-        #     print(delta_ay)
-        #
-        #     # compensate for removing linear phase by adjusting beam k-vector
-        #     beam.rotate_beam(delta_ax=linear)
-        #     beam.rotate_beam(delta_ay=linear_y)
-        #
-        #     # beam.rotate_beam(delta_ax=-linear)
-        #     # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
-        #     print(beam.ax)
-        #     delta_cx = ax0 * self.length / 2 * 1.1
-        #     delta_cx += beam.ax * self.length / 2 * 1.1
-        #     delta_cx += 2*np.dot(self.normal,beam.xhat) * self.dx
-        #     print('change in beam center')
-        #     print(delta_cx)
-        #     # beam.cx = -beam.cx + delta_cx
-        #     # print(beam.cx)
-        #
-        #     x_out, y_out = np.meshgrid(x_out, y_out)
-        #     beam.x = x_out
-        #     beam.y = y_out
-        #
-        #     beam.new_fx()
-        #
-        #     print('is beam in the correct direction?')
-        #     print(np.arccos(np.dot(beam.zhat, k_f)))
-        #     print(np.arccos(np.dot(beam.zhat, k_f_global[:,0,0])))
-        #     print(params['beta'])
-        #     print(k_f)
-        #     print(k_f_global)
-
-            # print(np.arccos(np.dot(beam.zhat,np.matmul(np.linalg.inv(transform_matrix),np.reshape(k_f,(3,1))))))
-        # else:
-        #     k_i = rays_ellipse[:, int(beam.N / 2),int(beam.M/2)]
-        #     k_f = rays_out[:, int(beam.N / 2),int(beam.M/2)]
-        #
-        #     # find component of k_i and k_f along the sagittal direction
-        #     k_i_s = np.copy(k_i)
-        #     k_i_s[0] = 0
-        #     k_i_s[2] = 0
-        #     k_f_s = np.copy(k_f)
-        #     k_f_s[0] = 0
-        #     k_f_s[2] = 0
-        #
-        #     # find component of k_i and k_f along the normal direction
-        #     k_i_n = np.copy(k_i)
-        #     k_i_n[1] = 0
-        #     k_i_n[2] = 0
-        #     k_f_n = np.copy(k_f)
-        #     k_f_n[1] = 0
-        #     k_f_n[2] = 0
-        #
-        #     k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1,1)), axes=(1, 0))
-        #     k_f_global = k_f_global / np.sqrt(np.sum(np.abs(k_f_global ** 2)))
-        #     delta_theta = np.arccos(np.dot(k_i - k_i_s, k_f - k_f_s)
-        #                             / np.sqrt(np.abs(np.sum((k_i - k_i_s) ** 2)) * np.abs(np.sum((k_f - k_f_s) ** 2))))
-        #     delta_roll = np.arccos(np.dot(k_i - k_i_n, k_f - k_f_n)
-        #                            / np.sqrt(np.abs(np.sum((k_i - k_i_n) ** 2)) * np.abs(np.sum((k_f - k_f_n) ** 2))))
-        #     nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2),int(beam.M/2)]
-        #     delta_ay = delta_theta - 2 * nominal_incidence + linear
-        #     delta_ay = delta_theta - 2 * self.alpha - linear
-        #     delta_ax = delta_roll#-linear_y
-        #     print(beam.ay)
-        #     # print(beam.cy)
-        #     print(delta_ay)
-        #
-        #     # compensate for removing linear phase by adjusting beam k-vector
-        #     beam.rotate_beam(delta_ay=linear_y)
-        #     beam.rotate_beam(delta_ax=linear)
-        #
-        #     delta_cy = ay0 * self.length / 2 * 1.1
-        #     delta_cy += beam.ay * self.length / 2 * 1.1
-        #     delta_cy += 2 * np.dot(self.normal, beam.yhat) * self.dy
-        #     print('change in beam center')
-        #     # beam.cy = 2 * np.dot(self.normal, beam.yhat) * self.dx + cy2
-        #     print(delta_cy)
-        #     # beam.cy = -beam.cy + delta_cy
-        #     print(beam.cy)
-        #     x_out, y_out = np.meshgrid(x_out, y_out)
-        #     beam.y = y_out
-        #     beam.x = x_out
-        #
-        #     beam.new_fx()
-        #
-        #     print('is beam in the correct direction?')
-        #     print(np.arccos(np.dot(beam.zhat, k_f)))
-        #     print('zhat: {}'.format(beam.zhat))
-        #     print('kfg: {}'.format(k_f_global[:,0,0]))
-        #     print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0,0])))
-        #     # print(np.dot(beam.zhat, k_f_global[:, 0, 0]))
-        #     print(params['beta'])
-        #     print(k_f)
-        #     print(k_f_global)
 
         # now figure out global coordinates
         # get back into global coordinates using inverse of transformation matrix, just looking at central ray
@@ -2738,13 +2549,6 @@ class CurvedMirror(Mirror):
         beam.global_x = origin_global[0,0,0]
         beam.global_y = origin_global[1,0,0]
         beam.global_z = origin_global[2,0,0]
-
-        # change beam z parameter for sagittal direction (just equal to the distance between
-        # "entrance" and "exit" planes)
-        # if self.orientation==0 or self.orientation==2:
-        #     beam.zy += 2*delta_z
-        # else:
-        #     beam.zx += 2*delta_z
 
         # account for coordinate scaling and/or changes to Rayleigh range,
         # whether beam is classified as focused or not.
