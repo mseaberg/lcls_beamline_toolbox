@@ -2375,22 +2375,12 @@ class CurvedMirror(Mirror):
 
         weight_x = (np.abs(beam.wave[int(beam.N/2),:])**2>0.1*max_intensity).astype(float)
         weight_y = (np.abs(beam.wave[:,int(beam.M/2)])**2>0.1*max_intensity).astype(float)
-        p_coeff_x = np.polyfit(x_eff[int(beam.N/2), :][mask_x], total_distance[int(beam.N / 2), :][mask_x], 2,
-                               )
-        p_coeff_y = np.polyfit(y_eff[:,int(beam.M/2)][mask_y],total_distance[:,int(beam.M/2)][mask_y],2,
-                               )
-        linear = p_coeff_x[-2]
-        linear_y = p_coeff_y[-2]
 
         # plt.figure()
         # plt.imshow((total_distance-np.mean(total_distance[mask]))*mask)
         #
         # plt.figure()
         # plt.imshow(np.abs(beam.wave)**2>0.1*max_intensity)
-
-        print('linear terms')
-        print(linear)
-        print(linear_y)
 
         incidence_angle = np.abs(np.arccos(np.sum(rays_out * ellipse_normal, axis=0)))
         glancing = np.pi / 2 - incidence_angle
@@ -2426,11 +2416,6 @@ class CurvedMirror(Mirror):
         # mask2 = mask2.astype(int)
         mask2 = mask2 > 0.5
 
-        z_out_x = 1/2/p_coeff_x[-3]
-        z_out_y = 1/2/p_coeff_y[-3]
-        print('zout: %.6f' % z_out_x)
-        print('zout y: %.6f' % z_out_y)
-
         # interpolate intensity onto new exit plane grid
         abs_out = interpolation.griddata(points, np.abs(beam.wave[mask]), (xi_0, xi_1), fill_value=0)
 
@@ -2452,9 +2437,11 @@ class CurvedMirror(Mirror):
         total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
 
         # get polynomial fits based on new coordinates
-        p_coeff_x = np.polyfit(x_eff[int(beam.N/2),:][mask_x], total_phase[int(beam.N/2),:][mask_x], 2)
+        p_coeff_x = np.polyfit(x_eff[int(beam.N/2),:][mask_x], total_phase[int(beam.N/2),:][mask_x], 2,
+                               w=weight_x[mask_x])
 
-        p_coeff_y = np.polyfit(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y], 2)
+        p_coeff_y = np.polyfit(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y], 2,
+                               w=weight_y[mask_y])
 
         # calculate effective distance to focus based on total phase
         z_2 = np.pi / beam.lambda0 / p_coeff_x[-3]
@@ -2489,12 +2476,14 @@ class CurvedMirror(Mirror):
             if not beam.focused_x:
                 total_phase -= np.polyval([p_coeff_x[-3],0,0],x_eff)
             if not beam.focused_y:
-                total_phase -= np.polyval([np.pi/beam.lambda0/(beam.zy+self.length*1.1),0,0],y_eff)
+                # total_phase -= np.polyval([np.pi/beam.lambda0/(beam.zy+self.length*1.1),0,0],y_eff)
+                total_phase -= np.polyval([p_coeff_y[-3],0,0],y_eff)
         else:
             if not beam.focused_y:
                 total_phase -= np.polyval([p_coeff_y[-3], 0, 0], y_eff)
             if not beam.focused_x:
-                total_phase -= np.polyval([np.pi/beam.lambda0/(beam.zx+self.length*1.1),0,0],x_eff)
+                # total_phase -= np.polyval([np.pi/beam.lambda0/(beam.zx+self.length*1.1),0,0],x_eff)
+                total_phase -= np.polyval([p_coeff_x[-3],0,0], x_eff)
 
         # interpolate the phase onto the exit plane grid
         points = np.zeros((np.size(x_eff), 2))
@@ -2675,19 +2664,21 @@ class CurvedMirror(Mirror):
 
         # change beam z parameter for sagittal direction (just equal to the distance between
         # "entrance" and "exit" planes)
-        if self.orientation==0 or self.orientation==2:
-            beam.zy += 2*delta_z
-        else:
-            beam.zx += 2*delta_z
+        # if self.orientation==0 or self.orientation==2:
+        #     beam.zy += 2*delta_z
+        # else:
+        #     beam.zx += 2*delta_z
 
         # account for coordinate scaling and/or changes to Rayleigh range,
         # whether beam is classified as focused or not. I need to think about how much of
         # this is still necessary after some of the changes above. Some of it is probably redundant,
         # and some might be wrong depending on the state of focusing.
-        if self.orientation==0 or self.orientation==2:
-            beam.change_z_mirror(new_zx=z_total_x, old_zx=z_2, new_zy=beam.zy, old_zy=beam.zy-2*delta_z)
-        else:
-            beam.change_z_mirror(new_zy=z_total_y, old_zy=z_2_y, new_zx=beam.zx, old_zx=beam.zx-2*delta_z)
+        # beam.change_z_mirror(new_zx=z_total_x,new_zy=z_total_y,old_zx=z_total_x,old_zy=z_total_y)
+        beam.change_z(new_zx=z_total_x,new_zy=z_total_y)
+        # if self.orientation==0 or self.orientation==2:
+        #     beam.change_z_mirror(new_zx=z_total_x, old_zx=z_2, new_zy=beam.zy, old_zy=beam.zy-2*delta_z)
+        # else:
+        #     beam.change_z_mirror(new_zy=z_total_y, old_zy=z_2_y, new_zx=beam.zx, old_zx=beam.zx-2*delta_z)
 
         beam.new_fx()
         print('global_x: %.2f' % beam.global_x)
