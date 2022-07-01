@@ -3845,10 +3845,12 @@ class Drift:
             ky = k[1]
             kz = k[2]
 
-            if self.downstream_component.orientation==0 or self.downstream_component.orientation==1:
-                mirror_center += normal*self.downstream_component.dx
-            else:
-                mirror_center -= normal*self.downstream_component.dx
+            # if self.downstream_component.orientation==0 or self.downstream_component.orientation==1:
+            #     mirror_center += normal*self.downstream_component.dx
+            # else:
+            #     mirror_center -= normal*self.downstream_component.dx
+            # making this consistent with trace_surface
+            mirror_center += normal * self.downstream_component.dx
 
             x_m = mirror_center[0]
             y_m = mirror_center[1]
