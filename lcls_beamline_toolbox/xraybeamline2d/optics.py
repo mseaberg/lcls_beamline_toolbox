@@ -2452,9 +2452,9 @@ class CurvedMirror(Mirror):
         total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
 
         # get polynomial fits based on new coordinates
-        p_coeff_x = np.polyfit(x_eff[0,:][mask_x], total_phase[int(beam.N/2),:][mask_x], 2)
+        p_coeff_x = np.polyfit(x_eff[int(beam.N/2),:][mask_x], total_phase[int(beam.N/2),:][mask_x], 2)
 
-        p_coeff_y = np.polyfit(y_eff[:,0][mask_y], total_phase[:,int(beam.M/2)][mask_y], 2)
+        p_coeff_y = np.polyfit(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y], 2)
 
         # calculate effective distance to focus based on total phase
         z_2 = np.pi / beam.lambda0 / p_coeff_x[-3]
