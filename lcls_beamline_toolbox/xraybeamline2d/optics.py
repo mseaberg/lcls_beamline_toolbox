@@ -2382,11 +2382,11 @@ class CurvedMirror(Mirror):
         linear = p_coeff_x[-2]
         linear_y = p_coeff_y[-2]
 
-        plt.figure()
-        plt.imshow((total_distance-np.mean(total_distance[mask]))*mask)
-
-        plt.figure()
-        plt.imshow(np.abs(beam.wave)**2>0.1*max_intensity)
+        # plt.figure()
+        # plt.imshow((total_distance-np.mean(total_distance[mask]))*mask)
+        #
+        # plt.figure()
+        # plt.imshow(np.abs(beam.wave)**2>0.1*max_intensity)
 
         print('linear terms')
         print(linear)
@@ -2401,10 +2401,10 @@ class CurvedMirror(Mirror):
         # plt.imshow((glancing-np.mean(glancing[mask]))*mask)
 
         # subtract best fit parabola in x-direction and best fit line in y direction
-        if self.orientation==0 or self.orientation==2:
-            total_distance -= np.polyval(p_coeff_x,x_eff)# + np.polyval(p_coeff_y[:-2],y_eff)
-        else:
-            total_distance -= np.polyval(p_coeff_y, y_eff)# + np.polyval(p_coeff_y[:-2], y_eff)
+        # if self.orientation==0 or self.orientation==2:
+        #     total_distance -= np.polyval(p_coeff_x,x_eff)# + np.polyval(p_coeff_y[:-2],y_eff)
+        # else:
+        #     total_distance -= np.polyval(p_coeff_y, y_eff)# + np.polyval(p_coeff_y[:-2], y_eff)
         #
         # TRY THIS OUT LATER
         # if self.orientation==0 or self.orientation==2:
@@ -2461,14 +2461,18 @@ class CurvedMirror(Mirror):
         z_2_y = np.pi / beam.lambda0 / p_coeff_y[-3]
 
         # add this to what was already subtracted (might be able to do this in one step)
-        z_total_x = 1 / (1 / z_out_x + 1 / z_2)
-        z_total_y = 1 / (1 / z_out_y + 1 / z_2_y)
+        # z_total_x = 1 / (1 / z_out_x + 1 / z_2)
+        # z_total_y = 1 / (1 / z_out_y + 1 / z_2_y)
+        z_total_x = z_2
+        z_total_y = z_2_y
         print('new z: %.6f' % z_total_x)
         print('new z y: %.6f' % z_total_y)
 
         # calculate residual linear phase terms
-        linear += p_coeff_x[-2] * beam.lambda0/2/np.pi
-        linear_y += p_coeff_y[-2] * beam.lambda0/2/np.pi
+        # linear += p_coeff_x[-2] * beam.lambda0/2/np.pi
+        # linear_y += p_coeff_y[-2] * beam.lambda0/2/np.pi
+        linear = p_coeff_x[-2] * beam.lambda0 / 2 / np.pi
+        linear_y = p_coeff_y[-2] * beam.lambda0/2/np.pi
 
         # subtract linear terms since this should be taken care of based on central ray direction
         # still need to think about why it's not necessary in the sagittal direction. Actually
