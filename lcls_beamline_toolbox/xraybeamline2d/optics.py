@@ -2443,6 +2443,11 @@ class CurvedMirror(Mirror):
         p_coeff_y = np.polyfit(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y], 2,
                                w=weight_y[mask_y])
 
+        plt.figure()
+        plt.plot(x_eff[int(beam.N/2),:][mask_x], total_phase[int(beam.N/2),:][mask_x])
+        plt.figure()
+        plt.plot(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y])
+
         # calculate effective distance to focus based on total phase
         z_2 = np.pi / beam.lambda0 / p_coeff_x[-3]
         z_2_y = np.pi / beam.lambda0 / p_coeff_y[-3]
@@ -2461,15 +2466,18 @@ class CurvedMirror(Mirror):
         linear = p_coeff_x[-2] * beam.lambda0 / 2 / np.pi
         linear_y = p_coeff_y[-2] * beam.lambda0/2/np.pi
 
+        print(linear)
+        print(linear_y)
+
         # subtract linear terms since this should be taken care of based on central ray direction
         # still need to think about why it's not necessary in the sagittal direction. Actually
         # this is being subtracted here because we are compensating below with a beam direction change.
         # This is not being done in the sagittal direction so that's why we're only subtracting a
         # linear phase in the tangential direction.
         if self.orientation==0 or self.orientation==2:
-            total_phase -= np.polyval(p_coeff_x[-2:], x_eff)# + np.polyval(p_coeff_y[-2:], y_eff)
+            total_phase -= np.polyval(p_coeff_x[-2:], x_eff) + np.polyval(p_coeff_y[-2:], y_eff)
         else:
-            total_phase -= np.polyval(p_coeff_y[-2:], y_eff)
+            total_phase -= np.polyval(p_coeff_y[-2:], y_eff) + np.polyval(p_coeff_x[-2:], x_eff)
 
         # sutbtract off quadratic phase term if the beam is not focused
         if self.orientation==0 or self.orientation==2:
@@ -2484,6 +2492,11 @@ class CurvedMirror(Mirror):
             if not beam.focused_x:
                 # total_phase -= np.polyval([np.pi/beam.lambda0/(beam.zx+self.length*1.1),0,0],x_eff)
                 total_phase -= np.polyval([p_coeff_x[-3],0,0], x_eff)
+
+        plt.figure()
+        plt.plot(x_eff[int(beam.N / 2), :][mask_x], total_phase[int(beam.N / 2), :][mask_x])
+        plt.figure()
+        plt.plot(y_eff[:, int(beam.M / 2)][mask_y], total_phase[:, int(beam.M / 2)][mask_y])
 
         # interpolate the phase onto the exit plane grid
         points = np.zeros((np.size(x_eff), 2))
@@ -2554,6 +2567,7 @@ class CurvedMirror(Mirror):
 
             # compensate for removing linear phase by adjusting beam k-vector
             beam.rotate_beam(delta_ax=linear)
+            beam.rotate_beam(delta_ay=linear_y)
 
             # beam.rotate_beam(delta_ax=-linear)
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
@@ -2616,6 +2630,7 @@ class CurvedMirror(Mirror):
 
             # compensate for removing linear phase by adjusting beam k-vector
             beam.rotate_beam(delta_ay=linear_y)
+            beam.rotate_beam(delta_ax=linear)
 
             delta_cy = ay0 * self.length / 2 * 1.1
             delta_cy += beam.ay * self.length / 2 * 1.1
@@ -2670,15 +2685,8 @@ class CurvedMirror(Mirror):
         #     beam.zx += 2*delta_z
 
         # account for coordinate scaling and/or changes to Rayleigh range,
-        # whether beam is classified as focused or not. I need to think about how much of
-        # this is still necessary after some of the changes above. Some of it is probably redundant,
-        # and some might be wrong depending on the state of focusing.
-        # beam.change_z_mirror(new_zx=z_total_x,new_zy=z_total_y,old_zx=z_total_x,old_zy=z_total_y)
+        # whether beam is classified as focused or not.
         beam.change_z(new_zx=z_total_x,new_zy=z_total_y)
-        # if self.orientation==0 or self.orientation==2:
-        #     beam.change_z_mirror(new_zx=z_total_x, old_zx=z_2, new_zy=beam.zy, old_zy=beam.zy-2*delta_z)
-        # else:
-        #     beam.change_z_mirror(new_zy=z_total_y, old_zy=z_2_y, new_zx=beam.zx, old_zx=beam.zx-2*delta_z)
 
         beam.new_fx()
         print('global_x: %.2f' % beam.global_x)
