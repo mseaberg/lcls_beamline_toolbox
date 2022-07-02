@@ -30,7 +30,7 @@ import pickle
 from ..polyprojection.legendre import LegendreFit2D
 from lcls_beamline_toolbox.xrayinteraction import interaction
 from .util import Util, LegendreUtil
-from scipy.interpolate import interp2d
+from scipy.interpolate import interp2d, RectBivariateSpline
 import xraydb
 try:
     from epics import PV
@@ -2332,6 +2332,51 @@ class CurvedMirror(Mirror):
         # distance along width axis
         d_width = np.sum((intersect_coords - mirror_center_ellipse)*np.reshape(mirror_y_ellipse,(3,1,1)),axis=0)
 
+        # d_length and d_width are equivalent to the mirror coordinates, these can be used for interpolating
+        # the shape error
+        # mirror shape error interpolation onto beam coordinates (if applicable)
+
+        shapeInterp = np.zeros((beam.N,beam.M))
+
+        if self.shapeError is not None:
+            # get shape of shape error input
+            mirror_shape = np.shape(self.shapeError)
+
+            # assume this is the central line shaper error along the long axis if only 1D
+            if np.size(mirror_shape) == 1:
+                # assume this is the central line and it's the same across the mirror width
+                Ms = mirror_shape[0]
+                # mirror coordinates (beam coordinates)
+                max_zs = self.length / 2
+                max_ys = self.width / 2
+                # mirror coordinates
+                zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
+                ys = np.linspace(-1,1,100)*max_ys
+
+                print(np.shape(np.tile(self.shapeError,(100,1))))
+                f = RectBivariateSpline(ys,zs,np.tile(self.shapeError,(100,1)))
+                shapeInterp = np.reshape(f.ev(d_width.flatten(),d_length.flatten()),(beam.N, beam.M))*1e-9
+
+                plt.figure()
+                plt.imshow(shapeInterp)
+            # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
+            else:
+                # shape error array shape
+                Ns = mirror_shape[0]
+                Ms = mirror_shape[1]
+                # mirror coordinates
+                max_xs = self.length / 2
+                # mirror coordinates
+                zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+                max_ys = self.width / 2
+                ys = np.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
+
+                # 2D interpolation onto beam coordinates
+                f = RectBivariateSpline(ys,zs,self.shapeError)
+                shapeInterp = np.reshape(f.ev(d_width.flatten(),d_length.flatten()),(beam.N,beam.M))*1e-9
+                # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
+                # shapeError2 = f(zi_1d - self.dx / np.tan(self.total_alpha), yi_1d - self.dy)
+
         # mask based on mirror length
         mask = np.logical_and(mask, np.abs(d_length)<self.length/2)
         # mask based on mirror width
@@ -2430,7 +2475,8 @@ class CurvedMirror(Mirror):
         angle_in += quadratic
 
         # add phase contribution from deviations in the distance traveled by each ray
-        total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
+        total_phase = (angle_in + 2 * np.pi / beam.lambda0 * total_distance
+                       - shapeInterp * 4*np.pi*np.sin(self.alpha) / beam.lambda0)
 
         # get polynomial fits based on new coordinates
         p_coeff_x = np.polyfit(x_eff[int(beam.N/2),:][mask_x], total_phase[int(beam.N/2),:][mask_x], 2,
