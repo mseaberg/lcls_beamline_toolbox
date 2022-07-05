@@ -1553,8 +1553,11 @@ class Crystal(Mirror):
         # add the quadratic phase to the input phase
         angle_in += quadratic
 
+        plt.figure()
+        plt.imshow(total_distance)
+
         # add phase contribution from deviations in the distance traveled by each ray
-        total_phase = (angle_in + 2 * np.pi / beam.lambda0 * total_distance
+        total_phase = (angle_in + 2 * np.pi / beam.lambda0 * total_distance*0
                        - shapeInterp * 4*np.pi*np.sin(self.alpha) / beam.lambda0)
 
         # get polynomial fits based on new coordinates
@@ -5148,6 +5151,12 @@ class CRL:
         self.shapeError = None
         self.azimuth = 0
         self.elevation = 0
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
+        self.x_intersect = 0
+        self.y_intersect = 0
+        self.z_intersect = 0
 
         # set allowed kwargs
         allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError']
@@ -5186,8 +5195,14 @@ class CRL:
         :return: None
         """
 
-        xi = beam.x
-        yi = beam.y
+        beam_shift = np.array([self.x_intersect - self.global_x,
+                               self.y_intersect - self.global_y,
+                               self.z_intersect - self.z])
+        x_shift = np.dot(beam_shift, self.xhat)
+        y_shift = np.dot(beam_shift, self.yhat)
+
+        xi = beam.x + x_shift
+        yi = beam.y + y_shift
         xi_1d = xi[0,:]
         yi_1d = yi[:,0]
 
@@ -5231,21 +5246,21 @@ class CRL:
                 shapeError2 = f(xi_1d - self.dx, yi_1d - self.dy)
 
         # CRL thickness (for now assuming perfect lenses but might add aberrations later)
-        thickness = 2 * self.roc * (1 / 2 * ((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) / self.roc ** 2)
+        thickness = 2 * self.roc * (1 / 2 * ((xi - self.dx) ** 2 + (yi - self.dy) ** 2) / self.roc ** 2)
 
         thickness += shapeError2
 
         # lens aperture
-        mask = (((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
+        mask = (((xi - self.dx) ** 2 + (yi - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
 
         # subtract 2nd order and linear terms
-        phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2))
+        phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((xi - self.dx) ** 2 + (yi - self.dy) ** 2))
 
         # 2nd order
         p2 = -beam.k0 * delta * 2 / 2 / self.roc
         # 1st order
-        p1_x = p2 * 2 * (beam.cx - self.dx)
-        p1_y = p2 * 2 * (beam.cy - self.dy)
+        p1_x = p2 * 2 * (x_shift - self.dx)
+        p1_y = p2 * 2 * (y_shift - self.dy)
 
         # lens transmission based on beta and thickness profile
         transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
@@ -5318,8 +5333,14 @@ class CRL1D(CRL):
         :return: None
         """
 
-        xi = beam.x
-        yi = beam.y
+        beam_shift = np.array([self.x_intersect - self.global_x,
+                               self.y_intersect - self.global_y,
+                               self.z_intersect - self.z])
+        x_shift = np.dot(beam_shift, self.xhat)
+        y_shift = np.dot(beam_shift, self.yhat)
+
+        xi = beam.x + x_shift
+        yi = beam.y + y_shift
         xi_1d = xi[0, :]
         yi_1d = yi[:, 0]
 
@@ -5363,12 +5384,12 @@ class CRL1D(CRL):
                 shapeError2 = f(xi_1d - self.dx, yi_1d - self.dy)
 
         if self.orientation == 0:
-            beamx = beam.x
+            beamx = xi
             beamz = beam.zx
             beamc = beam.cx
             dx_lens = self.dx
         else:
-            beamx = beam.y
+            beamx = yi
             beamz = beam.zy
             beamc = beam.cy
             dx_lens = self.dy
@@ -5379,7 +5400,7 @@ class CRL1D(CRL):
         thickness += shapeError2
 
         # lens aperture
-        mask = (((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
+        mask = (((xi - self.dx) ** 2 + (yi - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
 
         # subtract 2nd order and linear terms
         phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((beamx - dx_lens) ** 2))
