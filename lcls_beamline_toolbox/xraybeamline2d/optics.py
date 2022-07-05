@@ -7963,6 +7963,9 @@ class PhasePlate:
         self.xhat = None
         self.yhat = None
         self.zhat = None
+        self.x_intersect = 0
+        self.y_intersect = 0
+        self.z_intersect = 0
 
     def multiply(self, beam):
         """
@@ -7972,13 +7975,19 @@ class PhasePlate:
         :return: None
         """
 
+        beam_shift = np.array([self.x_intersect - self.global_x,
+                               self.y_intersect - self.global_y,
+                               self.z_intersect - self.z])
+        x_shift = np.dot(beam_shift, self.xhat)
+        y_shift = np.dot(beam_shift, self.yhat)
+
         # get shape of phase plate thickness
         plate_shape = np.shape(self.platePhase)
 
         Ns = 0
         Ms = 0
-        beamx = beam.x
-        beamy = beam.y
+        beamx = beam.x + x_shift
+        beamy = beam.y + y_shift
 
         if len(plate_shape)>1:
             Ns = plate_shape[0]
