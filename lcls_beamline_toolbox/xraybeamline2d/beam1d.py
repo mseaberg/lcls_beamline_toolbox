@@ -190,7 +190,7 @@ class Beam:
 
         # set photon energy and calculate wavelength, wavenumber
         self.photonEnergy = beam_params['photonEnergy']
-        self.lambda0 = 1239.8 / beam_params['photonEnergy'] * 1e-9
+        self.lambda0 = 1239.842 / beam_params['photonEnergy'] * 1e-9
         self.k0 = 2.0 * np.pi / self.lambda0
 
         # get array shape
@@ -278,8 +278,14 @@ class Beam:
         self.x = self.x + self.ax * dz
         self.y = self.y + self.ay * dz
         # update horizontal and vertical radii of curvature by propagation distance
+
+        print(self.zx)
+        print(self.zy)
         self.zx = self.zx + dz
         self.zy = self.zy + dz
+
+        print(self.zx)
+        print(self.zy)
 
         # update global positions
         k_beam = self.get_k()
@@ -556,6 +562,7 @@ class Beam:
             # ----------------------------
             # propagation inside focus region
             if self.focused_x and self.focused_y and x_focused and y_focused:
+                print('both stay focused')
                 # normal, unscaled propagation so all three parameters are the same
                 self.propagation(dz_remaining, dz_remaining, dz_remaining)
                 # staying in focus region, update the parameters and we're done
@@ -567,6 +574,7 @@ class Beam:
             # propagation outside focus region
             elif ((not self.focused_x) and (not self.focused_y) and
                   (not x_focused) and (not y_focused)):
+                print('both stay unfocused')
 
                 # calculate Fresnel scaling magnification
                 mag_x = (self.zx + dz_remaining) / self.zx
@@ -591,6 +599,7 @@ class Beam:
 
             # cases where multiple propagation steps are needed
             else:
+                print('multiple propagation steps needed')
 
                 # check if x is focused and whether it will stay focused
                 # -------------
@@ -635,7 +644,10 @@ class Beam:
                         y_prop_limit = dz_remaining
 
                 # distance to propagate during this step. Pick the more restrictive case.
-                prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
+                prop_cases = [x_prop_limit, y_prop_limit]
+                prop_choice = np.argmin(np.abs(prop_cases))
+                prop_step = prop_cases[prop_choice]
+                # prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
 
                 # print the current step size
                 print('current step size: %.2f microns' % (prop_step*1e6))
@@ -765,6 +777,24 @@ class Beam:
         # recalculate spatial frequencies
         self.new_fx()
 
+    def asymmetry_x(self, factor):
+        """
+        Method that rescales coordinates and also distance to focus, for asymmetric reflections
+        Parameters
+        ----------
+        factor: float
+            scaling factor
+
+        Returns
+        -------
+
+        """
+
+        # scale coordinates
+        self.rescale_x(factor)
+        # rescale distance to focus
+        self.zx *= factor**2
+
     def rescale_y(self, factor):
         """
         Method to rescale y coordinates and recalculate spatial frequencies
@@ -777,6 +807,23 @@ class Beam:
         self.y = self.y * factor
         # recalculate spatial frequencies
         self.new_fx()
+
+    def asymmetry_y(self, factor):
+        """
+        Method that rescales coordinates and also distance to focus, for asymmetric reflections
+        Parameters
+        ----------
+        factor: float
+            scaling factor
+
+        Returns
+        -------
+
+        """
+        # rescale coordinates
+        self.rescale_y(factor)
+        # rescale distance to focus
+        self.zy *= factor**2
 
     def multiply_screen(self, screen):
         """
@@ -839,7 +886,7 @@ class Pulse:
             full width of time window in fs (related to energy sampling)
         """
         # set some attributes
-        self.beam_params = beam_params
+        self.beam_params = beam_params.copy()
         self.tau = tau
         self.time_window = time_window
         self.num_spikes = num_spikes
@@ -903,7 +950,7 @@ class Pulse:
 
         self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
         # calculate wavelengths
-        self.wavelength = 1239.8/self.energy*1e-9
+        self.wavelength = 1239.842/self.energy*1e-9
 
         # total energy range
         E_range = np.max(self.energy) - np.min(self.energy)
@@ -1371,6 +1418,78 @@ class Pulse:
 
         return ax_profile, ax_x, ax_y
 
+    def get_projection(self, image_name):
+
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # calculate the profile
+        # profile = np.sum(np.abs(self.energy_stacks[image_name])**2, axis=2)
+        profile = np.sum(np.abs(self.time_stacks[image_name]) ** 2, axis=2)
+        x_lineout = np.sum(profile, axis=0)
+        y_lineout = np.sum(profile, axis=1)
+
+        cx, cy, wx, wy, fwx_guess, fwy_guess = Pulse.beam_analysis(self.x[image_name], self.y[image_name],
+                                                                   x_lineout, y_lineout)
+        data_dict = {'profile': profile, 'x_centroid': cx, 'y_centroid': cy,
+                     'x_fwhm': wx, 'y_fwhm': wy, 'xmin': minx, 'xmax': maxx,
+                     'ymin': miny, 'ymax': maxy}
+
+        return data_dict
+
+    def get_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+        min_E = np.min(self.energy) - self.E0
+        max_E = np.max(self.energy) - self.E0
+
+        # horizontal slice
+        if dim == 'x':
+            # slice index
+            N = self.x[image_name].size
+            dx = (maxx - minx) / N
+            index = int((slice_pos - minx) / dx)
+
+            profile = np.abs(self.energy_stacks[image_name][index, :, :]) ** 2
+            profile = profile / np.max(profile)
+            if image_type == 'phase':
+                mask = (profile > 0.01 * np.max(profile)).astype(float)
+                profile = unwrap_phase(np.angle(self.energy_stacks[image_name][index, :, :])) * mask
+                # try to subtract the linear phase
+                mask1d = mask[int(N / 2), :].astype(bool)
+                print(np.shape(mask1d))
+                print(np.shape(mask))
+                profile1d = profile[int(N / 2), :]
+                linear = np.polyfit((self.energy - self.E0)[mask1d], profile1d[mask1d], 1)
+                profile -= np.tile(np.polyval(linear, self.energy - self.E0), (N, 1))
+                profile *= mask
+
+        # vertical slice
+        elif dim == 'y':
+            # slice index
+            N = self.y[image_name].size
+            dx = (maxy - miny) / N
+            index = int((slice_pos - miny) / dx)
+
+            profile = np.abs(self.energy_stacks[image_name][:, index, :]) ** 2
+            profile = profile / np.max(profile)
+            if image_type == 'phase':
+                mask = (profile > 0.01 * np.max(profile)).astype(float)
+                profile = unwrap_phase(np.angle(self.energy_stacks[image_name][:, index, :])) * mask
+
+        else:
+            profile = np.zeros((256, 256))
+
+        data_dict = {'profile': profile, 'Emin': min_E, 'Emax': max_E, 'dx': dx}
+
+        return data_dict
+
     def imshow_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
         """
         Method to show a slice along space and energy
@@ -1416,6 +1535,14 @@ class Pulse:
             if image_type == 'phase':
                 mask = (profile > 0.01 * np.max(profile)).astype(float)
                 profile = unwrap_phase(np.angle(self.energy_stacks[image_name][index, :, :])) * mask
+                # try to subtract the linear phase
+                mask1d = mask[int(N/2),:].astype(bool)
+                print(np.shape(mask1d))
+                print(np.shape(mask))
+                profile1d = profile[int(N/2),:]
+                linear = np.polyfit((self.energy-self.E0)[mask1d],profile1d[mask1d],1)
+                profile -= np.tile(np.polyval(linear,self.energy-self.E0),(N,1))
+                profile *= mask
                 cmap = plt.get_cmap('jet')
                 cbar_label = 'Phase (rad)'
             else:
@@ -1607,7 +1734,66 @@ class Pulse:
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
 
-    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False, log=False, voigt=False, show_fit=True):
+    def get_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False):
+        """
+        Method to return the spectrum at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+        integrated: bool
+            whether to integrate the spectrum
+
+        Returns
+        -------
+        1D array
+        """
+        # get boundaries
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # get number of pixels
+        M = self.x[image_name].size
+        N = self.y[image_name].size
+
+        # calculate pixel sizes (microns)
+        dx = (maxx - minx) / M
+        dy = (maxy - miny) / N
+
+        # calculate indices for the desired location
+        x_index = int((x_pos - minx) / dx)
+        y_index = int((y_pos - miny) / dy)
+
+        # calculate spectral intensity
+        if integrated:
+            y_data = np.sum(np.abs(self.energy_stacks[image_name]) ** 2, axis=(0, 1))
+        else:
+            y_data = np.abs(self.energy_stacks[image_name][y_index, x_index, :]) ** 2
+
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.energy, y_data)
+        fwhm = sx * 2.355
+
+        # change label depending on bandwidth
+        if fwhm >= 1:
+            width_label = '%.1f eV FWHM' % fwhm
+        elif fwhm > 1e-3:
+            width_label = '%.1f meV FHWM' % (fwhm * 1e3)
+        else:
+            width_label = u'%.1f \u03BCeV FWHM' % (fwhm * 1e6)
+
+        spectrum = y_data
+
+        return spectrum, centroid, fwhm
+
+    def plot_spectrum(self, image_name, x_pos=0, y_pos=0, integrated=False, log=False, voigt=False, show_fit=True,
+                      show_phase=False):
         """
         Method to plot the spectrum at a given location
         Parameters
@@ -1669,6 +1855,16 @@ class Pulse:
         else:
             width_label = u'%.1f \u03BCeV FWHM' % (fwhm * 1e6)
 
+        profile = np.zeros_like(y_data)
+        if show_phase:
+            mask = (y_data > 0.01 * np.max(y_data))
+            profile = np.unwrap(np.angle(self.energy_stacks[image_name][y_index, x_index, :])) * mask
+            # try to subtract the linear phase
+
+            linear = np.polyfit((self.energy - self.E0)[mask], profile[mask], 1)
+            profile -= np.polyval(linear, self.energy - self.E0)
+            profile *= mask
+
         # plotting
         plt.figure()
         ax = plt.subplot2grid((1, 1), (0, 0))
@@ -1676,10 +1872,14 @@ class Pulse:
             ax.semilogy(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
             if show_fit:
                 ax.semilogy(self.energy - self.E0, gauss_plot, label=width_label)
+            if show_phase:
+                ax.semilogy(self.energy - self.E0, profile, label='spectral phase')
         else:
             ax.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
             if show_fit:
                 ax.plot(self.energy - self.E0, gauss_plot, label=width_label)
+            if show_phase:
+                ax.plot(self.energy - self.E0, profile, label='spectral phase')
         ax.set_ylim(-.05,1.3)
         ax.set_xlabel('Energy (eV)')
         ax.set_ylabel('Intensity (normalized)')
@@ -2006,6 +2206,62 @@ class Pulse:
 
         return centroid, fwhm
 
+    def get_pulse(self, image_name, x_pos=0, y_pos=0):
+        """
+        Method to plot the temporal pulse structure at a given location
+        Parameters
+        ----------
+        image_name: str
+            name of the profile monitor to show
+        x_pos: float
+            horizontal location (microns)
+        y_pos: float
+            vertical location (microns)
+
+        Returns
+        -------
+
+        """
+
+        # get boundaries
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+
+        # get number of pixels
+        M = self.x[image_name].size
+        N = self.y[image_name].size
+
+        # calculate pixel sizes (microns)
+        dx = (maxx - minx) / M
+        dy = (maxy - miny) / N
+
+        # calculate indices for the desired location
+        x_index = int((x_pos - minx) / dx)
+        y_index = int((y_pos - miny) / dy)
+
+        # calculate temporal intensity
+        y_data = np.abs(self.time_stacks[image_name][y_index, x_index, :]) ** 2
+
+        # find peak
+        index = np.argmax(y_data)
+
+        # distance between array center and peak
+        shift = int(np.size(y_data) / 2 - index)
+
+        y_data = np.roll(y_data, shift)
+
+        # get gaussian stats
+        centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
+        fwhm = int(sx * 2.355)
+
+        pulse = y_data
+
+        return pulse, centroid, fwhm
+
+
+
     def plot_pulse(self, image_name, x_pos=0, y_pos=0, shift=None):
         """
         Method to plot the temporal pulse structure at a given location
@@ -2141,7 +2397,7 @@ class GaussianSource:
         self.N = int(beam_params['N'])
         self.photonEnergy = beam_params['photonEnergy']
         # calculate wavelength (m)
-        self.wavelength = 1239.8 / self.photonEnergy * 1e-9
+        self.wavelength = 1239.842 / self.photonEnergy * 1e-9
         # calculate Rayleigh ranges (m)
         self.zRx = np.pi * self.sigma_x ** 2 / self.wavelength
         self.zRy = np.pi * self.sigma_y ** 2 / self.wavelength
