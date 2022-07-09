@@ -175,6 +175,12 @@ class Beamline:
                                                                                    device.transverse,
                                                                                    delta=device.roll,
                                                                                    dir='roll')
+
+                device.normal, device.sagittal, device.transverse = Util.rotate_3d(device.normal,
+                                                                                   device.sagittal,
+                                                                                   device.transverse,
+                                                                                   delta=device.yaw,
+                                                                                   dir='elevation')
                 # xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.roll * 2, dir='roll')
 
                 # update k
