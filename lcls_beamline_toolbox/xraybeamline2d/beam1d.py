@@ -2079,6 +2079,46 @@ class Pulse:
 
         return slope
 
+    def get_spatial_tilt(self, image_name):
+
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+        profile = np.sum(np.abs(self.time_stacks[image_name]) ** 2, axis=2)
+
+        x = self.x[image_name]*1e6
+        y = self.y[image_name]*1e6
+        N = y.size
+        M = x.size
+        dy = (maxy - miny)/N
+        # find peak at central x position
+        index = np.argmax(profile[:,int(M / 2)])
+
+
+        # distance between array center and peak
+        shift = int(np.size(profile[:,int(M / 2)]) / 2 - index)
+
+        profile = np.roll(profile, shift, axis=0)
+
+        # find peak (in time) at each position and put into fs units
+        spatial_peaks = np.argmax(profile, axis=0) * dy
+
+        # mask out anything outside the fwhm
+        spatial_projection = np.sum(profile, axis=0)
+        mask = spatial_projection > 0.5 * np.max(spatial_projection)
+
+        spatial_peaks = spatial_peaks[mask]
+        x = x[mask]
+
+        # fit a line to the peaks
+        p = np.polyfit(x, spatial_peaks, 1)
+        # return slope (units are fs/micron)
+        slope = p[0]
+
+        return slope
+
     def spatial_chirp(self, image_name, dim='x', slice_pos=0, shift=None):
         """
         Method to calculate the spatial chirp at a given location

@@ -589,6 +589,7 @@ class CurvedMirror(Mirror):
         self.dF1 = dF1
         self.dF2 = dF2
         self.total_alpha = self.alpha + self.delta
+        self._defocus = 0
 
         # check if mirror is too long for distance to focus or source
         if self.length/2 > np.abs(self.p):
@@ -601,6 +602,15 @@ class CurvedMirror(Mirror):
         # get some material properties
         mirror_material = interaction.Mirror(name=name,range='HXR',material=self.material)
         self.density = mirror_material.density
+
+    @property
+    def focus(self):
+        return self._defocus
+
+    @focus.setter
+    def focus(self, value):
+        self._defocus = value
+        self.q += value
 
     def bend(self, cz):
         """
