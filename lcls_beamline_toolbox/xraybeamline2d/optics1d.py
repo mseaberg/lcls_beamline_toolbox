@@ -103,6 +103,7 @@ class Mirror:
         self.yaw = 0.
         self.dx = 0.
         self.dy = 0.
+        self.dz = 0.
         self.global_x = 0
         self.global_y = 0
         self.global_alpha = 0
@@ -332,7 +333,7 @@ class Mirror:
                 shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs, self.shapeError[int(Ns/2),:])
 
         # figure out aperturing due to mirror's finite size
-        z_mask = (np.abs(zi - self.dx / np.tan(total_alpha)) < self.length / 2).astype(float)
+        z_mask = (np.abs(zi - self.dx / np.tan(total_alpha) + self.dz) < self.length / 2).astype(float)
 
         # height error now in meters
         total_error = shapeError2 * 1e-9
@@ -982,6 +983,7 @@ class CurvedMirror(Mirror):
         self.total_alpha = self.alpha + self.delta
 
         shapeError2 = np.zeros_like(beam.x)
+        shapeError_sagittal = np.zeros_like(beam.y)
 
         # check distance to beam focus
         self.projectWidth = np.abs(self.length * (self.alpha + self.delta))
@@ -1102,11 +1104,14 @@ class CurvedMirror(Mirror):
                 Ms = mirror_shape[1]
                 # mirror coordinates
                 max_xs = self.length / 2
+                max_ys = self.width / 2
                 # mirror coordinates
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+                ys = np.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
 
                 # 1D interpolation onto beam coordinates (just take central line)
                 shapeError2 = np.interp(zi_1d - self.dx / np.tan(self.total_alpha), zs, self.shapeError[int(Ns/2), :])
+                shapeError_sagittal = np.interp(yi_1d, ys, self.shapeError[:, int(Ms / 2)])
 
         # figure out aperturing due to mirror's finite size
         z_mask = (np.abs(zi - self.dx / np.tan(self.total_alpha)) < self.length / 2).astype(float)
@@ -1141,6 +1146,9 @@ class CurvedMirror(Mirror):
 
         # add phase to high_order
         high_order += phase
+
+        high_order_y = (-4 * np.pi / beam.lambda0 * (np.sin(self.total_alpha))
+                        * shapeError_sagittal * 1e-9)
 
         # scaling between mirror z-axis and new beam coordinates
         scale = np.sin(self.total_alpha)
@@ -1181,6 +1189,7 @@ class CurvedMirror(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavex *= z_mask * np.exp(1j * high_order)
+            beam.wavey *= np.exp(1j * high_order_y)
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -1211,6 +1220,7 @@ class CurvedMirror(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavey *= z_mask * np.exp(1j * high_order)
+            beam.wavex *= np.exp(1j * high_order_y)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -1240,6 +1250,7 @@ class CurvedMirror(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavex *= z_mask * np.exp(1j * high_order)
+            beam.wavey *= np.exp(1j * high_order_y)
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -1269,6 +1280,7 @@ class CurvedMirror(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavey *= z_mask * np.exp(1j * high_order)
+            beam.wavex *= np.exp(1j * high_order_y)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -1402,7 +1414,7 @@ class Mono:
         self.delta_mirror = self.delta * (1 + 1 / self.cff) / 2
 
         # pre-mirror distance adjustment
-        self.m2.z = self.m2.z + .006 * (self.delta_mirror + delta_mirror) - .68 * (
+        self.m2.z = self.m2.z - .006 * (self.delta_mirror + delta_mirror) - .68 * (
                 np.cos(self.delta_mirror + delta_mirror) - 1)
         # pre-mirror x-axis position adjustment
         # self.m2.dx = self.m2.dx - .68 * (self.delta_mirror + delta_mirror) - .006 * (
