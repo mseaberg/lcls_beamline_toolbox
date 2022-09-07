@@ -214,8 +214,10 @@ class Beam:
         self.global_z = beam_params['z_source'] + (self.zx + self.zy) / 2
 
         # initialize global angles
-        self.global_azimuth = np.copy(self.ax)
-        self.global_elevation = np.copy(self.ay)
+        # self.global_azimuth = np.copy(self.ax)
+        # self.global_elevation = np.copy(self.ay)
+        self.global_azimuth = 0.0
+        self.global_elevation = 0.0
 
         # initialize group delay
         self.group_delay = 0.0
@@ -251,6 +253,8 @@ class Beam:
         self.xhat = np.array([1,0,0])
         self.yhat = np.array([0,1,0])
         self.zhat = np.array([0,0,1])
+
+        self.rotate_nominal(delta_elevation=self.ay,delta_azimuth=self.ax)
 
         # define LCLS unit vectors
         self.x_nom = np.copy(self.xhat)
@@ -587,12 +591,20 @@ class Beam:
                 # scaled propagation
                 self.propagation(dz_remaining, z_eff_x, z_eff_y)
 
+                # get current beam sampling for adjustment of amplitude
+                dx_old = np.copy(self.dx)
+                dy_old = np.copy(self.dy)
+
                 # rescale coordinates based on magnification
                 self.rescale_x_noshift(mag_x)
                 self.rescale_y_noshift(mag_y)
 
                 # update beam center and radii of curvature
                 self.update_parameters(dz_remaining)
+
+                # adjust amplitude based on change in sampling
+                self.wavex *= self.dx/dx_old
+                self.wavey *= self.dy/dy_old
 
                 # return the wave
                 return self.wavex, self.wavey

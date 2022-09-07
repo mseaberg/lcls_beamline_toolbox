@@ -2142,7 +2142,7 @@ class Crystal(Mirror):
         if self.material == 'Si':
             self.crystal = materials.CrystalSi(hkl=self.hkl)
         elif self.material == 'diamond':
-            self.crystal = materials.CrystalDiamond(hkl=self.hkl)
+            self.crystal = materials.CrystalDiamond(hkl=self.hkl,d=0.8917,elements='C')
 
         # lattice spacing
         self.d = self.crystal.d * 1e-10
@@ -3429,6 +3429,8 @@ class PPM:
         self.cy = 0.0
         self.wx = 0.0
         self.wy = 0.0
+        self.sx = 0.0
+        self.sy = 0.0
         self.lambda0 = 0.0
         self.group_delay = 0
 
@@ -3453,6 +3455,8 @@ class PPM:
         self.cy = 0.0
         self.wx = 0.0
         self.wy = 0.0
+        self.sx = 0.0
+        self.sy = 0.0
         self.lambda0 = 0.0
 
     def beam_analysis(self, line_x, line_y):
@@ -3635,7 +3639,7 @@ class PPM:
         self.y_lineout = np.sum(self.profile, axis=1)
 
         # calculate centroids and beam widths
-        self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
+        self.cx, self.cy, self.wx, self.wy, self.sx, self.sy = self.beam_analysis(self.x_lineout, self.y_lineout)
 
         # get beam wavelength
         self.lambda0 = beam.lambda0
