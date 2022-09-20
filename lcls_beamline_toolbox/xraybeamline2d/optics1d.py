@@ -2568,8 +2568,9 @@ class Crystal(Mirror):
         # plt.plot(np.angle(wavefront))
         # plt.plot(np.unwrap(np.angle(wavefront)))
 
-        # beam_slope_error = np.nan_to_num(beam_slope_error,posinf=0,neginf=0)
-        beam_slope_p = np.polynomial.legendre.legfit(z_b*np.sin(total_alpha),beam_slope_error,16,w=np.abs(wavefront)**2)
+        beam_slope_error = np.nan_to_num(beam_slope_error,posinf=0,neginf=0)
+        beam_slope_p = np.polynomial.legendre.legfit(z_b*np.sin(total_alpha),beam_slope_error,4,w=np.abs(wavefront)**2)
+        # beam_slope_p[0:2] = 0
         beam_slope_error = np.polynomial.legendre.legval(z_b*np.sin(total_alpha),beam_slope_p)
         # plt.plot(beam_slope_error)
 
@@ -3599,6 +3600,15 @@ class PPM:
         profilex_interp = Util.interp_flip(self.x, x * scaling_x, profilex)
         profiley_interp = Util.interp_flip(self.y, y * scaling_y, profiley)
 
+        profilex_interp *= self.dx / beam.dx
+        profiley_interp *= self.dx / beam.dy
+        self.x_lineout = profilex_interp
+        self.y_lineout = profiley_interp
+
+        # self.x_lineout = np.sum(self.profile, axis=0)
+        # # calculate vertical lineout
+        # self.y_lineout = np.sum(self.profile, axis=1)
+
         # beam phase
         x_phase = np.unwrap(np.angle(beam.wavex))
         y_phase = np.unwrap(np.angle(beam.wavey))
@@ -3634,9 +3644,9 @@ class PPM:
             self.cy_beam = beam.cy
 
         # calculate horizontal lineout
-        self.x_lineout = np.sum(self.profile, axis=0)
-        # calculate vertical lineout
-        self.y_lineout = np.sum(self.profile, axis=1)
+        # self.x_lineout = np.sum(self.profile, axis=0)
+        # # calculate vertical lineout
+        # self.y_lineout = np.sum(self.profile, axis=1)
 
         # calculate centroids and beam widths
         self.cx, self.cy, self.wx, self.wy, self.sx, self.sy = self.beam_analysis(self.x_lineout, self.y_lineout)

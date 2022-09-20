@@ -603,8 +603,10 @@ class Beam:
                 self.update_parameters(dz_remaining)
 
                 # adjust amplitude based on change in sampling
-                self.wavex *= self.dx/dx_old
-                self.wavey *= self.dy/dy_old
+                # self.wavex *= self.dx/dx_old
+                # self.wavey *= self.dy/dy_old
+                # self.wavex *= np.sqrt(dx_old/self.dx)
+                # self.wavey *= np.sqrt(dy_old/self.dy)
 
                 # return the wave
                 return self.wavex, self.wavey
@@ -751,12 +753,22 @@ class Beam:
                 # general propagation step, may or may not be Fresnel scaling
                 self.propagation(prop_step, z_eff_x, z_eff_y)
 
+                # get current beam sampling for adjustment of amplitude
+                dx_old = np.copy(self.dx)
+                dy_old = np.copy(self.dy)
+
                 # rescale just in case. If propagation is unscaled mag_x and mag_y still equal one.
                 self.rescale_x_noshift(mag_x)
                 self.rescale_y_noshift(mag_y)
 
                 # update beam geometric parameters based on propagation distance
                 self.update_parameters(prop_step)
+
+                # adjust amplitude based on change in sampling
+                # self.wavex *= self.dx / dx_old
+                # self.wavey *= self.dy / dy_old
+                # self.wavex *= np.sqrt(dx_old / self.dx)
+                # self.wavey *= np.sqrt(dy_old / self.dy)
 
                 # check if we need to add phase near focus, and alter the focus state
                 if transition_to_x_focus:
@@ -1886,13 +1898,14 @@ class Pulse:
                 ax.semilogy(self.energy - self.E0, gauss_plot, label=width_label)
             if show_phase:
                 ax.semilogy(self.energy - self.E0, profile, label='spectral phase')
+            ax.set_ylim(1e-7,1.1)
         else:
             ax.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
             if show_fit:
                 ax.plot(self.energy - self.E0, gauss_plot, label=width_label)
             if show_phase:
                 ax.plot(self.energy - self.E0, profile, label='spectral phase')
-        ax.set_ylim(-.05,1.3)
+            ax.set_ylim(-.05,1.3)
         ax.set_xlabel('Energy (eV)')
         ax.set_ylabel('Intensity (normalized)')
         if integrated:
