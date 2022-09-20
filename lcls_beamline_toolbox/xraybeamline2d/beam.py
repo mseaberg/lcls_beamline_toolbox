@@ -11,6 +11,7 @@ All distances/lengths are in meters, spatial frequencies in 1/meters, angles in 
 unless otherwise indicated.
 """
 import numpy as np
+import cupy as cp
 import matplotlib.pyplot as plt
 from .util import Util
 from skimage.restoration import unwrap_phase
@@ -149,14 +150,14 @@ class Beam:
         # take in manual input of initial wavefront/amplitude
         if self.beam_provided:
             # initialize wave with initial_beam array
-            self.wave = np.copy(initial_beam).astype(complex)
+            self.wave = cp.copy(initial_beam).astype(complex)
             # set pixel size
             self.dx = beam_params['dx']
             # check if dy was provided, otherwise default to dx
             if 'dy' in beam_params.keys():
                 self.dy = beam_params['dy']
             else:
-                self.dy = np.copy(self.dx)
+                self.dy = cp.copy(self.dx)
             # check if z0x was provided, otherwise default to 0
             if 'z0x' in beam_params.keys():
                 self.zx = beam_params['z0x']
@@ -170,7 +171,7 @@ class Beam:
             # set ranges to zero for now, see if this works.
             # try to calculate rayleigh ranges
             # calculate Rayleigh ranges (m)
-            N,M = np.shape(self.wave)
+            N,M = cp.shape(self.wave)
             if 'sigma_x' in beam_params.keys():
                 sigma_x = beam_params['sigma_x']
                 if 'sigma_y' in beam_params.keys():
@@ -196,7 +197,7 @@ class Beam:
             self.zx = b1.z0x
             self.zy = b1.z0y
             self.dx = b1.dx
-            # self.dy = np.copy(self.dx)
+            # self.dy = cp.copy(self.dx)
             self.dy = b1.dy
             # multiply rayleigh range by rangeFactor, and multiply by factor to make it consistent with
             # other calculations
@@ -209,16 +210,16 @@ class Beam:
         self.N, self.M = self.wave.shape
 
         # set up coordinates
-        x = np.linspace(-self.M / 2.0 * self.dx, (self.M / 2.0 - 1) * self.dx, self.M, dtype=float)
-        y = np.linspace(-self.N / 2.0 * self.dy, (self.N / 2.0 - 1) * self.dy, self.N, dtype=float)
-        self.x, self.y = np.meshgrid(x, y)
+        x = cp.linspace(-self.M / 2.0 * self.dx, (self.M / 2.0 - 1) * self.dx, self.M, dtype=float)
+        y = cp.linspace(-self.N / 2.0 * self.dy, (self.N / 2.0 - 1) * self.dy, self.N, dtype=float)
+        self.x, self.y = cp.meshgrid(x, y)
 
         # offset coordinates by beam center
         self.x = self.x + self.cx
         self.y = self.y + self.cy
 
-        self.global_x = np.copy(self.cx)
-        self.global_y = np.copy(self.cy)
+        self.global_x = cp.copy(self.cx)
+        self.global_y = cp.copy(self.cy)
 
         # initialize global z
         if 'z_source' in beam_params:
@@ -231,8 +232,8 @@ class Beam:
             self.z = self.global_z
 
         # initialize global angles
-        self.global_azimuth = np.copy(self.ax)
-        self.global_elevation = np.copy(self.ay)
+        self.global_azimuth = cp.copy(self.ax)
+        self.global_elevation = cp.copy(self.ay)
 
         # initialize group delay
         self.group_delay = 0.0
@@ -241,10 +242,10 @@ class Beam:
         fx_max = 1.0 / (2.0 * self.dx)
         fy_max = 1.0 / (2.0 * self.dy)
         dfx = fx_max / self.M
-        fx = np.linspace(-fx_max, fx_max - dfx, self.M)
+        fx = cp.linspace(-fx_max, fx_max - dfx, self.M)
         dfy = fy_max / self.N
-        fy = np.linspace(-fy_max, fy_max - dfy, self.N)
-        self.fx, self.fy = np.meshgrid(fx, fy)
+        fy = cp.linspace(-fy_max, fy_max - dfy, self.N)
+        self.fx, self.fy = cp.meshgrid(fx, fy)
 
         # check if we're inside this range and initialize focus attribute
         self.focused_x = -self.zRx <= self.zx < self.zRx
@@ -256,27 +257,27 @@ class Beam:
         # propagation to work properly.
         if initial_beam is None:
             if self.focused_x:
-                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+                self.wave *= cp.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
             if self.focused_y:
-                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+                self.wave *= cp.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
 
 
         # else:
         #     if not self.focused_x:
-        #         self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+        #         self.wave *= cp.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
         #     if not self.focused_y:
-        #         self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+        #         self.wave *= cp.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
 
         # else:
         #     if not self.focused_x:
-        #         self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+        #         self.wave *= cp.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
         #     if not self.focused_y:
-        #         self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+        #         self.wave *= cp.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
         #
         #     if self.focused_x:
-        #         self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+        #         self.wave *= cp.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
         #     if self.focused_y:
-        #         self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+        #         self.wave *= cp.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
         # set beam parameters as attribute
         self.beam_params = beam_params
 
@@ -330,21 +331,21 @@ class Beam:
         self.global_azimuth += delta_ax
 
     def get_k(self):
-        x = np.array([1, 0, 0], dtype=float)
-        y = np.array([0, 1, 0], dtype=float)
-        z = np.array([0, 0, 1], dtype=float)
+        x = cp.array([1, 0, 0], dtype=float)
+        y = cp.array([0, 1, 0], dtype=float)
+        z = cp.array([0, 0, 1], dtype=float)
 
         r1 = transform.Rotation.from_rotvec(-x * self.global_elevation)
         Rx = r1.as_matrix()
-        x = np.matmul(Rx, x)
-        y = np.matmul(Rx, y)
-        z = np.matmul(Rx, z)
+        x = cp.matmul(Rx, x)
+        y = cp.matmul(Rx, y)
+        z = cp.matmul(Rx, z)
 
         r2 = transform.Rotation.from_rotvec(y * self.global_azimuth)
         Ry = r2.as_matrix()
-        x = np.matmul(Ry, x)
-        y = np.matmul(Ry, y)
-        z = np.matmul(Ry, z)
+        x = cp.matmul(Ry, x)
+        y = cp.matmul(Ry, y)
+        z = cp.matmul(Ry, z)
 
         # beam points in z direction
         k = z
@@ -404,7 +405,7 @@ class Beam:
         # calculate Fourier plane of beam
         g = Util.nfft(self.wave)
         # multiply by propagation phase
-        g *= np.exp(1j * phi_prop)
+        g *= cp.exp(1j * phi_prop)
         # Inverse Fourier transform to calculate beam at new plane
         self.wave = Util.infft(g)
 
@@ -478,17 +479,17 @@ class Beam:
         if self.focused_x:
             # if it stays focused, we need to modify the phase directly
             if x_focused:
-                self.wave *= np.exp(1j * np.pi / self.lambda0 * (self.x - self.cx)**2 * (1/new_zx - 1/self.zx))
+                self.wave *= cp.exp(1j * np.pi / self.lambda0 * (self.x - self.cx)**2 * (1/new_zx - 1/self.zx))
             else:
                 print('x becomes unfocused')
-                self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx) ** 2)
+                self.wave *= cp.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx) ** 2)
                 self.focused_x = False
         if self.focused_y:
             if y_focused:
-                self.wave *= np.exp(1j * np.pi / self.lambda0 * (self.y - self.cy) ** 2 * (1 / new_zy - 1 / self.zy))
+                self.wave *= cp.exp(1j * np.pi / self.lambda0 * (self.y - self.cy) ** 2 * (1 / new_zy - 1 / self.zy))
             else:
                 print('y becomes unfocused')
-                self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy) ** 2)
+                self.wave *= cp.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy) ** 2)
                 self.focused_y = False
 
         # update beam z
@@ -734,17 +735,17 @@ class Beam:
 
                 # check if we need to add phase near focus, and alter the focus state
                 if transition_to_x_focus:
-                    self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x-self.cx) ** 2)
+                    self.wave *= cp.exp(1j * np.pi / self.lambda0 / self.zx * (self.x-self.cx) ** 2)
                     self.focused_x = True
                 if transition_to_x_defocus:
-                    self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x-self.cx) ** 2)
+                    self.wave *= cp.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x-self.cx) ** 2)
                     self.focused_x = False
                 # check if we need to add phase near focus, and alter the focus state
                 if transition_to_y_focus:
-                    self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y-self.cy) ** 2)
+                    self.wave *= cp.exp(1j * np.pi / self.lambda0 / self.zy * (self.y-self.cy) ** 2)
                     self.focused_y = True
                 if transition_to_y_defocus:
-                    self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y-self.cy) ** 2)
+                    self.wave *= cp.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y-self.cy) ** 2)
                     self.focused_y = False
 
                 # recursively call this method until we've reached the original goal (dz)
@@ -852,10 +853,10 @@ class Beam:
         dfx = fx_max / self.M
         dfy = fy_max / self.N
         # spatial frequency coordinates
-        fx = np.linspace(-fx_max, fx_max - dfx, self.M)
-        fy = np.linspace(-fy_max, fy_max - dfy, self.N)
+        fx = cp.linspace(-fx_max, fx_max - dfx, self.M)
+        fy = cp.linspace(-fy_max, fy_max - dfy, self.N)
         # make the grids
-        self.fx, self.fy = np.meshgrid(fx, fy)
+        self.fx, self.fy = cp.meshgrid(fx, fy)
 
 class Pulse:
     """
@@ -895,8 +896,8 @@ class Pulse:
 
             self.N = N
             # define pulse energies and envelope
-            self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
-            self.envelope = np.ones(self.N)
+            self.energy = cp.linspace(-E_range/2, E_range/2, self.N) + self.E0
+            self.envelope = cp.ones(self.N)
             self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
 
         # allow for genesis output as a Pulse input
@@ -931,7 +932,7 @@ class Pulse:
             E_range = f_range * 4.136
             self.dE = E_range / zs.size
             self.N = zs.size
-            self.energy = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dE + self.E0
+            self.energy = cp.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dE + self.E0
 
             # calculate SASE beams in energy domain
             field_energy = np.fft.ifftshift(np.fft.ifft(np.fft.ifftshift(Efield, axes=2), axis=2), axes=2)
@@ -956,7 +957,7 @@ class Pulse:
             else:
                 self.beams = field_energy
 
-            self.envelope = np.ones_like(self.energy)
+            self.envelope = cp.ones_like(self.energy)
             self.pulse = Efield[int(nx/2), int(nx/2), :]
 
         else:
@@ -976,16 +977,16 @@ class Pulse:
             self.N = int(self.time_window / self.deltaT)
 
             # define pulse energies and envelope
-            self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
+            self.energy = cp.linspace(-E_range/2, E_range/2, self.N) + self.E0
 
             # frequencies
             self.f = self.energy / 4.136
             self.f0 = self.E0 / 4.136
 
             # add in optional spectral chirp
-            self.spectral_phase = np.exp(1j * GDD / 2 * (2 * np.pi) ** 2 * (self.f - self.f0) ** 2)
+            self.spectral_phase = cp.exp(1j * GDD / 2 * (2 * np.pi) ** 2 * (self.f - self.f0) ** 2)
 
-            self.envelope = np.sqrt(np.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
+            self.envelope = np.sqrt(cp.exp(-(self.energy-self.E0) ** 2 * tau ** 2 / 4 / hbar ** 2 / np.log(2)))
             self.envelope = self.envelope.astype(complex) * self.spectral_phase
             self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
 
@@ -998,7 +999,7 @@ class Pulse:
         self.dE = E_range / self.N
 
         # time axis in fs
-        self.t_axis = np.linspace(-self.N/2, self.N/2-1, self.N) * self.deltaT
+        self.t_axis = cp.linspace(-self.N/2, self.N/2-1, self.N) * self.deltaT
 
         # initialize energy stacks with dictionary. Keys are profile monitor names
         self.energy_stacks = {}
@@ -1205,14 +1206,14 @@ class Pulse:
             self.y[screen] = screen_obj.y
             self.xx[screen] = screen_obj.xx
             self.yy[screen] = screen_obj.yy
-            self.energy_stacks[screen] = np.zeros((Ns, Ns, self.N), dtype=complex)
-            self.qx[screen] = np.zeros(self.N)
-            self.qy[screen] = np.zeros(self.N)
-            self.cx[screen] = np.zeros(self.N)
-            self.cy[screen] = np.zeros(self.N)
+            self.energy_stacks[screen] = cp.zeros((Ns, Ns, self.N), dtype=complex)
+            self.qx[screen] = cp.zeros(self.N)
+            self.qy[screen] = cp.zeros(self.N)
+            self.cx[screen] = cp.zeros(self.N)
+            self.cy[screen] = cp.zeros(self.N)
             # make sure the phase is calculated
             screen_obj.calc_phase = True
-            self.delay[screen] = np.zeros(self.N)
+            self.delay[screen] = cp.zeros(self.N)
 
         # loop through beams in the pulse
         for num, energy in enumerate(self.energy):
@@ -1257,7 +1258,7 @@ class Pulse:
                 # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
                 y_phase = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
                 y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
-                self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
+                self.energy_stacks[screen][:, :, num] *= cp.exp(1j*(x_phase+y_phase))
 
             omega = 2 * np.pi * self.f * 1e15
             omega0 = 2 * np.pi * self.f0 * 1e15
@@ -1266,7 +1267,7 @@ class Pulse:
             p_phase = np.polyint(p_delay)
             phase = np.polyval(p_phase, omega - omega0)
 
-            self.energy_stacks[screen] *= np.exp(1j * phase)
+            self.energy_stacks[screen] *= cp.exp(1j * phase)
 
             self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
 
@@ -1321,7 +1322,7 @@ class Pulse:
 
         time_pixels = time_shift/self.deltaT
 
-        energy_phase = np.exp(1j*2*np.pi*time_shift*self.f)
+        energy_phase = cp.exp(1j*2*np.pi*time_shift*self.f)
 
         # convert to time domain
         for screen in self.screens:
@@ -1335,12 +1336,12 @@ class Pulse:
             qx_mean = (np.mean(self.qx[screen]) + np.mean(another_pulse.qx[screen]))/2
             qy_mean = (np.mean(self.qy[screen]) + np.mean(another_pulse.qy[screen]))/2
 
-            energy_stacks[screen] = np.zeros_like(self.energy_stacks[screen],dtype=complex)
+            energy_stacks[screen] = cp.zeros_like(self.energy_stacks[screen],dtype=complex)
             x[screen] = self.x[screen]
             y[screen] = self.y[screen]
 
-            new_pulse.qx[screen] = np.zeros(self.N)
-            new_pulse.qy[screen] = np.zeros(self.N)
+            new_pulse.qx[screen] = cp.zeros(self.N)
+            new_pulse.qy[screen] = cp.zeros(self.N)
 
             for num in range(self.N):
                 qx = self.qx[screen][num]
@@ -1367,9 +1368,9 @@ class Pulse:
                 # y_phase2 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
                 y_phase2 = np.pi / self.wavelength[num] * (qy_mean - qy_mean2) * self.yy[screen] ** 2
                 energy_stacks[screen][:, :, num] = (self.energy_stacks[screen][:,:,num] *
-                                                    np.exp(1j * (x_phase1 + y_phase1))*energy_phase[num] +
+                                                    cp.exp(1j * (x_phase1 + y_phase1))*energy_phase[num] +
                                                     another_pulse.energy_stacks[screen][:,:,num] *
-                                                    np.exp(1j*(x_phase2 + y_phase2)))
+                                                    cp.exp(1j*(x_phase2 + y_phase2)))
 
                 new_pulse.qx[screen][num] = (self.qx[screen][num] + another_pulse.qx[screen][num])/2
                 new_pulse.qy[screen][num] = (self.qy[screen][num] + another_pulse.qy[screen][num])/2
@@ -1427,10 +1428,10 @@ class Pulse:
         ax_profile.set_title('%s Spatial Projection' % image_name)
         # show the horizontal lineout (distance in microns)
         ax_x.plot(self.x[image_name] * 1e6, x_lineout / np.max(x_lineout))
-        ax_x.plot(self.x[image_name] * 1e6, np.exp(-(self.x[image_name] - cx) ** 2 / 2 / (wx / 2.355) ** 2))
+        ax_x.plot(self.x[image_name] * 1e6, cp.exp(-(self.x[image_name] - cx) ** 2 / 2 / (wx / 2.355) ** 2))
         # show the vertical lineout (distance in microns)
         ax_y.plot(y_lineout / np.max(y_lineout), self.y[image_name] * 1e6)
-        ax_y.plot(np.exp(-(self.y[image_name] - cy) ** 2 / 2 / (wy / 2.355) ** 2), self.y[image_name] * 1e6 )
+        ax_y.plot(cp.exp(-(self.y[image_name] - cy) ** 2 / 2 / (wy / 2.355) ** 2), self.y[image_name] * 1e6 )
 
         # add some annotations with beam centroid and FWHM
         ax_y.text(.6, .1 * np.max(self.y[image_name] * 1e6), 'centroid: %.2f %s' % (cy * 1e6, '\u03BCm'), rotation=-90)
@@ -1502,7 +1503,7 @@ class Pulse:
             aspect_ratio = (max_E-min_E)/(maxy-miny)
             title = u'%s Energy Slice: X = %d \u03BCm' % (image_name, slice_pos)
         else:
-            profile = np.zeros((256,256))
+            profile = cp.zeros((256,256))
             extent = (0, 0, 0, 0)
             ylabel = ''
             aspect_ratio = 1
@@ -1575,7 +1576,7 @@ class Pulse:
             aspect_ratio = (max_t - min_t) / (maxy - miny)
             title = u'%s Time Slice: X = %d \u03BCm' % (image_name, slice_pos)
         else:
-            profile = np.zeros((256, 256))
+            profile = cp.zeros((256, 256))
             extent = (0, 0, 0, 0)
             ylabel = ''
             aspect_ratio = 1
@@ -1927,7 +1928,7 @@ class Pulse:
             index = int((slice_pos - minx) / dx)
             profile = np.abs(self.time_stacks[image_name][index, :, :]) ** 2
             # spatial coordinates (microns)
-            x = np.copy(self.x[image_name])*1e6
+            x = cp.copy(self.x[image_name])*1e6
 
         # vertical slice
         elif dim == 'y':
@@ -1937,11 +1938,11 @@ class Pulse:
             index = int((slice_pos - miny) / dx)
             profile = np.abs(self.time_stacks[image_name][:, index, :]) ** 2
             # spatial coordinates (microns)
-            x = np.copy(self.x[image_name])*1e6
+            x = cp.copy(self.x[image_name])*1e6
 
         else:
-            profile = np.zeros((256, 256))
-            x = np.linspace(0, 255, 256)
+            profile = cp.zeros((256, 256))
+            x = cp.linspace(0, 255, 256)
 
         # find peak at central spatial position
         index = np.argmax(profile[int(N/2), :])
@@ -2001,7 +2002,7 @@ class Pulse:
             index = int((slice_pos - minx) / dx)
             profile = np.abs(self.energy_stacks[image_name][index, :, :]) ** 2
             # spatial coordinates (microns)
-            x = np.copy(self.x[image_name]) * 1e6
+            x = cp.copy(self.x[image_name]) * 1e6
 
         # vertical slice
         elif dim == 'y':
@@ -2011,11 +2012,11 @@ class Pulse:
             index = int((slice_pos - miny) / dx)
             profile = np.abs(self.energy_stacks[image_name][:, index, :]) ** 2
             # spatial coordinates (microns)
-            x = np.copy(self.x[image_name]) * 1e6
+            x = cp.copy(self.x[image_name]) * 1e6
 
         else:
-            profile = np.zeros((256, 256))
-            x = np.linspace(0, 255, 256)
+            profile = cp.zeros((256, 256))
+            x = cp.linspace(0, 255, 256)
 
         # find peak at central spatial position
         index = np.argmax(profile[int(N / 2), :])
@@ -2242,14 +2243,14 @@ class GaussianSource:
             self.z0y = beam_params['z0y']
         else:
             if 'z0x' in beam_params.keys():
-                self.z0y = np.copy(self.z0x)
+                self.z0y = cp.copy(self.z0x)
                 beam_params['z0y'] = self.z0y
             else:
                 self.z0y = self.zRy
 
         if 'dx' in beam_params.keys():
             self.dx = beam_params['dx']
-            self.dy = np.copy(self.dx)
+            self.dy = cp.copy(self.dx)
         else:
             self.dx = None
             self.dy = None
@@ -2306,9 +2307,9 @@ class GaussianSource:
             self.dy = FOV_y/self.N
 
         # coordinates
-        x = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx
-        y = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dy
-        self.x, self.y = np.meshgrid(x, y)
+        x = cp.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx
+        y = cp.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dy
+        self.x, self.y = cp.meshgrid(x, y)
 
         # beam amplitude
-        self.source = np.exp(-((self.x / self.wx) ** 2))*np.exp(-((self.y / self.wy) ** 2))
+        self.source = cp.exp(-((self.x / self.wx) ** 2))*cp.exp(-((self.y / self.wy) ** 2))

@@ -2,7 +2,8 @@
 util module for xraybeamline2d package
 """
 import numpy as np
-import numpy.fft as fft
+import cupy as cp
+import cupy.fft as fft
 import scipy.special
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
