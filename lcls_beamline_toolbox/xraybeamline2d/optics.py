@@ -4045,8 +4045,8 @@ class PPM:
         fwy_guess = sy * 2.355
 
         # initial guess for Gaussian fit
-        guessx = [cx * 1e6, sx]
-        guessy = [cy * 1e6, sy]
+        guessx = cp.asnumpy([cx * 1e6, sx])
+        guessy = cp.asnumpy([cy * 1e6, sy])
 
         fit_validity = 1
 
