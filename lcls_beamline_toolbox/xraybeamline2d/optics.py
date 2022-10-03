@@ -4122,7 +4122,13 @@ class PPM:
         # f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
         # do the interpolation to get the profile we'll see on the PPM
         # self.profile = f(self.x, self.y)
-        self.profile = ndimage.zoom(profile, (scaling_x,scaling_y))
+
+        x_map = (self.x - cp.amin(x))/(cp.amax(x)-cp.amin(x)) * beam.M
+        y_map = (self.y - cp.amin(y))/(cp.amax(y)-cp.amin(y)) * beam.N
+
+        self.profile = ndimage.map_coordinates(profile,[y_map,x_map])
+
+        # self.profile = ndimage.zoom(profile, (scaling_x,scaling_y))
 
         if self.calc_phase:
             phase = unwrap_phase(np.angle(beam.wave))
