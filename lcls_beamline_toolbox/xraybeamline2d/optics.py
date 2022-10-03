@@ -127,6 +127,9 @@ class Mirror:
             if key in allowed_arguments:
                 setattr(self, key, value)
 
+        if self.shapeError is not None:
+            self.shapeError = cp.asarray(self.shapeError)
+
         self.beta0 = self.alpha
 
         # set some calculated attributes
@@ -300,7 +303,7 @@ class Mirror:
         # mirror shape error interpolation onto beam coordinates (if applicable)
         if self.shapeError is not None:
             # get shape of shape error input
-            mirror_shape = np.shape(self.shapeError)
+            mirror_shape = cp.shape(self.shapeError)
 
             # assume this is the central line shaper error along the long axis if only 1D
             if np.size(mirror_shape) == 1:
@@ -313,7 +316,7 @@ class Mirror:
                 # 1D interpolation onto beam coordinates
                 central_line = cp.interp(zi_1d - self.dx / cp.tan(total_alpha), zs, self.shapeError)
                 # tile onto mirror short axis direction
-                shapeError2 = cp.tile(central_line, (np.size(yi_1d), 1))
+                shapeError2 = cp.tile(central_line, (yi_1d.size, 1))
             # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
             else:
                 # shape error array shape
@@ -338,8 +341,8 @@ class Mirror:
 
 
         # figure out aperturing due to mirror's finite size
-        z_mask = (np.abs(zi - self.dx / cp.tan(total_alpha)) < self.length / 2).astype(float)
-        y_mask = (np.abs(yi - self.dy) < self.width / 2).astype(float)
+        z_mask = cp.less(cp.absolute(zi - self.dx / cp.tan(total_alpha)), self.length / 2, dtype=np.float64)
+        y_mask = cp.less(cp.absolute(yi - self.dy), self.width / 2, dtype=np.float64)
 
         # 2D mirror aperture (1's and 0's)
         mirror = z_mask * y_mask
