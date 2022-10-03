@@ -331,21 +331,21 @@ class Beam:
         self.global_azimuth += delta_ax
 
     def get_k(self):
-        x = cp.array([1, 0, 0], dtype=float)
-        y = cp.array([0, 1, 0], dtype=float)
-        z = cp.array([0, 0, 1], dtype=float)
+        x = np.array([1, 0, 0], dtype=float)
+        y = np.array([0, 1, 0], dtype=float)
+        z = np.array([0, 0, 1], dtype=float)
 
         r1 = transform.Rotation.from_rotvec(-x * self.global_elevation)
         Rx = r1.as_matrix()
-        x = cp.matmul(Rx, x)
-        y = cp.matmul(Rx, y)
-        z = cp.matmul(Rx, z)
+        x = np.matmul(Rx, x)
+        y = np.matmul(Rx, y)
+        z = np.matmul(Rx, z)
 
         r2 = transform.Rotation.from_rotvec(y * self.global_azimuth)
         Ry = r2.as_matrix()
-        x = cp.matmul(Ry, x)
-        y = cp.matmul(Ry, y)
-        z = cp.matmul(Ry, z)
+        x = np.matmul(Ry, x)
+        y = np.matmul(Ry, y)
+        z = np.matmul(Ry, z)
 
         # beam points in z direction
         k = z
