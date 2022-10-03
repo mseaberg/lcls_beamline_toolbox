@@ -4123,10 +4123,14 @@ class PPM:
         # do the interpolation to get the profile we'll see on the PPM
         # self.profile = f(self.x, self.y)
 
-        x_map = (self.x - cp.amin(x))/(cp.amax(x)-cp.amin(x)) * beam.M
-        y_map = (self.y - cp.amin(y))/(cp.amax(y)-cp.amin(y)) * beam.N
+        x_map = (self.xx - cp.amin(x))/(cp.amax(x)-cp.amin(x)) * beam.M
+        y_map = (self.yy - cp.amin(y))/(cp.amax(y)-cp.amin(y)) * beam.N
 
-        self.profile = ndimage.map_coordinates(profile,[y_map,x_map])
+        coords = cp.zeros((2,self.N**2))
+        coords[0,:] = y_map.flatten()
+        coords[1,:] = x_map.flatten()
+
+        self.profile = cp.reshape(ndimage.map_coordinates(profile,coords),(self.N,self.N))
 
         # self.profile = ndimage.zoom(profile, (scaling_x,scaling_y))
 
