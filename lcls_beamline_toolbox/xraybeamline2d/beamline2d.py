@@ -13,6 +13,7 @@ from .optics import Drift, Mono, Mirror
 # import matplotlib.pyplot as plt
 import copy
 import numpy as np
+import cupy as cp
 from .util import Util
 
 

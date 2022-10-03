@@ -334,8 +334,8 @@ class Mirror:
                 # shapeError2 = f(zi_1d - self.dx / cp.tan(total_alpha), yi_1d - self.dy)
                 zs,ys = cp.meshgrid(zs,ys)
 
-                coords_z = cp.ndarray.flatten(((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs)))
-                coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys)))
+                coords_z = cp.ndarray.flatten(((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
+                coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
 
                 shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y,coords_z]), cp.shape(zi))
 
@@ -3942,10 +3942,10 @@ class PPM:
 
         # calculate PPM coordinates
         self.x = cp.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx
-        self.y = np.copy(self.x)
+        self.y = cp.copy(self.x)
 
         # get 2D coordinate arrays
-        self.xx, self.yy = np.meshgrid(self.x, self.y)
+        self.xx, self.yy = cp.meshgrid(self.x, self.y)
 
         # initialize some attributes
         self.profile = cp.zeros((self.N, self.N))
@@ -3991,35 +3991,35 @@ class PPM:
             Calculated vertical FWHM (m) based on calculation of second moment.
         """
 
-        self.amp_x = np.max(line_x)-np.min(line_x)
-        self.amp_y = np.max(line_y)-np.min(line_y)
+        self.amp_x = cp.amax(line_x)-cp.amin(line_x)
+        self.amp_y = cp.amax(line_y)-cp.amin(line_y)
 
         # normalize lineouts
-        if np.max(line_x) > 0:
-            line_x -= np.min(line_x)
-            line_x = line_x / np.max(line_x)
+        if cp.amax(line_x) > 0:
+            line_x -= cp.amin(line_x)
+            line_x = line_x / cp.amax(line_x)
             
-        if np.max(line_y) > 0:
-            line_y -= np.min(line_y)
-            line_y = line_y / np.max(line_y)
+        if cp.amax(line_y) > 0:
+            line_y -= cp.amin(line_y)
+            line_y = line_y / cp.amax(line_y)
 
         # set 20% threshold
-        thresh_x = np.max(line_x) * self.threshold
-        thresh_y = np.max(line_y) * self.threshold
+        thresh_x = cp.amax(line_x) * self.threshold
+        thresh_y = cp.amax(line_y) * self.threshold
         # subtract threshold and set everything below to zero
         norm_x = line_x - thresh_x
-        norm_x[norm_x < 0] = 0
+        norm_x[cp.less(norm_x,0)] = 0
         # re-normalize
 
-        if np.max(norm_x) > 0:
-            norm_x = norm_x / np.max(norm_x)
+        if cp.amax(norm_x) > 0:
+            norm_x = norm_x / cp.amax(norm_x)
 
         # subtract threshold and set everything below to zero
         norm_y = line_y - thresh_y
-        norm_y[norm_y < 0] = 0
+        norm_y[cp.less(norm_y, 0)] = 0
         # re-normalize
-        if np.max(norm_y) > 0:
-            norm_y = norm_y / np.max(norm_y)
+        if cp.amax(norm_y) > 0:
+            norm_y = norm_y / cp.amax(norm_y)
 
         # calculate centroids
 
@@ -4055,7 +4055,7 @@ class PPM:
             # only fit in the region where we have signal
             mask = line_x > .1
             # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
-            px, pcovx = optimize.curve_fit(Util.fit_gaussian, self.x[mask] * 1e6, line_x[mask], p0=guessx)
+            px, pcovx = optimize.curve_fit(Util.fit_gaussian, cp.asnumpy(self.x[mask]) * 1e6, cp.asnumpy(line_x[mask]), p0=guessx)
             # set sx to sigma from the fit if successful.
             sx = px[1]
         except ValueError:
@@ -4069,7 +4069,7 @@ class PPM:
             # only fit in the region where we have signal
             mask = line_y > .1
             # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
-            py, pcovy = optimize.curve_fit(Util.fit_gaussian, self.y[mask] * 1e6, line_y[mask], p0=guessy)
+            py, pcovy = optimize.curve_fit(Util.fit_gaussian, cp.asnumpy(self.y[mask]) * 1e6, cp.asnumpy(line_y[mask]), p0=guessy)
             # set sy to sigma from the fit if successful.
             sy = py[1]
         except ValueError:
@@ -4100,7 +4100,7 @@ class PPM:
         """
 
         # Calculate intensity from complex beam
-        profile = np.abs(beam.wave) ** 2
+        profile = cp.abs(beam.wave) ** 2
 
         # coordinate scaling due to off-axis viewing angle
         scaling_x = 1 / cp.sin(self.view_angle_x * np.pi / 180)
@@ -4112,15 +4112,17 @@ class PPM:
             x_width = self.resolution / beam.dx
             y_width = self.resolution / beam.dy
             # apply blurring using ndimage gaussian_filter
-            profile = ndimage.filters.gaussian_filter(profile, sigma=(y_width, x_width))
+            profile = ndimage.gaussian_filter(profile, sigma=(y_width, x_width))
 
         # get beam coordinates for interpolation
         x = beam.x[0, :]
         y = beam.y[:, 0]
+
         # interpolating function from Scipy's interp2d. Extrapolation value is set to zero.
-        f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
+        # f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
         # do the interpolation to get the profile we'll see on the PPM
-        self.profile = f(self.x, self.y)
+        # self.profile = f(self.x, self.y)
+        self.profile = ndimage.zoom(profile, (scaling_x,scaling_y))
 
         if self.calc_phase:
             phase = unwrap_phase(np.angle(beam.wave))
