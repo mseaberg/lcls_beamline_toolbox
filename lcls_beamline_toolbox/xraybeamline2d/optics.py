@@ -4024,17 +4024,17 @@ class PPM:
         # calculate centroids
 
         if cp.sum(norm_x) > 0:
-            cx = cp.sum(norm_x * self.x) / cp.sum(norm_x)
+            cx = cp.asnumpy(cp.sum(norm_x * self.x) / cp.sum(norm_x))
             # calculate second moments. Converted to microns to help with fitting
-            sx = cp.sqrt(cp.sum(norm_x * (self.x - cx) ** 2) / cp.sum(norm_x)) * 1e6
+            sx = cp.asnumpy(cp.sqrt(cp.sum(norm_x * (self.x - cx) ** 2) / cp.sum(norm_x)) * 1e6)
 
         else:
             cx = 0
             sx = 0
         if cp.sum(norm_y) > 0:
-            cy = cp.sum(norm_y * self.y) / cp.sum(norm_y)
+            cy = cp.asnumpy(cp.sum(norm_y * self.y) / cp.sum(norm_y))
             # calculate second moments. Converted to microns to help with fitting
-            sy = cp.sqrt(cp.sum(norm_y * (self.y - cy) ** 2) / cp.sum(norm_y)) * 1e6
+            sy = cp.asnumpy(cp.sqrt(cp.sum(norm_y * (self.y - cy) ** 2) / cp.sum(norm_y)) * 1e6)
 
         else:
             cy = 0
@@ -4045,8 +4045,8 @@ class PPM:
         fwy_guess = sy * 2.355
 
         # initial guess for Gaussian fit
-        guessx = cp.asnumpy([cx * 1e6, sx])
-        guessy = cp.asnumpy([cy * 1e6, sy])
+        guessx = [cx * 1e6, sx]
+        guessy = [cy * 1e6, sy]
 
         fit_validity = 1
 
