@@ -3362,7 +3362,7 @@ class Drift:
         # re-calculate propagation distance
         old_z = np.copy(self.dz)
 
-        self.dz = cp.sqrt(dx**2 + dy**2 + dz**2)
+        self.dz = np.sqrt(dx**2 + dy**2 + dz**2)
         print('delta z: %.2f' % ((self.dz - old_z)*1e6))
 
         # beam.global_x = x_intersect
