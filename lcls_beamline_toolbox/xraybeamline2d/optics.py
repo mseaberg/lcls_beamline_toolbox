@@ -3189,7 +3189,7 @@ class Drift:
         dx = downstream_component.global_x - upstream_component.global_x
         dy = downstream_component.global_y - upstream_component.global_y
         dz = downstream_component.z - upstream_component.z
-        self.dz = cp.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
+        self.dz = np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
 
         self.z = (downstream_component.z + upstream_component.z) / 2.
         self.global_x = 0
