@@ -3902,6 +3902,8 @@ class PPM:
         self.cy_beam = 0
         self.x_lineout = np.zeros(self.M)
         self.y_lineout = np.zeros(self.N)
+        self.x_projection = np.zeros(self.M)
+        self.y_projection = np.zeros(self.N)
         self.fit_x = np.zeros(self.M)
         self.fit_y = np.zeros(self.N)
         self.amp_x = 0
@@ -4068,6 +4070,9 @@ class PPM:
         # do the interpolation to get the profile we'll see on the PPM
         self.profile = f(self.x, self.y)
 
+        # account for coordinate scaling between PPM and beam
+        self.profile *= self.dx / beam.dx * self.dx / beam.dy
+
         if self.calc_phase:
             phase = unwrap_phase(np.angle(beam.wave))
             f_phase = interpolation.interp2d(x * scaling_x, y * scaling_y, phase, fill_value=0)
@@ -4087,9 +4092,16 @@ class PPM:
         self.group_delay = beam.group_delay
 
         # calculate horizontal lineout
-        self.x_lineout = np.sum(self.profile, axis=0)
+        self.x_projection = np.sum(self.profile, axis=0)
+
         # calculate vertical lineout
-        self.y_lineout = np.sum(self.profile, axis=1)
+        self.y_projection = np.sum(self.profile, axis=1)
+
+        # find peak
+        i1 = np.argmax(self.y_projection)
+        self.x_lineout = self.profile[i1,:]
+        i1 = np.argmax(self.x_projection)
+        self.y_lineout = self.profile[:,i1]
 
         # get beam wavelength
         self.lambda0 = beam.lambda0
@@ -4458,7 +4470,7 @@ class PPM:
 
         return ax_y
 
-    def view_beam(self):
+    def view_beam(self, show_projection=True, show_title=True, title=None, scale_bar=False):
         """
         Method to view beam after the fact. Will be zero intensity everywhere if calc_profile (or propagate)
         haven't been called yet.
@@ -4486,49 +4498,58 @@ class PPM:
             mult = 1e9
 
         # generate the figure
-        plt.figure(figsize=(8, 8))
+
 
         # generate the axes, in a grid
-        ax_profile = plt.subplot2grid((4, 4), (0, 0), colspan=3, rowspan=3)
-        ax_y = plt.subplot2grid((4, 4), (0, 3), rowspan=3)
-        ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
+        if show_projection:
+            plt.figure(figsize=(8, 8))
+            ax_profile = plt.subplot2grid((4, 4), (0, 0), colspan=3, rowspan=3)
+            ax_y = plt.subplot2grid((4, 4), (0, 3), rowspan=3)
+            ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
+            axes_handles = [ax_profile, ax_x, ax_y]
+        else:
+            plt.figure(figsize=(6,6))
+            ax_profile = plt.subplot2grid((1,1),(0,0))
+            axes_handles = [ax_profile]
 
         # show the image, with positive y at the top of the figure
         ax_profile.imshow(np.flipud(self.profile), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
         # label coordinates
         ax_profile.set_xlabel('X coordinates (%s)' % units)
         ax_profile.set_ylabel('Y coordinates (%s)' % units)
-        ax_profile.set_title(self.name)
+        if show_title:
+            if title is None:
+                ax_profile.set_title(self.name)
+            else:
+                ax_profile.set_title(title)
 
-        # show the vertical lineout (distance in microns)
-        ax_y.plot(self.y_lineout/np.max(self.y_lineout), self.y * mult)
-        # also plot the Gaussian fit
-        ax_y.plot(np.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2), self.y * mult)
-        # show a grid
-        ax_y.grid(True)
-        # set limits
-        ax_y.set_xlim(0, 1.05)
+        if show_projection:
+            # show the vertical lineout (distance in microns)
+            ax_y.plot(self.y_lineout/np.max(self.y_lineout), self.y * mult)
+            # also plot the Gaussian fit
+            ax_y.plot(np.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2), self.y * mult)
+            # show a grid
+            ax_y.grid(True)
+            # set limits
+            ax_y.set_xlim(0, 1.05)
 
-        # show the horizontal lineout (distance in microns)
-        ax_x.plot(self.x * mult, self.x_lineout/np.max(self.x_lineout))
-        # also plot the Gaussian fit
-        ax_x.plot(self.x * mult, np.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2))
-        # show a grid
-        ax_x.grid(True)
-        # set limits
-        ax_x.set_ylim(0, 1.05)
+            # show the horizontal lineout (distance in microns)
+            ax_x.plot(self.x * mult, self.x_lineout/np.max(self.x_lineout))
+            # also plot the Gaussian fit
+            ax_x.plot(self.x * mult, np.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2))
+            # show a grid
+            ax_x.grid(True)
+            # set limits
+            ax_x.set_ylim(0, 1.05)
 
-        # add some annotations with beam centroid and FWHM
-        ax_y.text(.6, .1 * np.max(self.y * mult), 'centroid: %.2f %s' % (self.cy * mult, units), rotation=-90)
-        ax_y.text(.3, .1 * np.max(self.y * mult), 'width: %.2f %s' % (self.wy * mult, units), rotation=-90)
-        ax_x.text(-.9 * np.max(self.x * mult), .6, 'centroid: %.2f %s' % (self.cx * mult, units))
-        ax_x.text(-.9 * np.max(self.x * mult), .3, 'width: %.2f %s' % (self.wx * mult, units))
+            # add some annotations with beam centroid and FWHM
+            ax_y.text(.6, .1 * np.max(self.y * mult), 'centroid: %.2f %s' % (self.cy * mult, units), rotation=-90)
+            ax_y.text(.3, .1 * np.max(self.y * mult), 'width: %.2f %s' % (self.wy * mult, units), rotation=-90)
+            ax_x.text(-.9 * np.max(self.x * mult), .6, 'centroid: %.2f %s' % (self.cx * mult, units))
+            ax_x.text(-.9 * np.max(self.x * mult), .3, 'width: %.2f %s' % (self.wx * mult, units))
 
         # tight layout to make sure we're not cutting out anything
         plt.tight_layout()
-
-        # bundle handles in a list
-        axes_handles = [ax_profile, ax_x, ax_y]
 
         return axes_handles
 
