@@ -242,9 +242,9 @@ class Mirror:
             # account for change to angle of incidence
             total_alpha += -beam.ax
 
-            k_ix = -cp.sin(self.alpha - beam.ax)
-            k_iy = cp.sin(beam.ay)
-            k_iz = cp.sqrt(1 - k_ix ** 2 - k_iy ** 2)
+            k_ix = -np.sin(self.alpha - beam.ax)
+            k_iy = np.sin(beam.ay)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
 
             # coordinate mapping for interpolation
             zi = beam.x / cp.sin(total_alpha)
@@ -257,9 +257,9 @@ class Mirror:
             # account for change to angle of incidence
             total_alpha += -beam.ay
 
-            k_ix = -cp.sin(self.alpha - beam.ay)
-            k_iy = -cp.sin(beam.ax)
-            k_iz = cp.sqrt(1 - k_ix ** 2 - k_iy ** 2)
+            k_ix = -np.sin(self.alpha - beam.ay)
+            k_iy = -np.sin(beam.ax)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
 
             # coordinate mapping for interpolation
             zi = beam.y / cp.sin(total_alpha)
@@ -272,9 +272,9 @@ class Mirror:
             # account for change to angle of incidence
             total_alpha += beam.ax
 
-            k_ix = -cp.sin(self.alpha + beam.ax)
-            k_iy = -cp.sin(beam.ay)
-            k_iz = cp.sqrt(1 - k_ix ** 2 - k_iy ** 2)
+            k_ix = -np.sin(self.alpha + beam.ax)
+            k_iy = -np.sin(beam.ay)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
 
             # coordinate mapping for interpolation
             zi = -beam.x / cp.sin(total_alpha)
@@ -287,9 +287,9 @@ class Mirror:
             # account for change to angle of incidence
             total_alpha += beam.ay
 
-            k_ix = -cp.sin(self.alpha + beam.ay)
+            k_ix = -np.sin(self.alpha + beam.ay)
             k_iy = beam.ax
-            k_iz = cp.sqrt(1 - k_ix ** 2 - k_iy ** 2)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
 
             # coordinate mapping for interpolation
             zi = -beam.y / cp.sin(total_alpha)
