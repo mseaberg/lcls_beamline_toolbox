@@ -204,7 +204,7 @@ class Mirror:
         k_f_z = np.dot(k_i, mirror_z) * mirror_z
         # use conservation of momentum to calculate component of outgoing k-vector in the rotated mirror's
         # normal direction
-        k_f_x = cp.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z)) * mirror_x
+        k_f_x = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z)) * mirror_x
 
         # full outgoing k-vector
         k_f = k_f_x + k_f_y + k_f_z
