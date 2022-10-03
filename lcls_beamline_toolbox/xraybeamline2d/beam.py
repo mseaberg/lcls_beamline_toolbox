@@ -218,8 +218,8 @@ class Beam:
         self.x = self.x + self.cx
         self.y = self.y + self.cy
 
-        self.global_x = cp.copy(self.cx)
-        self.global_y = cp.copy(self.cy)
+        self.global_x = np.copy(self.cx)
+        self.global_y = np.copy(self.cy)
 
         # initialize global z
         if 'z_source' in beam_params:
@@ -232,8 +232,8 @@ class Beam:
             self.z = self.global_z
 
         # initialize global angles
-        self.global_azimuth = cp.copy(self.ax)
-        self.global_elevation = cp.copy(self.ay)
+        self.global_azimuth = np.copy(self.ax)
+        self.global_elevation = np.copy(self.ay)
 
         # initialize group delay
         self.group_delay = 0.0
