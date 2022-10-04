@@ -4,6 +4,7 @@ util module for xraybeamline2d package
 import numpy as np
 import cupy as cp
 import cupy.fft as fft
+import cupyx.scipy.fft as sfft
 import scipy.special
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
@@ -35,6 +36,33 @@ class Util:
             y = np.interp(x, xp, fp, left=0, right=0)
 
         return y
+
+    @staticmethod
+    def laplace(array,p,q):
+        N,M = cp.shape(array)
+        out = -sfft.idctn(sfft.dctn(array) * (p ** 2 + q ** 2)) * 4 * np.pi ** 2 / (N * M)
+        return out
+
+    @staticmethod
+    def inverse_laplace(array,p,q):
+        N, M = cp.shape(array)
+        out = -sfft.idctn(sfft.dctn(array) / (p ** 2 + q ** 2 + np.finfo(float).eps)) * M * N / (4 * np.pi ** 2)
+        return out
+
+    @staticmethod
+    def unwrap_phase_gpu(array):
+        p,q = Util.get_spatial_frequencies(array,1)
+        p = sfft.fftshift(p)
+        q = sfft.fftshift(q)
+
+        L_wrapped = Util.laplace(array, p, q)
+        L_unwrapped = (cp.cos(array) * Util.laplace(cp.sin(array), p, q) -
+                       cp.sin(array) * Util.laplace(cp.cos(array), p, q))
+        k = cp.round(Util.inverse_laplace(L_unwrapped - L_wrapped, p, q) / 2 / np.pi)
+
+        unwrapped = array + 2 * np.pi * k
+
+        return unwrapped
 
     @staticmethod
     def nfft(a):
@@ -579,7 +607,7 @@ class Util:
         tuple of spatial frequency arrays. Length of tuple depends is the same as length of shape.
         """
 
-        array_shape = np.shape(array_in)
+        array_shape = cp.shape(array_in)
 
         # maximum spatial frequency
         fx_max = 1.0 / (dx * 2)
@@ -589,11 +617,11 @@ class Util:
 
         for dimension in array_shape:
             df = 2 * fx_max / dimension
-            f = np.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * df
+            f = cp.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * df
             f_list.append(f)
 
         # make grid of spatial frequencies
-        fx_tuple = np.meshgrid(*f_list)
+        fx_tuple = cp.meshgrid(*f_list)
 
         return fx_tuple
 
