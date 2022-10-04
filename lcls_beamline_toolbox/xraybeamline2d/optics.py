@@ -4533,21 +4533,21 @@ class PPM:
         """
 
         # minima and maxima of the field of view (in microns) for imshow extent
-        minx = np.round(np.min(self.x) * 1e6)
-        maxx = np.round(np.max(self.x) * 1e6)
-        miny = np.round(np.min(self.y) * 1e6)
-        maxy = np.round(np.max(self.y) * 1e6)
+        minx = cp.asnumpy(np.round(np.min(self.x) * 1e6))
+        maxx = cp.asnumpy(np.round(np.max(self.x) * 1e6))
+        miny = cp.asnumpy(np.round(np.min(self.y) * 1e6))
+        maxy = cp.asnumpy(np.round(np.max(self.y) * 1e6))
 
         units = 'microns'
         mult = 1e6
 
-        all_extrema = cp.asnumpy(cp.asarray([minx,maxx,miny,maxy]))
+        all_extrema = np.array([minx,maxx,miny,maxy])
         min_extrema = np.min(np.abs(all_extrema))
         if min_extrema<1:
-            minx = np.round(np.min(self.x) * 1e9)
-            maxx = np.round(np.max(self.x) * 1e9)
-            miny = np.round(np.min(self.y) * 1e9)
-            maxy = np.round(np.max(self.y) * 1e9)
+            minx = cp.asnumpy(np.round(np.min(self.x) * 1e9))
+            maxx = cp.asnumpy(np.round(np.max(self.x) * 1e9))
+            miny = cp.asnumpy(np.round(np.min(self.y) * 1e9))
+            maxy = cp.asnumpy(np.round(np.max(self.y) * 1e9))
             units = 'nm'
             mult = 1e9
 
