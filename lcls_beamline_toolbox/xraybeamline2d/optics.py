@@ -341,8 +341,8 @@ class Mirror:
 
 
         # figure out aperturing due to mirror's finite size
-        z_mask = cp.less(cp.absolute(zi - self.dx / cp.tan(total_alpha)), self.length / 2, dtype=np.float64)
-        y_mask = cp.less(cp.absolute(yi - self.dy), self.width / 2, dtype=np.float64)
+        z_mask = cp.less(cp.absolute(zi - self.dx / cp.tan(total_alpha)), self.length / 2)
+        y_mask = cp.less(cp.absolute(yi - self.dy), self.width / 2)
 
         # 2D mirror aperture (1's and 0's)
         mirror = z_mask * y_mask
