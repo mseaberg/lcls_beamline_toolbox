@@ -4560,25 +4560,25 @@ class PPM:
         ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
 
         # show the image, with positive y at the top of the figure
-        ax_profile.imshow(np.flipud(self.profile), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
+        ax_profile.imshow(cp.asnumpy(np.flipud(self.profile)), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
         # label coordinates
         ax_profile.set_xlabel('X coordinates (%s)' % units)
         ax_profile.set_ylabel('Y coordinates (%s)' % units)
         ax_profile.set_title(self.name)
 
         # show the vertical lineout (distance in microns)
-        ax_y.plot(self.y_lineout/np.max(self.y_lineout), self.y * mult)
+        ax_y.plot(cp.asnumpy(self.y_lineout/np.max(self.y_lineout)), cp.asnumpy(self.y * mult))
         # also plot the Gaussian fit
-        ax_y.plot(cp.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2), self.y * mult)
+        ax_y.plot(cp.asnumpy(cp.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)), cp.asnumpy(self.y * mult))
         # show a grid
         ax_y.grid(True)
         # set limits
         ax_y.set_xlim(0, 1.05)
 
         # show the horizontal lineout (distance in microns)
-        ax_x.plot(self.x * mult, self.x_lineout/np.max(self.x_lineout))
+        ax_x.plot(cp.asnumpy(self.x * mult), cp.asnumpy(self.x_lineout/np.max(self.x_lineout)))
         # also plot the Gaussian fit
-        ax_x.plot(self.x * mult, cp.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2))
+        ax_x.plot(cp.asnumpy(self.x * mult), cp.asnumpy(cp.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)))
         # show a grid
         ax_x.grid(True)
         # set limits
