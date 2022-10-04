@@ -4561,7 +4561,7 @@ class PPM:
 
         # show the image, with positive y at the top of the figure
         profile_view = cp.asnumpy(cp.flipud(self.profile))
-        ax_profile.imshow(cp.asnumpy(profile_view, extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
+        ax_profile.imshow(profile_view, extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
         # label coordinates
         ax_profile.set_xlabel('X coordinates (%s)' % units)
         ax_profile.set_ylabel('Y coordinates (%s)' % units)
