@@ -4541,7 +4541,7 @@ class PPM:
         units = 'microns'
         mult = 1e6
 
-        all_extrema = np.array([minx,maxx,miny,maxy])
+        all_extrema = cp.asnumpy(cp.asarray([minx,maxx,miny,maxy]))
         min_extrema = np.min(np.abs(all_extrema))
         if min_extrema<1:
             minx = np.round(np.min(self.x) * 1e9)
