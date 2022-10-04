@@ -807,7 +807,11 @@ class Crystal(Mirror):
             print('subtracting vertical second order')
             wavefront *= cp.exp(-1j * np.pi / beam.lambda0 / beam.zy * (beam.y - beam.cy) ** 2)
 
-        beam_slope_error_y, beam_slope_error_x = cp.gradient(cp.asarray(unwrap_phase(np.angle(cp.asnumpy(wavefront)))),
+        print("unwrapping phase")
+        unwrapped = unwrap_phase(np.angle(cp.asnumpy(wavefront)))
+        print("phase unwrapped")
+
+        beam_slope_error_y, beam_slope_error_x = cp.gradient(cp.asarray(unwrapped),
                                                              beam.y[:,0], beam.x[0,:])
         beam_slope_error_y *= beam.lambda0 / 2 / np.pi
         beam_slope_error_x *= beam.lambda0 / 2 / np.pi
