@@ -666,8 +666,8 @@ class Crystal(Mirror):
         mirror_z0 = np.array([0, 0, 1], dtype=float)
 
         # crystal plane normal vector
-        c_x = cp.cos(self.alphaAsym)
-        c_z = cp.sin(self.alphaAsym)
+        c_x = np.cos(self.alphaAsym)
+        c_z = np.sin(self.alphaAsym)
 
         # vector parallel to crystal plane, in xz plane
         crystal_x = np.sin(self.alphaAsym)
@@ -717,7 +717,7 @@ class Crystal(Mirror):
         # figure out k_f in "normal case"
         k_f_y = np.dot(k_i_norm, mirror_y0) * mirror_y0 # should be 0
         k_f_z = np.dot(k_i_norm, mirror_z0) * mirror_z0 + g_parallel
-        k_f_x = cp.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z)) * mirror_x0
+        k_f_x = np.sqrt(1 - np.dot(k_f_y, k_f_y) - np.dot(k_f_z, k_f_z)) * mirror_x0
         k_f_normal = k_f_x + k_f_y + k_f_z # should be same as k_i except x component changed sign
 
         # print('k_i ' + str(k_i))
