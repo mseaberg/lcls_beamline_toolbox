@@ -4560,7 +4560,7 @@ class PPM:
         ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
 
         # show the image, with positive y at the top of the figure
-        ax_profile.imshow(cp.asnumpy(np.flipud(self.profile)), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
+        ax_profile.imshow(cp.asnumpy(cp.flipud(self.profile)), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
         # label coordinates
         ax_profile.set_xlabel('X coordinates (%s)' % units)
         ax_profile.set_ylabel('Y coordinates (%s)' % units)
