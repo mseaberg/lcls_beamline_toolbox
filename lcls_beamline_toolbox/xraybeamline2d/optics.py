@@ -620,14 +620,14 @@ class Crystal(Mirror):
         self.alpha = self.bragg + self.alphaAsym
 
         # define nominal beam k_i
-        k_ix = -cp.sin(self.alpha)
+        k_ix = -np.sin(self.alpha)
         k_iy = 0
-        k_iz = cp.cos(self.alpha)
+        k_iz = np.cos(self.alpha)
         k_i = [k_ix, k_iy, k_iz]
 
         # define crystal plane normal in crystal surface coordinates
-        c_x = cp.cos(self.alphaAsym)
-        c_z = cp.sin(self.alphaAsym)
+        c_x = np.cos(self.alphaAsym)
+        c_z = np.sin(self.alphaAsym)
         c_normal = [c_x, 0, c_z]
 
         # component of crystal normal in +z direction
@@ -636,14 +636,14 @@ class Crystal(Mirror):
         # calculate nominal beam k_f
         k_fy = 0
         k_fz = k_iz + c_parallel
-        k_fx = cp.sqrt(1 - k_fy**2 - k_fz**2)
+        k_fx = np.sqrt(1 - k_fy**2 - k_fz**2)
         k_f = [k_fx, k_fy, k_fz]
 
         # calculate nominal diffraction angle (relative to crystal surface)
         self.beta0 = np.arccos(k_fz)
 
         # calculate asymmetric factor
-        self.b = (cp.sin(self.alpha)/cp.sin(self.beta0))
+        self.b = (np.sin(self.alpha)/np.sin(self.beta0))
         print('b %.2f' % self.b)
 
         # set diffraction order (not implemented yet)
