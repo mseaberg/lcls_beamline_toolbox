@@ -26,6 +26,7 @@ import cupyx.scipy.ndimage as ndimage
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
 from skimage.restoration import unwrap_phase
+import time
 import os
 import pickle
 from ..polyprojection.legendre import LegendreFit2D
@@ -923,6 +924,8 @@ class Crystal(Mirror):
         :return: None
         """
 
+        tic = time.perf_counter()
+
         total_alpha = self.alpha + self.delta
 
         # initialize some arrays
@@ -942,7 +945,7 @@ class Crystal(Mirror):
         beamz = 0
         beamz_y = 0
 
-        wavefront = np.copy(beam.wave)
+        wavefront = cp.copy(beam.wave)
 
         if beam.focused_x:
             print('subtracting horizontal second order')
@@ -951,7 +954,11 @@ class Crystal(Mirror):
             print('subtracting vertical second order')
             wavefront *= cp.exp(-1j * np.pi / beam.lambda0 / beam.zy * (beam.y - beam.cy) ** 2)
 
+        toc = time.perf_counter()
 
+        print('initialization took {}'.format(toc-tic))
+
+        tic = time.perf_counter()
 
         if self.orientation == 0:
             # account for change to angle of incidence
@@ -1082,6 +1089,12 @@ class Crystal(Mirror):
 
             wavefront = cp.swapaxes(wavefront, 0, 1)
 
+        toc = time.perf_counter()
+        print('orientation took {} seconds'.format(toc-tic))
+
+        tic = time.perf_counter()
+
+
         # mirror shape error interpolation onto beam coordinates (if applicable)
         if self.shapeError is not None:
             # get shape of shape error input
@@ -1123,6 +1136,12 @@ class Crystal(Mirror):
                 coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
 
                 shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y, coords_z]), cp.shape(zi))
+
+        toc = time.perf_counter()
+
+        print('shape error took {} seconds'.format(toc-tic))
+
+        tic = time.perf_counter()
 
         # get slope error
         # for now just do this in 1D, update for 2D later
@@ -1183,17 +1202,31 @@ class Crystal(Mirror):
         # beta at beam center
         beta1 = np.arccos(k_f[2])
 
+        toc = time.perf_counter()
+        print('Legendre etc took {} seconds'.format(toc-tic))
+
+        tic = time.perf_counter()
+
         # calculate incident k-vector in crystal coordinates
         k_i_2d = self.define_ki_2d(beam, self.alpha + self.delta, zi-cz)
+
+        toc = time.perf_counter()
+        print('ki took {} seconds'.format(toc-tic))
+
+        tic = time.perf_counter()
         # calculate final k-vector after interaction with crystal
         k_f_2d, c_normal, u_x = self.calc_kf_2d(k_i_2d, slope_error_z, slope_error_y, beam.lambda0)
 
+        toc = time.perf_counter()
+        print('kf took {} seconds'.format(toc-tic))
         # plt.figure()
         # plt.imshow(k_f_2d[0, :, :])
         # plt.figure()
         # plt.imshow(k_f_2d[1, :, :])
         # plt.figure()
         # plt.imshow(k_f_2d[2, :, :])
+
+        tic = time.perf_counter()
 
         # here we have what is needed to calculate the complex crystal reflectivity, let's go ahead and do it here
         beamInDotNormal = cp.asnumpy(k_i_2d[0,:,:])
@@ -1203,7 +1236,11 @@ class Crystal(Mirror):
         C1, C2 = np.array(self.crystal.get_amplitude(beam.photonEnergy,
                                                      beamInDotNormal, beamOutDotNormal, beamInDotHNormal))
 
+        toc = time.perf_counter()
+        print('crystal amplitude took {} seconds'.format(toc-tic))
         # choose complex reflectivity based on polarization
+
+        tic = time.perf_counter()
         if self.pol == 's':
             C = C1
         else:
@@ -1477,6 +1514,9 @@ class Crystal(Mirror):
             delta_cy = -2 * self.dx * np.cos(self.alpha)
             beam.cy = -beam.cy + delta_cy
             beam.y = beam.y + delta_cy
+
+        toc = time.perf_counter()
+        print('finalization took {} seconds'.format(toc-tic))
 
         return
 
