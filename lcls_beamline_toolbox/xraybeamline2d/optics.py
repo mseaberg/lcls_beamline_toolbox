@@ -808,11 +808,10 @@ class Crystal(Mirror):
             wavefront *= cp.exp(-1j * np.pi / beam.lambda0 / beam.zy * (beam.y - beam.cy) ** 2)
 
         print("unwrapping phase")
-        # unwrapped = unwrap_phase(np.angle(cp.asnumpy(wavefront)))
-        unwrapped = Util.unwrap_phase_gpu(cp.angle(wavefront))
+        unwrapped = unwrap_phase(np.angle(cp.asnumpy(wavefront)))
         print("phase unwrapped")
 
-        beam_slope_error_y, beam_slope_error_x = cp.gradient(unwrapped,
+        beam_slope_error_y, beam_slope_error_x = cp.gradient(cp.asarray(unwrapped),
                                                              beam.y[:,0], beam.x[0,:])
         beam_slope_error_y *= beam.lambda0 / 2 / np.pi
         beam_slope_error_x *= beam.lambda0 / 2 / np.pi
@@ -1180,8 +1179,6 @@ class Crystal(Mirror):
 
         # beta at beam center
         beta1 = np.arccos(k_f[2])
-
-
 
         # calculate incident k-vector in crystal coordinates
         k_i_2d = self.define_ki_2d(beam, self.alpha + self.delta, zi-cz)
