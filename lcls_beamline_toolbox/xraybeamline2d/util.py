@@ -124,8 +124,8 @@ class Util:
             else:
                 beta = cp.dot(rk.flatten(), zk.flatten()) / cp.dot(rk_old.flatten(), zk_old.flatten())
                 pk = zk + beta * pk
-            print(k)
-            print(beta)
+            # print(k)
+            # print(beta)
 
             rk_old = cp.copy(rk)
             zk_old = cp.copy(zk)
@@ -133,12 +133,12 @@ class Util:
             Qpk = Util.applyQ(pk, WW)
 
             alpha = cp.dot(rk.flatten(), zk.flatten()) / cp.dot(pk.flatten(), Qpk.flatten())
-            print(alpha)
+            # print(alpha)
             phi = phi + alpha * pk
             rk = rk - alpha * Qpk
 
             norm1[k - 1] = cp.linalg.norm(rk.flatten())
-            print(cp.linalg.norm(rk.flatten()))
+            # print(cp.linalg.norm(rk.flatten()))
             if cp.linalg.norm(rk.flatten()) < eps * normR0:
                 print('stopping')
 
