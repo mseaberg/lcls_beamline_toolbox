@@ -52,7 +52,7 @@ class Util:
     @staticmethod
     def solvePoisson(array):
         N, M = cp.shape(array)
-        rho_hat = fft.dctn(array)
+        rho_hat = sfft.dctn(array)
         i = cp.linspace(0, M - 1, M)
         j = cp.linspace(0, N - 1, N)
         i, j = cp.meshgrid(i, j)
@@ -60,7 +60,7 @@ class Util:
         divisor[0, 0] = 1
         phi_hat = rho_hat / divisor
         phi_hat[0, 0] = 0
-        phi = fft.idctn(phi_hat)
+        phi = sfft.idctn(phi_hat)
 
         return phi
 
