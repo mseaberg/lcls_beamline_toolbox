@@ -1181,6 +1181,8 @@ class Crystal(Mirror):
         # beta at beam center
         beta1 = np.arccos(k_f[2])
 
+
+
         # calculate incident k-vector in crystal coordinates
         k_i_2d = self.define_ki_2d(beam, self.alpha + self.delta, zi-cz)
         # calculate final k-vector after interaction with crystal

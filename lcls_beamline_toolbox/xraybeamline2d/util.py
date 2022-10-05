@@ -62,7 +62,7 @@ class Util:
 
         unwrapped = array + 2 * np.pi * k
 
-        return unwrapped
+        return unwrapped, k
 
     @staticmethod
     def nfft(a):
