@@ -50,19 +50,116 @@ class Util:
         return out
 
     @staticmethod
-    def unwrap_phase_gpu(array):
-        p,q = Util.get_spatial_frequencies(array,1)
-        p = sfft.fftshift(p)
-        q = sfft.fftshift(q)
+    def solvePoisson(array):
+        N, M = cp.shape(array)
+        rho_hat = fft.dctn(array)
+        i = cp.linspace(0, M - 1, M)
+        j = cp.linspace(0, N - 1, N)
+        i, j = cp.meshgrid(i, j)
+        divisor = 2 * (cp.cos(np.pi * i / M) + cp.cos(np.pi * j / N) - 2)
+        divisor[0, 0] = 1
+        phi_hat = rho_hat / divisor
+        phi_hat[0, 0] = 0
+        phi = fft.idctn(phi_hat)
 
-        L_wrapped = Util.laplace(array, p, q)
-        L_unwrapped = (cp.cos(array) * Util.laplace(cp.sin(array), p, q) -
-                       cp.sin(array) * Util.laplace(cp.cos(array), p, q))
-        k = cp.round(Util.inverse_laplace(L_unwrapped - L_wrapped, p, q) / 2 / np.pi)
+        return phi
 
-        unwrapped = array + 2 * np.pi * k
+    @staticmethod
+    def applyQ(p, WW):
+        N, M = cp.shape(p)
+        dx = cp.hstack((cp.diff(p, axis=1), cp.zeros((N, 1))))
+        dy = cp.vstack((cp.diff(p, axis=0), cp.zeros((1, M))))
 
-        return unwrapped, k
+        WWdx = WW * dx
+        WWdy = WW * dy
+
+        WWdx2 = cp.hstack((cp.zeros((N, 1)), WWdx))
+        WWdy2 = cp.vstack((cp.zeros((1, M)), WWdy))
+        Qp = cp.diff(WWdx2, axis=1) + cp.diff(WWdy2, axis=0)
+
+        return Qp
+
+    @staticmethod
+    def wrapToPi(array):
+        out = cp.mod(array, 2 * np.pi)
+        out[out > np.pi] -= 2 * np.pi
+        return out
+
+    @staticmethod
+    def unwrap_phase_gpu(psi, weight):
+
+        N, M = cp.shape(psi)
+        dx = cp.hstack((Util.wrapToPi(cp.diff(psi, axis=1)), cp.zeros((N, 1))))
+        dy = cp.vstack((Util.wrapToPi(cp.diff(psi, axis=0)), cp.zeros((1, M))))
+
+        WW = weight * weight
+        WWdx = WW * dx
+        WWdy = WW * dy
+
+        WWdx2 = cp.hstack((cp.zeros((N, 1)), WWdx))
+        WWdy2 = cp.vstack((cp.zeros((1, M)), WWdy))
+        rk = cp.diff(WWdx2, axis=1) + cp.diff(WWdy2, axis=0)
+        normR0 = cp.linalg.norm(rk.flatten())
+
+        eps = 1e-8
+        k = 0
+        phi = cp.zeros_like(psi)
+
+        rk_old = cp.copy(rk)
+        zk_old = cp.zeros_like(rk)
+        zk = cp.zeros_like(rk)
+        pk = cp.zeros_like(rk)
+        beta = 0
+        alpha = 0
+
+        norm1 = cp.zeros(50)
+
+        while cp.sum(cp.abs(rk)) > 0:
+            zk = Util.solvePoisson(rk)
+
+            k += 1
+
+            if k == 1:
+                pk = zk
+            else:
+                beta = cp.dot(rk.flatten(), zk.flatten()) / cp.dot(rk_old.flatten(), zk_old.flatten())
+                pk = zk + beta * pk
+            print(k)
+            print(beta)
+
+            rk_old = cp.copy(rk)
+            zk_old = cp.copy(zk)
+
+            Qpk = Util.applyQ(pk, WW)
+
+            alpha = cp.dot(rk.flatten(), zk.flatten()) / cp.dot(pk.flatten(), Qpk.flatten())
+            print(alpha)
+            phi = phi + alpha * pk
+            rk = rk - alpha * Qpk
+
+            norm1[k - 1] = cp.linalg.norm(rk.flatten())
+            print(cp.linalg.norm(rk.flatten()))
+            if cp.linalg.norm(rk.flatten()) < eps * normR0:
+                print('stopping')
+
+                break
+
+        return phi
+
+    # @staticmethod
+    # def unwrap_phase_gpu(array):
+    #     p,q = Util.get_spatial_frequencies(array,1)
+    #     p = sfft.fftshift(p)
+    #     q = sfft.fftshift(q)
+    #
+    #     L_wrapped = Util.laplace(array, p, q)
+    #     L_unwrapped = (cp.cos(array) * Util.laplace(cp.sin(array), p, q) -
+    #                    cp.sin(array) * Util.laplace(cp.cos(array), p, q))
+    #     k = cp.round(Util.inverse_laplace(L_unwrapped - L_wrapped, p, q) / 2 / np.pi)
+    #
+    #     unwrapped = array + 2 * np.pi * k
+    #
+    #     return unwrapped, k
 
     @staticmethod
     def nfft(a):
