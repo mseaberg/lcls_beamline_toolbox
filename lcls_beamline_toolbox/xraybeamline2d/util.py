@@ -112,7 +112,7 @@ class Util:
         beta = 0
         alpha = 0
 
-        norm1 = cp.zeros(50)
+        # norm1 = cp.zeros(50)
 
         while cp.sum(cp.abs(rk)) > 0:
             zk = Util.solvePoisson(rk)
@@ -137,7 +137,7 @@ class Util:
             phi = phi + alpha * pk
             rk = rk - alpha * Qpk
 
-            norm1[k - 1] = cp.linalg.norm(rk.flatten())
+            # norm1[k - 1] = cp.linalg.norm(rk.flatten())
             # print(cp.linalg.norm(rk.flatten()))
             if cp.linalg.norm(rk.flatten()) < eps * normR0:
                 print('stopping')
