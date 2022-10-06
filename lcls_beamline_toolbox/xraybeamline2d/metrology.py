@@ -23,6 +23,92 @@ class Metrology:
         return y
 
     @staticmethod
+    def define_ellipse(x_in, p, q, alpha):
+
+        a = (p + q) / 2
+        L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
+        #     print(L)
+        b = np.sqrt(a ** 2 - (L / 2) ** 2)
+
+        #     print(a)
+        #     print(b)
+        y0 = -p * q / L * np.sin(2 * alpha)
+        # z0 = np.sqrt(a1**2) * np.sqrt(1 - x0 ** 2 / b1**2)
+        x0 = np.sqrt(p ** 2 - y0 ** 2) - L / 2
+        #     print(x0)
+        #     print(y0)
+
+        # angle of incident beam
+        beta = np.arcsin(y0 / p)
+        #     print('beta: %.2f mrad' % (1e3*beta))
+
+        # mirror angle
+        delta = -(alpha + beta)
+        #     print(delta)
+        #     print(alpha)
+
+        # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+        # z1 = np.linspace(z0 - length / 2 * np.cos(alpha), z0 + length / 2 * np.cos(alpha), N)
+        x1 = x_in * np.cos(delta) + x0
+        # ellipse equation (using center of ellipse as origin)
+        y1 = -np.sqrt(b ** 2) * np.sqrt(1 - x1 ** 2 / a ** 2)
+
+        #     plt.figure()
+        #     plt.plot(x1,y1)
+
+        y1m = -np.sin(-delta) * (x1 - x0) + np.cos(-delta) * (y1 - y0) + y0
+        #     x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0) + x0
+
+        y1m -= np.min(y1m)
+        #     x1m -= np.mean(x1m)
+
+        return y1m
+
+    #     plt.figure()
+    #     plt.plot(x,x1m)
+
+    @staticmethod
+    def rotate_data(xdata, ydata, delta):
+
+        x0 = np.mean(xdata)
+        y0 = np.min(ydata)
+        y1m = -np.sin(-delta) * (xdata - x0) + np.cos(-delta) * (ydata - y0) + y0
+
+        return y1m
+
+    @staticmethod
+    def ellipse_error(q, xdata, ydata):
+
+        q0 = q[0]
+        delta = q[1]
+
+        ideal = Metrology.define_ellipse(xdata, 140, q0, .014)
+
+        # rotate mirror shape to optimize alignment with data
+        ydata = Metrology.rotate_data(xdata, ydata, delta)
+
+        raw_error = ydata - ideal
+        #     p = np.polyfit(xdata, raw_error, 1)
+        #     error_ho = raw_error - np.polyval(p, xdata)
+        #     error_ho = raw_error
+
+        error = np.std(raw_error) * 1e6
+        return error
+
+    @staticmethod
+    def find_closest_ellipse(xdata, ydata):
+
+        res = optimize.minimize(Metrology.ellipse_error, np.array([2.4, 0.0]), args=(xdata, ydata))
+
+        #     print(res)
+
+        q = res['x'][0]
+        alpha = res['x'][1]
+        error = res['fun']
+
+        return q, alpha, error, res
+
+    @staticmethod
     def calc_psd(x, shape):
         """
         Method for calculating psd from metrology data. Assuming 1D data for this function
