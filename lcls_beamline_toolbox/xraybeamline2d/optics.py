@@ -1232,11 +1232,18 @@ class Crystal(Mirror):
         tic = time.perf_counter()
 
         # here we have what is needed to calculate the complex crystal reflectivity, let's go ahead and do it here
-        beamInDotNormal = cp.asnumpy(k_i_2d[0,:,:])
-        beamOutDotNormal = cp.asnumpy(k_f_2d[0,:,:])
-        beamInDotHNormal = cp.asnumpy(cp.sum(k_i_2d * c_normal, axis=0))
+        # beamInDotNormal = cp.asnumpy(k_i_2d[0,:,:])
+        # beamOutDotNormal = cp.asnumpy(k_f_2d[0,:,:])
+        # beamInDotHNormal = cp.asnumpy(cp.sum(k_i_2d * c_normal, axis=0))
+        #
+        # C1, C2 = np.array(self.crystal.get_amplitude(beam.photonEnergy,
+        #                                              beamInDotNormal, beamOutDotNormal, beamInDotHNormal))
 
-        C1, C2 = np.array(self.crystal.get_amplitude(beam.photonEnergy,
+        beamInDotNormal = k_i_2d[0,:,:]
+        beamOutDotNormal = k_f_2d[0,:,:]
+        beamInDotHNormal = cp.sum(k_i_2d * c_normal, axis=0)
+
+        C1, C2 = cp.array(self.crystal.get_amplitude(beam.photonEnergy,
                                                      beamInDotNormal, beamOutDotNormal, beamInDotHNormal))
 
         toc = time.perf_counter()
