@@ -6726,7 +6726,7 @@ class WFS:
         # print(self.pitch/beam.dy)
 
         # re-initialize 1D gratings
-        self.grating = np.zeros((N, M))
+        self.grating = cp.zeros((N, M),dtype=complex)
 
         # calculate number of periods in the grating
         Mg = np.floor(M / self.x_pitch)
@@ -6762,7 +6762,9 @@ class WFS:
                     maxX = 2*x_width*(i+1)
                     temp[minY:maxY,minX:maxX] = (1 + (-1) ** (i + j) / 2)
 
-            self.grating = cp.exp(1j*np.pi*cp.tile(temp, (int(Ng/2),int(Mg/2))))
+            grating_temp = cp.exp(1j*np.pi*cp.tile(temp, (int(Ng/2),int(Mg/2))))
+            Nt,Mt = cp.shape(grating_temp)
+            self.grating[0:Nt,0:Mt] = grating_temp
 
             # loop through periods in the grating
             # for i in range(int(Mg)):
