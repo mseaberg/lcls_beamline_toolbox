@@ -150,7 +150,7 @@ class Beam:
         # take in manual input of initial wavefront/amplitude
         if self.beam_provided:
             # initialize wave with initial_beam array
-            self.wave = cp.copy(initial_beam).astype(complex)
+            self.wave = cp.copy(cp.asarray(initial_beam)).astype(complex)
             # set pixel size
             self.dx = beam_params['dx']
             # check if dy was provided, otherwise default to dx

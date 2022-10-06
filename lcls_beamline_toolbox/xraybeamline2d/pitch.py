@@ -8,7 +8,9 @@ Currently implements the single class TalbotLineout.
 """
 
 import numpy as np
-import scipy.ndimage as ndimage
+import cupy as cp
+# import scipy.ndimage as ndimage
+import cupyx.scipy.ndimage as ndimage
 from ..polyprojection.legendre import LegendreFit1D
 from .beam import Beam
 from .util import Util
@@ -597,7 +599,7 @@ class TalbotImage:
         """
         self.image = image
 
-        self.N, self.M = np.shape(self.image)
+        self.N, self.M = cp.shape(self.image)
 
         # fc has units of 1/pixel
         self.fc = fc
@@ -648,7 +650,7 @@ class TalbotImage:
         #print('magnification: %.1f' % mag)
 
         # get image dimensions
-        N, M = np.shape(self.image)
+        N, M = cp.shape(self.image)
 
         # set up coordinates (Talbot image plane)
         x1, y1 = Util.get_coordinates(self.image, dx)
@@ -683,19 +685,19 @@ class TalbotImage:
         v_peak_x = 0
 
         # find peaks in Fourier space
-        if np.sum(np.abs(h_thresh)) > 0 and np.sum(np.abs(v_thresh)) > 0:
-            h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
-            v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
+        if cp.sum(cp.abs(h_thresh)) > 0 and cp.sum(cp.abs(v_thresh)) > 0:
+            h_peak = cp.asnumpy(cp.sum(h_thresh * fx) / cp.sum(cp.abs(h_thresh)))
+            v_peak = cp.asnumpy(cp.sum(v_thresh * fy) / cp.sum(cp.abs(v_thresh)))
 
             # find centroid off-axis
-            h_peak_y = np.sum(h_thresh * fy) / np.sum(np.abs(h_thresh))
-            v_peak_x = np.sum(v_thresh * fx) / np.sum(np.abs(v_thresh))
+            h_peak_y = cp.sum(h_thresh * fy) / cp.sum(cp.abs(h_thresh))
+            v_peak_x = cp.sum(v_thresh * fx) / cp.sum(cp.abs(v_thresh))
         else:
             h_peak = fG/mag
             v_peak = fG/mag
 
-        angle_h = np.arctan(h_peak_y/h_peak)
-        angle_v = np.arctan(-v_peak_x/v_peak)
+        angle_h = cp.arctan(h_peak_y/h_peak)
+        angle_v = cp.arctan(-v_peak_x/v_peak)
 
         # calculate tilt angle in degrees
         tilt_angle = (angle_h+angle_v)/2*180/np.pi
@@ -719,16 +721,16 @@ class TalbotImage:
         v_thresh = Util.threshold_array(v_masked, .2)
 
         # find peaks in Fourier space (centroid)
-        if np.sum(np.abs(h_thresh)) > 0 and np.sum(np.abs(v_thresh)) > 0:
-            h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
-            v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
+        if cp.sum(cp.abs(h_thresh)) > 0 and cp.sum(cp.abs(v_thresh)) > 0:
+            h_peak = cp.asnumpy(cp.sum(h_thresh * fx) / cp.sum(cp.abs(h_thresh)))
+            v_peak = cp.asnumpy(cp.sum(v_thresh * fy) / cp.sum(cp.abs(v_thresh)))
 
         print('h_angle: %.3f' % (angle_h*180/np.pi))
         print('v_angle: %.3f' % (angle_v*180/np.pi))
 
         # find peak widths in Fourier space (second moments centered on centroids)
-        h_width = np.sqrt(np.sum(h_thresh * (fx - h_peak) ** 2) / np.sum(np.abs(h_thresh)))
-        v_width = np.sqrt(np.sum(v_thresh * (fy - v_peak) ** 2) / np.sum(np.abs(v_thresh)))
+        h_width = cp.asnumpy(cp.sqrt(cp.sum(h_thresh * (fx - h_peak) ** 2) / cp.sum(cp.abs(h_thresh))))
+        v_width = cp.asnumpy(cp.sqrt(cp.sum(v_thresh * (fy - v_peak) ** 2) / cp.sum(np.abs(v_thresh))))
 
         # calculate average position of horizontal/vertical peaks
         mid_peak = (v_peak + h_peak) / 2.
@@ -743,12 +745,12 @@ class TalbotImage:
         p0 = np.pi / lambda0 / R2
 
         # define linear phase related to approximate peak location
-        h_linear = np.exp(-1j * 2. * np.pi * h_peak * x1)
-        v_linear = np.exp(-1j * 2. * np.pi * v_peak * y1)
+        h_linear = cp.exp(-1j * 2. * np.pi * h_peak * x1)
+        v_linear = cp.exp(-1j * 2. * np.pi * v_peak * y1)
 
         # Fourier transform back to real space, and multiply by linear phase
-        h_grad = np.conj(Util.infft(h_masked) * h_linear)
-        v_grad = np.conj(Util.infft(v_masked) * v_linear)
+        h_grad = cp.conj(Util.infft(h_masked) * h_linear)
+        v_grad = cp.conj(Util.infft(v_masked) * v_linear)
 
         # downsampling amount
         down = (2 ** downsample)
@@ -759,10 +761,10 @@ class TalbotImage:
 
         # avoid an extra fourier transform by handling zero order a bit differently
         zero_fourier = Util.crop_center(zero_masked, M/down, N/down)
-        zero_order = np.abs(Util.infft(zero_fourier))
+        zero_order = cp.abs(Util.infft(zero_fourier))
 
         # downsampled array size
-        N2, M2 = np.shape(h_grad)
+        N2, M2 = cp.shape(h_grad)
 
         # pixel size after downsampling
         dx_down = dx * M / M2
@@ -806,7 +808,7 @@ class TalbotImage:
         dx2 = grad_param['dx']
 
         # define "zero order" based on magnitude of gradients
-        zero_order = (np.abs(h_grad) + np.abs(v_grad)) / 2.0
+        zero_order = (cp.abs(h_grad) + cp.abs(v_grad)) / 2.0
 
         # zo = Util.threshold_array(zero_order, 0.04)
         #
@@ -819,12 +821,14 @@ class TalbotImage:
         zeroMask = zero_order > (threshold * np.max(zero_order))
 
         # unwrap phase in 2D, multiply by shear factor
-        h_grad2 = unwrap_phase(np.angle(h_grad), seed=0) * dg / lambda0 / zT
-        v_grad2 = unwrap_phase(np.angle(v_grad), seed=0) * dg / lambda0 / zT
+        # h_grad2 = unwrap_phase(np.angle(h_grad), seed=0) * dg / lambda0 / zT
+        # v_grad2 = unwrap_phase(np.angle(v_grad), seed=0) * dg / lambda0 / zT
+        h_grad2 = Util.unwrap_phase_gpu(cp.angle(h_grad),zeroMask) * dg / lambda0 / zT
+        v_grad2 = Util.unwrap_phase_gpu(cp.angle(v_grad),zeroMask) * dg / lambda0 / zT
 
         # store mean of gradient
-        h_mean = np.mean(h_grad2[zeroMask])
-        v_mean = np.mean(v_grad2[zeroMask])
+        h_mean = cp.mean(h_grad2[zeroMask])
+        v_mean = cp.mean(v_grad2[zeroMask])
 
         # subtract mean (better performance for Legendre projection). Can be added in later
         h_grad2 -= h_mean
@@ -833,7 +837,7 @@ class TalbotImage:
         # fit gradient using Legendre polynomials (making sure there is intensity above the threshold)
         if np.sum(zeroMask) > 0:
             # fit Legendre coefficients by projecting gradients onto orthonormal basis
-            legendre_coeff = fit_object.coeff_from_grad(h_grad2, v_grad2, dx2, zeroMask).flatten()
+            legendre_coeff = fit_object.coeff_from_grad(cp.asnumpy(h_grad2), cp.asnumpy(v_grad2), dx2, zeroMask).flatten()
         else:
             # just set everything to zero if intensity is too low
             legendre_coeff = np.zeros(fit_object.P)

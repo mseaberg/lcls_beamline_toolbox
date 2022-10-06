@@ -524,13 +524,13 @@ class Util:
         """
 
         # make sure the image is not complex
-        array_out = np.abs(array_in)
+        array_out = cp.abs(array_in)
 
         # subtract minimum/background
-        array_out -= np.min(array_out)
+        array_out -= cp.min(array_out)
 
         # get thresholding level
-        thresh = np.max(array_out) * frac
+        thresh = cp.max(array_out) * frac
         # subtract threshold level
         array_out = array_out - thresh
         # set anything below threshold (now 0) to zero
@@ -674,16 +674,16 @@ class Util:
         -------
         tuple of coordinate arrays with same shape as array_in
         """
-        array_shape = np.shape(array_in)
+        array_shape = cp.shape(array_in)
 
         coord_list = []
 
         for dimension in array_shape:
-            c = np.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * dx
+            c = cp.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * dx
             coord_list.append(c)
 
         # make grid of spatial frequencies
-        coord_tuple = np.meshgrid(*coord_list)
+        coord_tuple = cp.meshgrid(*coord_list)
 
         return coord_tuple
 
@@ -743,10 +743,10 @@ class Util:
 
         # check if frequencies is a tuple
         if type(frequencies) is tuple:
-            array_size = np.shape(frequencies[0])
+            array_size = cp.shape(frequencies[0])
             num_arrays = len(frequencies)
         else:
-            array_size = np.shape(frequencies)
+            array_size = cp.shape(frequencies)
             num_arrays = 1
 
         # check size of locations tuple
@@ -788,7 +788,7 @@ class Util:
         # add cosine filter if desired
         if cosine_mask:
             for f, c, r in zip(frequencies, coordinates, radii):
-                mask *= np.cos(np.pi/2*(f-c)/r)
+                mask *= cp.cos(np.pi/2*(f-c)/r)
 
         return mask
 
@@ -809,7 +809,7 @@ class Util:
         """
 
         # get array shape
-        N, M = np.shape(array_in)
+        N, M = cp.shape(array_in)
 
         # fourier transform
         fourier_plane = Util.nfft(array_in)
@@ -840,7 +840,7 @@ class Util:
         (y_width,x_width) ndarray
         """
 
-        N, M = np.shape(array_in)
+        N, M = cp.shape(array_in)
 
         cropped_array = array_in[int(N / 2 - y_width/2):int(N / 2 + y_width/2),
                                  int(M / 2 - x_width/2):int(M / 2 + x_width/2)]
