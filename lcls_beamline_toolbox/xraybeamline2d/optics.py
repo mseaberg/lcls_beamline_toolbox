@@ -335,10 +335,14 @@ class Mirror:
                 # shapeError2 = f(zi_1d - self.dx / cp.tan(total_alpha), yi_1d - self.dy)
                 zs,ys = cp.meshgrid(zs,ys)
 
-                coords_z = cp.ndarray.flatten(((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
-                coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
+                coords_z = (((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
+                coords_y = (((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
 
-                shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y,coords_z]), cp.shape(zi))
+                coords = cp.zeros((2,Ns*Ms))
+                coords[0,:] = coords_z.flatten()
+                coords[1,:] = coords_y.flatten()
+
+                shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, coords), cp.shape(zi))
 
 
         # figure out aperturing due to mirror's finite size
