@@ -310,7 +310,7 @@ class Beam:
         # x = k_beam[0]/k_beam[2] * dz * k_beam[2]
         # z = dz * np.cos(alpha). cos(alpha) = k[2]
         # self.global_z += k_beam[2] * dz
-        self.global_x += cp.asnumpy(k_beam[0]) * dz
+        self.global_x += k_beam[0] * dz
         self.global_y += k_beam[1] * dz
         self.global_z += k_beam[2] * dz
 
@@ -439,7 +439,7 @@ class Beam:
             #     xWidth *= np.abs(self.zx / (self.zRx * self.rangeFactor))
             # else:
             #     xWidth = np.abs(self.x[0] - self.x[-1])self.x[0, 1]
-            xWidth = np.abs(self.x[0,0] - self.x[0,-1])
+            xWidth = cp.asnumpy(np.abs(self.x[0,0] - self.x[0,-1]))
 
             # self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
             #             self.rangeFactor)
@@ -453,7 +453,7 @@ class Beam:
             #     yWidth *= np.abs(self.zy / (self.zRy * self.rangeFactor))
             # else:
             #     yWidth = np.abs(self.y[0] - self.y[-1])
-            yWidth = np.abs(self.y[0,0] - self.y[-1,0])
+            yWidth = cp.asnumpy(np.abs(self.y[0,0] - self.y[-1,0]))
 
             # self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
             #             self.rangeFactor)
