@@ -581,7 +581,7 @@ class Util:
         lineout: (2*half_length) ndarray
             Summed lineout from array_in (projected on horizontal axis)
         """
-        N, M = np.shape(array_in)
+        N, M = cp.shape(array_in)
 
         if x_center is None:
             x_center = int(M/2)
@@ -605,7 +605,7 @@ class Util:
         if half_width < 1:
             lineout = array_in[y_start, x_start:x_end]
         else:
-            lineout = np.sum(array_in[y_start:y_end, x_start:x_end], axis=0)
+            lineout = cp.sum(array_in[y_start:y_end, x_start:x_end], axis=0)
 
         return lineout
 
@@ -631,7 +631,7 @@ class Util:
         lineout: (2*half_length) ndarray
             Summed lineout from array_in (projected on horizontal axis)
         """
-        N, M = np.shape(array_in)
+        N, M = cp.shape(array_in)
 
         if x_center is None:
             x_center = int(M/2)
@@ -655,7 +655,7 @@ class Util:
         if half_width < 1:
             lineout = array_in[y_start:y_end, x_start]
         else:
-            lineout = np.sum(array_in[y_start:y_end, x_start:x_end], axis=1)
+            lineout = cp.sum(array_in[y_start:y_end, x_start:x_end], axis=1)
 
         return lineout
 

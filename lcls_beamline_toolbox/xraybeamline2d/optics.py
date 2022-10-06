@@ -4295,8 +4295,8 @@ class PPM:
 
         # calculate pitch from lineouts. See pitch module.
         # print('getting lineouts')
-        xline = TalbotLineout(lineout_x, fc, fraction, pad=True)
-        yline = TalbotLineout(lineout_y, fc, fraction, pad=True)
+        xline = TalbotLineout(cp.asnumpy(lineout_x), fc, fraction, pad=True)
+        yline = TalbotLineout(cp.asnumpy(lineout_y), fc, fraction, pad=True)
 
         # parameters for calculating Legendre coefficients
         wfs_param = {
