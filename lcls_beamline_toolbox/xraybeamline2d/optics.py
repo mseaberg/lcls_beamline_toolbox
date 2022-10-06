@@ -6709,7 +6709,7 @@ class WFS:
         """
 
         # get array sizes
-        N, M = np.shape(beam.x)
+        N, M = cp.shape(beam.x)
 
         # Number of pixels per grating period
         self.x_pitch = np.round(self.pitch/beam.dx)
@@ -6726,7 +6726,7 @@ class WFS:
         # print(self.pitch/beam.dy)
 
         # re-initialize 1D gratings
-        self.grating = cp.zeros((N, M))
+        self.grating = np.zeros((N, M))
 
         # calculate number of periods in the grating
         Mg = np.floor(M / self.x_pitch)
@@ -6756,7 +6756,7 @@ class WFS:
                     minX = int(self.x_pitch) * (i + 1) - x_width
                     maxX = int(self.x_pitch) * (i + 1) + x_width
                     self.grating[minY:maxY, minX:maxX] = (1 + (-1) ** (i + j) / 2)
-            self.grating = cp.exp(1j*np.pi*self.grating)
+            self.grating = np.exp(1j*np.pi*self.grating)
         # otherwise make a pinhole array
         else:
             # loop through periods in the grating
@@ -6768,7 +6768,7 @@ class WFS:
                     maxX = int(self.x_pitch) * (i + 1) + x_width
                     self.grating[minY:maxY, minX:maxX] = 1
         # multiply beam by grating
-        beam.wave *= self.grating
+        beam.wave *= cp.asarray(self.grating)
 
 
 class WFS_Device(WFS):
