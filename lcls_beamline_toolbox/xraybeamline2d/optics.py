@@ -813,7 +813,7 @@ class Crystal(Mirror):
         print("unwrapping phase")
         # unwrapped = unwrap_phase(np.angle(cp.asnumpy(wavefront)))
         tic = time.perf_counter()
-        unwrapped = Util.unwrap_phase_gpu(cp.angle(wavefront), mask)
+        unwrapped = Util.unwrap_phase_gpu(cp.angle(wavefront), mask, eps=1e-3)
         toc = time.perf_counter()
         print('phase unwrapping took {} seconds'.format(toc-tic))
         print("phase unwrapped")

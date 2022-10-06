@@ -86,7 +86,7 @@ class Util:
         return out
 
     @staticmethod
-    def unwrap_phase_gpu(psi, weight):
+    def unwrap_phase_gpu(psi, weight, eps=1e-8):
 
         N, M = cp.shape(psi)
         dx = cp.hstack((Util.wrapToPi(cp.diff(psi, axis=1)), cp.zeros((N, 1))))
@@ -101,7 +101,6 @@ class Util:
         rk = cp.diff(WWdx2, axis=1) + cp.diff(WWdy2, axis=0)
         normR0 = cp.linalg.norm(rk.flatten())
 
-        eps = 1e-8
         k = 0
         phi = cp.zeros_like(psi)
 
