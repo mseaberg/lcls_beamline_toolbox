@@ -799,7 +799,7 @@ class Crystal(Mirror):
         k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
 
         # calculate gradient of wavefront
-        wavefront = np.copy(beam.wave)
+        wavefront = cp.copy(beam.wave)
 
         if beam.focused_x:
             print('subtracting horizontal second order')
@@ -812,7 +812,10 @@ class Crystal(Mirror):
 
         print("unwrapping phase")
         # unwrapped = unwrap_phase(np.angle(cp.asnumpy(wavefront)))
+        tic = time.perf_counter()
         unwrapped = Util.unwrap_phase_gpu(cp.angle(wavefront), mask)
+        toc = time.perf_counter()
+        print('phase unwrapping took {} seconds'.format(toc-tic))
         print("phase unwrapped")
 
         beam_slope_error_y, beam_slope_error_x = cp.gradient(unwrapped,
