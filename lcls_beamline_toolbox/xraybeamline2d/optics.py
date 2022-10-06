@@ -4412,7 +4412,7 @@ class PPM:
         coeff = fit_params['coeff']
 
         # add defocus to wavefront fit
-        full_wave = fit_object.wavefront_fit(coeff) + px * x**2 + py * y**2
+        full_wave = fit_object.wavefront_fit(coeff) + cp.asnumpy(px * x**2 + py * y**2)
 
         # output. See method docstring for descriptions.
         wfs_data2D = {

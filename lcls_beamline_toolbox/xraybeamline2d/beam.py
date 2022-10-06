@@ -157,7 +157,7 @@ class Beam:
             if 'dy' in beam_params.keys():
                 self.dy = beam_params['dy']
             else:
-                self.dy = cp.copy(self.dx)
+                self.dy = np.copy(self.dx)
             # check if z0x was provided, otherwise default to 0
             if 'z0x' in beam_params.keys():
                 self.zx = beam_params['z0x']

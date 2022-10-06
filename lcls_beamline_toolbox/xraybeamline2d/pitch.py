@@ -634,7 +634,7 @@ class TalbotImage:
         """
 
         # get WFS parameters
-        dg = param['dg']
+        dg = cp.asnumpy(param['dg'])
         fraction = param['fraction']
         dx = param['dx']
         zT = param['zT']
@@ -687,8 +687,8 @@ class TalbotImage:
 
         # find peaks in Fourier space
         if cp.sum(cp.abs(h_thresh)) > 0 and cp.sum(cp.abs(v_thresh)) > 0:
-            h_peak = cp.asnumpy(cp.sum(h_thresh * fx) / cp.sum(cp.abs(h_thresh)))
-            v_peak = cp.asnumpy(cp.sum(v_thresh * fy) / cp.sum(cp.abs(v_thresh)))
+            h_peak = cp.sum(h_thresh * fx) / cp.sum(cp.abs(h_thresh))
+            v_peak = cp.sum(v_thresh * fy) / cp.sum(cp.abs(v_thresh))
 
             # find centroid off-axis
             h_peak_y = cp.sum(h_thresh * fy) / cp.sum(cp.abs(h_thresh))
@@ -723,8 +723,8 @@ class TalbotImage:
 
         # find peaks in Fourier space (centroid)
         if cp.sum(cp.abs(h_thresh)) > 0 and cp.sum(cp.abs(v_thresh)) > 0:
-            h_peak = cp.asnumpy(cp.sum(h_thresh * fx) / cp.sum(cp.abs(h_thresh)))
-            v_peak = cp.asnumpy(cp.sum(v_thresh * fy) / cp.sum(cp.abs(v_thresh)))
+            h_peak = cp.sum(h_thresh * fx) / cp.sum(cp.abs(h_thresh))
+            v_peak = cp.sum(v_thresh * fy) / cp.sum(cp.abs(v_thresh))
 
         print('h_angle: %.3f' % (angle_h*180/np.pi))
         print('v_angle: %.3f' % (angle_v*180/np.pi))
@@ -734,11 +734,11 @@ class TalbotImage:
         v_width = cp.asnumpy(cp.sqrt(cp.sum(v_thresh * (fy - v_peak) ** 2) / cp.sum(np.abs(v_thresh))))
 
         # calculate average position of horizontal/vertical peaks
-        mid_peak = (v_peak + h_peak) / 2.
-
+        mid_peak = cp.asnumpy((v_peak + h_peak) / 2.)
+        
         # second order coefficients
-        p0x = -np.pi / lambda0 / zT * dg * h_peak
-        p0y = -np.pi / lambda0 / zT * dg * v_peak
+        p0x = -np.pi / lambda0 / zT * dg * cp.asnumpy(h_peak)
+        p0y = -np.pi / lambda0 / zT * dg * cp.asnumpy(v_peak)
 
         # distance to circle of least confusion
         R2 = zT / (1 - dg * mid_peak)
@@ -838,7 +838,7 @@ class TalbotImage:
         # fit gradient using Legendre polynomials (making sure there is intensity above the threshold)
         if np.sum(zeroMask) > 0:
             # fit Legendre coefficients by projecting gradients onto orthonormal basis
-            legendre_coeff = fit_object.coeff_from_grad(cp.asnumpy(h_grad2), cp.asnumpy(v_grad2), dx2, zeroMask).flatten()
+            legendre_coeff = fit_object.coeff_from_grad(cp.asnumpy(h_grad2), cp.asnumpy(v_grad2), dx2, cp.asnumpy(zeroMask)).flatten()
         else:
             # just set everything to zero if intensity is too low
             legendre_coeff = np.zeros(fit_object.P)
@@ -847,7 +847,7 @@ class TalbotImage:
         wave = fit_object.wavefront_fit(legendre_coeff)
 
         # recovered beam
-        recovered = np.exp(1j * wave) * np.sqrt(zero_order) * zeroMask
+        recovered = cp.exp(1j * cp.asarray(wave)) * cp.sqrt(zero_order) * zeroMask
 
         px = grad_param['p0x'] + np.pi / lambda0 / zT
         py = grad_param['p0y'] + np.pi / lambda0 / zT
@@ -867,7 +867,7 @@ class TalbotImage:
 
         N,M = np.shape(recovered)        
 
-        recovered2 = np.zeros((512,512),dtype=complex)
+        recovered2 = cp.zeros((512,512),dtype=complex)
         recovered2[int(256-N/2):int(256+N/2),int(256-M/2):int(256+M/2)] = recovered
 
         recovered_beam = Beam(initial_beam=recovered2, beam_params=beam_parameters)
