@@ -143,7 +143,7 @@ class TalbotLineout:
 
         # get Legendre coefficients. Nothing is masked out for now.
         #W = fit_object.coeff_from_grad(grad, dx2, np.ones(np.size(grad), dtype=bool)).flatten()
-        W = fit_object.coeff_from_grad(grad, dx2, zeroMask).flatten()
+        W = fit_object.coeff_from_grad(cp.asnumpy(grad), dx2, cp.asnumpy(zeroMask)).flatten()
 
         # second order coefficient based on distance to focus
         max_x = dx2*np.size(xcoord)/2
@@ -229,7 +229,7 @@ class TalbotLineout:
         """
 
         # get WFS parameters        
-        dg = param['dg']
+        dg = cp.asnumpy(param['dg'])
         fraction = param['fraction']
         dx = param['dx']
         zT = param['zT']
@@ -278,11 +278,12 @@ class TalbotLineout:
         # thresholding of masked Fourier peaks to calculate peak location
         h_2 = Util.threshold_array(h_2, .2)
         # find peaks in Fourier space
-        h_peak = cp.asnumpy(cp.sum(h_2*fx)/cp.sum(cp.abs(h_2)))
+        h_peak = cp.sum(h_2*fx)/cp.sum(cp.abs(h_2))
 
         # find peak widths in Fourier space
         h_width = cp.asnumpy(cp.sqrt(cp.sum(h_2*(fx-h_peak)**2)/cp.sum(cp.abs(h_2))))
 
+        h_peak = cp.asnumpy(h_peak)
         # max spatial frequency
         fxmax = 1.0/(dx*2)
 
