@@ -310,7 +310,7 @@ class Beam:
         # x = k_beam[0]/k_beam[2] * dz * k_beam[2]
         # z = dz * np.cos(alpha). cos(alpha) = k[2]
         # self.global_z += k_beam[2] * dz
-        self.global_x += k_beam[0] * dz
+        self.global_x += cp.asnumpy(k_beam[0]) * dz
         self.global_y += k_beam[1] * dz
         self.global_z += k_beam[2] * dz
 
