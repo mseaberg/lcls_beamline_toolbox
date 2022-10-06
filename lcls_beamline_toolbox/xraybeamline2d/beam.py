@@ -520,12 +520,12 @@ class Beam:
             # if we're not focused and this is the first step, calculate current Rayleigh length estimate
             if not self.focused_x and index == 0:
 
-                xWidth = np.abs(self.x[0,0] - self.x[0,-1])
+                xWidth = cp.asnumpy(np.abs(self.x[0,0] - self.x[0,-1]))
                 self.zRx = (self.scaleFactor ** 2 * self.lambda0 * (-self.zx) ** 2 / np.pi / ((xWidth / 2) ** 2) *
                             self.rangeFactor)
             # if we're not focused and this is the first step, calculate current Rayleigh length estimate
             if not self.focused_y and index == 0:
-                yWidth = np.abs(self.y[0,0] - self.y[-1,0])
+                yWidth = cp.asnumpy(np.abs(self.y[0,0] - self.y[-1,0]))
                 self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
                             self.rangeFactor)
 
@@ -731,7 +731,7 @@ class Beam:
                 self.rescale_y_noshift(mag_y)
 
                 # update beam geometric parameters based on propagation distance
-                self.update_parameters(prop_step)
+                self.update_parameters(cp.asnumpy(prop_step))
 
                 # check if we need to add phase near focus, and alter the focus state
                 if transition_to_x_focus:
