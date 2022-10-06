@@ -136,6 +136,57 @@ class Mirror:
         # set some calculated attributes
         self.projectWidth = np.abs(self.length * (self.alpha + self.delta))
 
+    def interpolate_shape(self, zi, yi, zi_1d, yi_1d, total_alpha):
+
+        shape_error_out = cp.zeros_like(zi)
+        if self.shapeError is not None:
+            # get shape of shape error input
+            mirror_shape = cp.shape(self.shapeError)
+
+            # assume this is the central line shaper error along the long axis if only 1D
+            if np.size(mirror_shape) == 1:
+                # assume this is the central line and it's the same across the mirror width
+                Ms = mirror_shape[0]
+                # mirror coordinates (beam coordinates)
+                max_zs = self.length / 2
+                # mirror coordinates
+                zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
+                # 1D interpolation onto beam coordinates
+                central_line = cp.interp(zi_1d - self.dx / cp.tan(total_alpha), zs, self.shapeError)
+                # tile onto mirror short axis direction
+                shape_error_out = cp.tile(central_line, (yi_1d.size, 1))
+            # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
+            else:
+                # shape error array shape
+                Ns = mirror_shape[0]
+                Ms = mirror_shape[1]
+                # mirror coordinates
+                max_zs = self.length / 2
+                # mirror coordinates
+                zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
+                max_ys = self.width / 2
+                ys = cp.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
+
+                # 2D interpolation onto beam coordinates
+                # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
+                # shapeError2 = f(zi_1d - self.dx / cp.tan(total_alpha), yi_1d - self.dy)
+                zs,ys = cp.meshgrid(zs,ys)
+
+                coords_z = (((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
+                coords_y = (((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
+
+                coords = cp.zeros((2,cp.size(zi)))
+                coords[0,:] = coords_z.flatten()
+                coords[1,:] = coords_y.flatten()
+
+                shape_error_out = cp.reshape(ndimage.map_coordinates(self.shapeError, coords), cp.shape(zi))
+
+        ## this might be slightly wrong...
+        if self.orientation == 1 or self.orientation == 3:
+            shape_error_out = np.rot90(shape_error_out)
+
+        return shape_error_out
+
     def enable_motors(self, *axes):
         """
         Method to add additional motors
@@ -301,48 +352,51 @@ class Mirror:
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k = self.rotation(k_i)
 
+        # interpolate shape error onto beam coordinates
+        shapeError2 = self.interpolate_shape(zi, yi, zi_1d, yi_1d, total_alpha)
+
         # mirror shape error interpolation onto beam coordinates (if applicable)
-        if self.shapeError is not None:
-            # get shape of shape error input
-            mirror_shape = cp.shape(self.shapeError)
-
-            # assume this is the central line shaper error along the long axis if only 1D
-            if np.size(mirror_shape) == 1:
-                # assume this is the central line and it's the same across the mirror width
-                Ms = mirror_shape[0]
-                # mirror coordinates (beam coordinates)
-                max_zs = self.length / 2
-                # mirror coordinates
-                zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
-                # 1D interpolation onto beam coordinates
-                central_line = cp.interp(zi_1d - self.dx / cp.tan(total_alpha), zs, self.shapeError)
-                # tile onto mirror short axis direction
-                shapeError2 = cp.tile(central_line, (yi_1d.size, 1))
-            # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
-            else:
-                # shape error array shape
-                Ns = mirror_shape[0]
-                Ms = mirror_shape[1]
-                # mirror coordinates
-                max_xs = self.length / 2
-                # mirror coordinates
-                zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
-                max_ys = self.width / 2
-                ys = cp.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
-
-                # 2D interpolation onto beam coordinates
-                # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
-                # shapeError2 = f(zi_1d - self.dx / cp.tan(total_alpha), yi_1d - self.dy)
-                zs,ys = cp.meshgrid(zs,ys)
-
-                coords_z = (((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
-                coords_y = (((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
-
-                coords = cp.zeros((2,cp.size(zi)))
-                coords[0,:] = coords_z.flatten()
-                coords[1,:] = coords_y.flatten()
-
-                shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, coords), cp.shape(zi))
+        # if self.shapeError is not None:
+        #     # get shape of shape error input
+        #     mirror_shape = cp.shape(self.shapeError)
+        #
+        #     # assume this is the central line shaper error along the long axis if only 1D
+        #     if np.size(mirror_shape) == 1:
+        #         # assume this is the central line and it's the same across the mirror width
+        #         Ms = mirror_shape[0]
+        #         # mirror coordinates (beam coordinates)
+        #         max_zs = self.length / 2
+        #         # mirror coordinates
+        #         zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
+        #         # 1D interpolation onto beam coordinates
+        #         central_line = cp.interp(zi_1d - self.dx / cp.tan(total_alpha), zs, self.shapeError)
+        #         # tile onto mirror short axis direction
+        #         shapeError2 = cp.tile(central_line, (yi_1d.size, 1))
+        #     # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
+        #     else:
+        #         # shape error array shape
+        #         Ns = mirror_shape[0]
+        #         Ms = mirror_shape[1]
+        #         # mirror coordinates
+        #         max_xs = self.length / 2
+        #         # mirror coordinates
+        #         zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+        #         max_ys = self.width / 2
+        #         ys = cp.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
+        #
+        #         # 2D interpolation onto beam coordinates
+        #         # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
+        #         # shapeError2 = f(zi_1d - self.dx / cp.tan(total_alpha), yi_1d - self.dy)
+        #         zs,ys = cp.meshgrid(zs,ys)
+        #
+        #         coords_z = (((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
+        #         coords_y = (((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
+        #
+        #         coords = cp.zeros((2,cp.size(zi)))
+        #         coords[0,:] = coords_z.flatten()
+        #         coords[1,:] = coords_y.flatten()
+        #
+        #         shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, coords), cp.shape(zi))
 
 
         # figure out aperturing due to mirror's finite size
@@ -1103,46 +1157,49 @@ class Crystal(Mirror):
 
 
         # mirror shape error interpolation onto beam coordinates (if applicable)
-        if self.shapeError is not None:
-            # get shape of shape error input
-            mirror_shape = cp.shape(self.shapeError)
+        # if self.shapeError is not None:
+        #     # get shape of shape error input
+        #     mirror_shape = cp.shape(self.shapeError)
+        #
+        #     # assume this is the central line shaper error along the long axis if only 1D
+        #     if np.size(mirror_shape) == 1:
+        #         # assume this is the central line and it's the same across the mirror width
+        #         Ms = mirror_shape[0]
+        #         # mirror coordinates (beam coordinates)
+        #         max_zs = self.length / 2
+        #         # mirror coordinates
+        #         zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
+        #         # 1D interpolation onto beam coordinates
+        #         central_line = cp.interp(zi_1d - self.dx / cp.tan(total_alpha), zs, self.shapeError)
+        #         # tile onto mirror short axis direction
+        #         shapeError2 = cp.tile(central_line, (cp.size(yi_1d), 1))
+        #     # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
+        #     else:
+        #         # shape error array shape
+        #         Ns = mirror_shape[0]
+        #         Ms = mirror_shape[1]
+        #         # mirror coordinates
+        #         max_xs = self.length / 2
+        #         # mirror coordinates
+        #         zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+        #         max_ys = self.width / 2
+        #         ys = cp.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
+        #
+        #         # 2D interpolation onto beam coordinates
+        #         # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
+        #         #
+        #         # shapeError2 = f(zi_1d - self.dx / cp.tan(total_alpha), yi_1d - self.dy)
+        #
+        #         zs,ys = cp.meshgrid(zs,ys)
+        #
+        #         coords_z = cp.ndarray.flatten(
+        #             ((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
+        #         coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
+        #
+        #         shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y, coords_z]), cp.shape(zi))
 
-            # assume this is the central line shaper error along the long axis if only 1D
-            if np.size(mirror_shape) == 1:
-                # assume this is the central line and it's the same across the mirror width
-                Ms = mirror_shape[0]
-                # mirror coordinates (beam coordinates)
-                max_zs = self.length / 2
-                # mirror coordinates
-                zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
-                # 1D interpolation onto beam coordinates
-                central_line = cp.interp(zi_1d - self.dx / cp.tan(total_alpha), zs, self.shapeError)
-                # tile onto mirror short axis direction
-                shapeError2 = cp.tile(central_line, (cp.size(yi_1d), 1))
-            # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
-            else:
-                # shape error array shape
-                Ns = mirror_shape[0]
-                Ms = mirror_shape[1]
-                # mirror coordinates
-                max_xs = self.length / 2
-                # mirror coordinates
-                zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
-                max_ys = self.width / 2
-                ys = cp.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
-
-                # 2D interpolation onto beam coordinates
-                # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
-                #
-                # shapeError2 = f(zi_1d - self.dx / cp.tan(total_alpha), yi_1d - self.dy)
-
-                zs,ys = cp.meshgrid(zs,ys)
-
-                coords_z = cp.ndarray.flatten(
-                    ((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
-                coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
-
-                shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y, coords_z]), cp.shape(zi))
+        # interpolate shape error onto beam coordinates
+        shapeError2 = self.interpolate_shape(zi, yi, zi_1d, yi_1d, total_alpha)
 
         toc = time.perf_counter()
 
@@ -1977,7 +2034,7 @@ class CurvedMirror(Mirror):
         # actual angle of incidence
         self.total_alpha = self.alpha + self.delta
 
-        shapeError2 = cp.zeros_like(beam.x)
+        # shapeError2 = cp.zeros_like(beam.x)
 
         # check distance to beam focus
         self.projectWidth = np.abs(self.length * (self.alpha + self.delta))
@@ -2058,50 +2115,53 @@ class CurvedMirror(Mirror):
         k_i = np.array([k_ix, k_iy, k_iz])
         delta_k = self.rotation(k_i)
 
+        # interpolate shape error onto beam coordinates (if it exists)
+        shapeError2 = self.interpolate_shape(zi,yi,zi_1d,yi_1d,self.total_alpha)
+
         # mirror shape error interpolation onto beam coordinates (if applicable)
-        if self.shapeError is not None:
-            # get shape of shape error input
-            mirror_shape = np.shape(self.shapeError)
-
-            # assume this is the central line shaper error along the long axis if only 1D
-            if np.size(mirror_shape) == 1:
-                # assume this is the central line and it's the same across the mirror width
-                Ms = mirror_shape[0]
-                # mirror coordinates (beam coordinates)
-                max_zs = self.length / 2
-                # mirror coordinates
-                zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
-                # 1D interpolation onto beam coordinates
-                central_line = cp.interp(zi_1d - self.dx / cp.tan(self.total_alpha), zs, self.shapeError)
-                # tile onto mirror short axis direction
-                shapeError2 = cp.tile(central_line, (np.size(yi_1d), 1))
-            # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
-            else:
-                # shape error array shape
-                Ns = mirror_shape[0]
-                Ms = mirror_shape[1]
-                # mirror coordinates
-                max_xs = self.length / 2
-                # mirror coordinates
-                zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
-                max_ys = self.width / 2
-                ys = cp.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
-
-                # 2D interpolation onto beam coordinates
-                # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
-                # shapeError2 = f(zi_1d - self.dx / cp.tan(self.total_alpha), yi_1d - self.dy)
-
-                zs,ys = cp.meshgrid(zs,ys)
-
-                coords_z = cp.ndarray.flatten(
-                    ((zi - self.dx / cp.tan(self.total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
-                coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
-
-                shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y, coords_z]), cp.shape(zi))
-
-                ## this might be slightly wrong...
-                if self.orientation==1 or self.orientation==3:
-                    shapeError2 = np.rot90(shapeError2)
+        # if self.shapeError is not None:
+        #     # get shape of shape error input
+        #     mirror_shape = np.shape(self.shapeError)
+        #
+        #     # assume this is the central line shaper error along the long axis if only 1D
+        #     if np.size(mirror_shape) == 1:
+        #         # assume this is the central line and it's the same across the mirror width
+        #         Ms = mirror_shape[0]
+        #         # mirror coordinates (beam coordinates)
+        #         max_zs = self.length / 2
+        #         # mirror coordinates
+        #         zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
+        #         # 1D interpolation onto beam coordinates
+        #         central_line = cp.interp(zi_1d - self.dx / cp.tan(self.total_alpha), zs, self.shapeError)
+        #         # tile onto mirror short axis direction
+        #         shapeError2 = cp.tile(central_line, (np.size(yi_1d), 1))
+        #     # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
+        #     else:
+        #         # shape error array shape
+        #         Ns = mirror_shape[0]
+        #         Ms = mirror_shape[1]
+        #         # mirror coordinates
+        #         max_xs = self.length / 2
+        #         # mirror coordinates
+        #         zs = cp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+        #         max_ys = self.width / 2
+        #         ys = cp.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
+        #
+        #         # 2D interpolation onto beam coordinates
+        #         # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
+        #         # shapeError2 = f(zi_1d - self.dx / cp.tan(self.total_alpha), yi_1d - self.dy)
+        #
+        #         zs,ys = cp.meshgrid(zs,ys)
+        #
+        #         coords_z = cp.ndarray.flatten(
+        #             ((zi - self.dx / cp.tan(self.total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
+        #         coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
+        #
+        #         shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y, coords_z]), cp.shape(zi))
+        #
+        #         ## this might be slightly wrong...
+        #         if self.orientation==1 or self.orientation==3:
+        #             shapeError2 = np.rot90(shapeError2)
 
         # figure out aperturing due to mirror's finite size
         z_mask = (cp.abs(zi - self.dx / np.tan(self.total_alpha)) < self.length / 2)
