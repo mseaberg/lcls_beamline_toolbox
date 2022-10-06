@@ -139,7 +139,7 @@ class Util:
 
             # norm1[k - 1] = cp.linalg.norm(rk.flatten())
             # print(cp.linalg.norm(rk.flatten()))
-            if cp.linalg.norm(rk.flatten()) < eps * normR0:
+            if cp.linalg.norm(rk.flatten()) < eps * normR0 or k>20:
                 print('stopping')
 
                 break
