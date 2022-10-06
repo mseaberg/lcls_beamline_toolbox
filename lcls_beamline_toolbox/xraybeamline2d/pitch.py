@@ -241,13 +241,13 @@ class TalbotLineout:
         dfx = 1./N
 
         # spatial frequencies
-        fx = np.linspace(-N/2, N/2-1, N, dtype=float) * dfx
+        fx = cp.linspace(-N/2, N/2-1, N, dtype=float) * dfx
 
         # Mask around the peak
         mask0 = (fx - self.fc)**2 < (self.fc / 2 / fraction)**2
 
         # fourier transform
-        fourier_plane = Util.nfft1(self.lineout)
+        fourier_plane = Util.nfft1(cp.asarray(self.lineout))
 
         # FT with everything but the peak masked out
         x_fft = fourier_plane * mask0
@@ -265,10 +265,10 @@ class TalbotLineout:
         h_2 = Util.threshold_array(x_fft, .2)
 
         # set up coordinates (Talbot image plane) units are pixels
-        xp = np.linspace(-N/2, N/2-1, N, dtype=float)
+        xp = cp.linspace(-N/2, N/2-1, N, dtype=float)
 
         # find peaks in Fourier space
-        h_peak = np.sum(h_2 * fx) / np.sum(np.abs(h_2))
+        h_peak = cp.asnumpy(cp.sum(h_2 * fx) / cp.sum(np.abs(h_2)))
 
         # updated mask centered on peak
         h_mask = (fx - h_peak)**2 < (self.fc / 2 / fraction)**2
@@ -278,10 +278,10 @@ class TalbotLineout:
         # thresholding of masked Fourier peaks to calculate peak location
         h_2 = Util.threshold_array(h_2, .2)
         # find peaks in Fourier space
-        h_peak = np.sum(h_2*fx)/np.sum(np.abs(h_2))
+        h_peak = cp.asnumpy(cp.sum(h_2*fx)/cp.sum(np.abs(h_2)))
 
         # find peak widths in Fourier space
-        h_width = np.sqrt(np.sum(h_2*(fx-h_peak)**2)/np.sum(np.abs(h_2)))
+        h_width = cp.asnumpy(cp.sqrt(cp.sum(h_2*(fx-h_peak)**2)/cp.sum(cp.abs(h_2))))
 
         # max spatial frequency
         fxmax = 1.0/(dx*2)
@@ -294,10 +294,10 @@ class TalbotLineout:
         p0 = np.pi / lambda0 / R2
 
         # define linear phase related to approximate peak location
-        h_grating = np.exp(-1j * 2. * np.pi * h_peak * xp)
+        h_grating = cp.exp(-1j * 2. * np.pi * h_peak * xp)
 
         # phase gradient back in real space, multiplied by linear phase to remove linear term
-        h_grad = np.conj(Util.infft1(h_mask) * h_grating)
+        h_grad = cp.conj(Util.infft1(h_mask) * h_grating)
 
         # back to Fourier space, now peaks have been shifted to zero
         h_fourier = Util.nfft1(h_grad)
@@ -311,10 +311,10 @@ class TalbotLineout:
         zero_fourier = zero_fourier[int(np.floor(N / 2 - N / down)):int(np.floor(N / 2 + N / down))]
 
         # downsampled array size
-        N2 = np.size(h_fourier)
+        N2 = cp.size(h_fourier)
 
         # downsampled image coordinates
-        xp = np.linspace(-N2 / 2, N2 / 2 - 1, N2)
+        xp = cp.linspace(-N2 / 2, N2 / 2 - 1, N2)
         # multiply by original pixel size, and scale by amount of downsampling.
         x1 = xp * dx * N / N2
 
