@@ -1708,28 +1708,28 @@ class CurvedMirror(Mirror):
         if q>=0 and p>=0:
 
             # calculated ellipse values
-            L = cp.sqrt(p ** 2 + q ** 2 + 2 * p * q * cp.cos(2 * alpha))
+            L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
             a2 = (p + q) ** 2 / 4  # a^2 for ellipse
             b2 = a2 - (L / 2) ** 2  # b^2 for ellipse
 
             # angle of incident beam
-            beta = np.arcsin(cp.sin(2 * alpha) * q / L)
+            beta = np.arcsin(np.sin(2 * alpha) * q / L)
 
             # mirror angle
             delta = alpha - beta
 
             # mirror offset from ellipse center in x
-            x0 = -p * q / L * cp.sin(2 * alpha)
+            x0 = -p * q / L * np.sin(2 * alpha)
             if p > q:
-                z0 = cp.sqrt(a2) * cp.sqrt(1 - x0 ** 2 / b2)
+                z0 = np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
             else:
-                z0 = -cp.sqrt(a2) * cp.sqrt(1 - x0 ** 2 / b2)
+                z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
 
             # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-            z1 = cp.linspace(z0 - self.length / 2 * cp.cos(delta), z0 + self.length / 2 * cp.cos(delta), N)
+            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
             # ellipse equation (using center of ellipse as origin)
 
-            x1 = -cp.sqrt(b2) * cp.sqrt(1 - z1 ** 2 / a2) * np.sign(alpha)
+            x1 = -np.sqrt(b2) * np.sqrt(1 - z1 ** 2 / a2) * np.sign(alpha)
 
             return z1, x1, z0, x0, delta
 
@@ -1737,7 +1737,7 @@ class CurvedMirror(Mirror):
         elif q<0 and p>=0:
             print('hyperbolic')
             # calculated hyperbola values
-            L = cp.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*cp.cos(2*alpha))
+            L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
             print('L %.2f' % L)
             # a2 = (p-q)**2/4
             a = -(np.abs(q) - np.abs(p))/2
@@ -1746,24 +1746,24 @@ class CurvedMirror(Mirror):
             b2 = c2-a2
             print(b2)
             # angle of incident beam
-            beta = np.arcsin(cp.sin(2*alpha)*np.abs(q)/L)
+            beta = np.arcsin(np.sin(2*alpha)*np.abs(q)/L)
             print('beta %.2e' % beta)
 
             # mirror angle
             delta = alpha + beta
 
             # mirror offset from hyperbola center in x
-            x0 = -p*q/L*cp.sin(2*alpha)
+            x0 = -p*q/L*np.sin(2*alpha)
             if np.abs(p) > np.abs(q):
-                z0 = cp.sqrt(a2) * cp.sqrt(1+x0**2/b2)
+                z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
             else:
-                z0 = -cp.sqrt(a2) * cp.sqrt(1+x0**2/b2)
+                z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
 
             # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-            z1 = cp.linspace(z0 - self.length / 2 * cp.cos(delta), z0 + self.length /2 * cp.cos(delta), N)
+            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length /2 * np.cos(delta), N)
 
             # hyperbola equation (using center of hyperbola as origin)
-            x1 = cp.sqrt(b2) * cp.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
+            x1 = np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
 
             return z1, x1, z0, x0, delta
 
@@ -1771,7 +1771,7 @@ class CurvedMirror(Mirror):
         elif p<0 and q>=0:
             print('hyperbolic')
             # calculated hyperbola values
-            L = cp.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * cp.cos(2 * alpha))
+            L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
             print('L %.2f' % L)
             # a2 = (p-q)**2/4
             a = -(np.abs(q) - np.abs(p)) / 2
@@ -1780,24 +1780,24 @@ class CurvedMirror(Mirror):
             b2 = c2 - a2
             print(b2)
             # angle of incident beam
-            beta = np.arcsin(cp.sin(2 * alpha) * np.abs(q) / L)
+            beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
             print('beta %.2e' % beta)
 
             # mirror angle
             delta = alpha + beta
 
             # mirror offset from hyperbola center in x
-            x0 = p * q / L * cp.sin(2 * alpha)
+            x0 = p * q / L * np.sin(2 * alpha)
             if np.abs(p) > np.abs(q):
-                z0 = -cp.sqrt(a2) * cp.sqrt(1 + x0 ** 2 / b2)
+                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
             else:
-                z0 = cp.sqrt(a2) * cp.sqrt(1 + x0 ** 2 / b2)
+                z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
 
             # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-            z1 = cp.linspace(z0 - self.length / 2 * cp.cos(delta), z0 + self.length / 2 * cp.cos(delta), N)
+            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
 
             # hyperbola equation (using center of hyperbola as origin)
-            x1 = -cp.sqrt(b2) * cp.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+            x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
 
             return z1, x1, z0, x0, delta
 
@@ -1877,48 +1877,48 @@ class CurvedMirror(Mirror):
 
         if self.orientation == 0:
             # x position of upstream focus
-            xs = beam.cx + beam.ax * zs - self.dx / cp.cos(self.alpha + self.delta)
+            xs = beam.cx + beam.ax * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zx
 
-            cz -= self.dx / cp.tan(self.total_alpha)
+            cz -= self.dx / np.tan(self.total_alpha)
 
             # effective beam z at center of mirror
-            z_eff_c = beamz - cz*cp.cos(self.total_alpha)
+            z_eff_c = beamz - cz*np.cos(self.total_alpha)
             # effective beam angle at center of mirror
-            alpha_eff_c = -beam.ax - np.arctan(-cz*cp.sin(self.total_alpha)/z_eff_c)
+            alpha_eff_c = -beam.ax - np.arctan(-cz*np.sin(self.total_alpha)/z_eff_c)
 
         elif self.orientation == 1:
-            xs = beam.cy + beam.ay * zs - self.dx / cp.cos(self.alpha + self.delta)
+            xs = beam.cy + beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zy
 
-            cz -= self.dx / cp.tan(self.total_alpha)
+            cz -= self.dx / np.tan(self.total_alpha)
 
             # effective beam z at center of mirror
-            z_eff_c = beamz - cz * cp.cos(self.total_alpha)
+            z_eff_c = beamz - cz * np.cos(self.total_alpha)
             # effective beam angle at center of mirror
-            alpha_eff_c = -beam.ay - np.arctan(-cz * cp.sin(self.total_alpha) / z_eff_c)
+            alpha_eff_c = -beam.ay - np.arctan(-cz * np.sin(self.total_alpha) / z_eff_c)
 
         elif self.orientation == 2:
-            xs = -beam.cx - beam.ax * zs - self.dx / cp.cos(self.alpha + self.delta)
+            xs = -beam.cx - beam.ax * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zx
 
-            cz -= self.dx / cp.tan(self.total_alpha)
+            cz -= self.dx / np.tan(self.total_alpha)
 
             # effective beam z at center of mirror
-            z_eff_c = beamz - cz * cp.cos(self.total_alpha)
+            z_eff_c = beamz - cz * np.cos(self.total_alpha)
             # effective beam angle at center of mirror
-            alpha_eff_c = beam.ax - np.arctan(-cz * cp.sin(self.total_alpha) / z_eff_c)
+            alpha_eff_c = beam.ax - np.arctan(-cz * np.sin(self.total_alpha) / z_eff_c)
 
         elif self.orientation == 3:
-            xs = -beam.cy - beam.ay * zs - self.dx / cp.cos(self.alpha + self.delta)
+            xs = -beam.cy - beam.ay * zs - self.dx / np.cos(self.alpha + self.delta)
             beamz = beam.zy
 
-            cz -= self.dx / cp.tan(self.total_alpha)
+            cz -= self.dx / np.tan(self.total_alpha)
 
             # effective beam z at center of mirror
-            z_eff_c = beamz - cz * cp.cos(self.total_alpha)
+            z_eff_c = beamz - cz * np.cos(self.total_alpha)
             # effective beam angle at center of mirror
-            alpha_eff_c = beam.ay - np.arctan(-cz * cp.sin(self.total_alpha) / z_eff_c)
+            alpha_eff_c = beam.ay - np.arctan(-cz * np.sin(self.total_alpha) / z_eff_c)
 
         # calculate ellipse based on design parameters
         z1, x1, z0, x0, delta1 = self.calc_ellipse(self.p, self.q, self.alpha)
@@ -1931,10 +1931,10 @@ class CurvedMirror(Mirror):
         zI, xI, z0I, x0I, deltaI = self.calc_ellipse(z_eff_c, self.q, alpha_total)
 
         # rotate actual ellipse into mirror coordinates
-        x1m = -cp.sin(delta1) * (z1 - z0) + cp.cos(delta1) * (x1 - x0)# + x0
+        x1m = -np.sin(delta1) * (z1 - z0) + np.cos(delta1) * (x1 - x0)# + x0
 
         # rotate ideal ellipse into mirror coordinates
-        xIm = -cp.sin(deltaI) * (zI - z0I) + cp.cos(deltaI) * (xI - x0I)# + x0
+        xIm = -np.sin(deltaI) * (zI - z0I) + np.cos(deltaI) * (xI - x0I)# + x0
 
         # effective height error
         height_error = x1m - xIm
@@ -1984,14 +1984,14 @@ class CurvedMirror(Mirror):
             # small change to total angle of incidence
             self.total_alpha += -beam.ax
 
-            k_ix = -cp.sin(self.alpha - beam.ax)
-            k_iy = cp.sin(beam.ay)
-            k_iz = cp.sqrt(1 - k_ix ** 2 - k_iy ** 2)
+            k_ix = -np.sin(self.alpha - beam.ax)
+            k_iy = np.sin(beam.ay)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
 
             # coordinate mapping for interpolation
-            zi = beam.x / cp.sin(self.total_alpha)
+            zi = beam.x / np.sin(self.total_alpha)
             zi_1d = zi[0, :]
-            cz = beam.cx / cp.sin(self.total_alpha)
+            cz = beam.cx / np.sin(self.total_alpha)
             yi = beam.y
             yi_1d = yi[:, 0]
             cy = beam.cy
@@ -2002,14 +2002,14 @@ class CurvedMirror(Mirror):
             # small change to total angle of incidence
             self.total_alpha += -beam.ay
 
-            k_ix = -cp.sin(self.alpha - beam.ay)
-            k_iy = -cp.sin(beam.ax)
-            k_iz = cp.sqrt(1 - k_ix ** 2 - k_iy ** 2)
+            k_ix = -np.sin(self.alpha - beam.ay)
+            k_iy = -np.sin(beam.ax)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
 
             # coordinate mapping for interpolation
-            zi = beam.y / cp.sin(self.total_alpha)
+            zi = beam.y / np.sin(self.total_alpha)
             zi_1d = zi[:, 0]
-            cz = beam.cy / cp.sin(self.total_alpha)
+            cz = beam.cy / np.sin(self.total_alpha)
             yi = -beam.x
             yi_1d = yi[0, :]
             cy = -beam.cx
@@ -2020,14 +2020,14 @@ class CurvedMirror(Mirror):
             # small change to total angle of incidence
             self.total_alpha += beam.ax
 
-            k_ix = -cp.sin(self.alpha + beam.ax)
-            k_iy = -cp.sin(beam.ay)
-            k_iz = cp.sqrt(1 - k_ix ** 2 - k_iy ** 2)
+            k_ix = -np.sin(self.alpha + beam.ax)
+            k_iy = -np.sin(beam.ay)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
 
             # coordinate mapping for interpolation
-            zi = -beam.x / cp.sin(self.total_alpha)
+            zi = -beam.x / np.sin(self.total_alpha)
             zi_1d = zi[0, :]
-            cz = -beam.cx / cp.sin(self.total_alpha)
+            cz = -beam.cx / np.sin(self.total_alpha)
             yi = -beam.y
             yi_1d = yi[:, 0]
             cy = -beam.cy
@@ -2038,14 +2038,14 @@ class CurvedMirror(Mirror):
             # small change to total angle of incidence
             self.total_alpha += beam.ay
 
-            k_ix = -cp.sin(self.alpha + beam.ay)
+            k_ix = -np.sin(self.alpha + beam.ay)
             k_iy = beam.ax
-            k_iz = cp.sqrt(1 - k_ix ** 2 - k_iy ** 2)
+            k_iz = np.sqrt(1 - k_ix ** 2 - k_iy ** 2)
 
             # coordinate mapping for interpolation
-            zi = -beam.y / cp.sin(self.total_alpha)
+            zi = -beam.y / np.sin(self.total_alpha)
             zi_1d = zi[:, 0]
-            cz = -beam.cy / cp.sin(self.total_alpha)
+            cz = -beam.cy / np.sin(self.total_alpha)
             yi = beam.x
             yi_1d = yi[0, :]
             cy = beam.cx
@@ -2090,8 +2090,8 @@ class CurvedMirror(Mirror):
                 zs,ys = cp.meshgrid(zs,ys)
 
                 coords_z = cp.ndarray.flatten(
-                    ((zi - self.dx / cp.tan(self.total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs)))
-                coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys)))
+                    ((zi - self.dx / cp.tan(self.total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
+                coords_y = cp.ndarray.flatten(((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
 
                 shapeError2 = cp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y, coords_z]), cp.shape(zi))
 
@@ -2100,8 +2100,8 @@ class CurvedMirror(Mirror):
                     shapeError2 = np.rot90(shapeError2)
 
         # figure out aperturing due to mirror's finite size
-        z_mask = (np.abs(zi - self.dx / cp.tan(self.total_alpha)) < self.length / 2).astype(float)
-        y_mask = (np.abs(yi - self.dy) < self.width / 2).astype(float)
+        z_mask = (cp.abs(zi - self.dx / np.tan(self.total_alpha)) < self.length / 2)
+        y_mask = (cp.abs(yi - self.dy) < self.width / 2)
 
         mirror = z_mask * y_mask
         # self.misalign = self.delta * self.beamx / self.alpha
@@ -2116,7 +2116,7 @@ class CurvedMirror(Mirror):
         coeff_total = Util.combine_coeff(p_misalign, bend_coeff)
 
         # offset along mirror z-axis
-        offset = cz - self.dx / cp.tan(self.total_alpha)
+        offset = cz - self.dx / np.tan(self.total_alpha)
 
         # get coefficients centered about beam center instead of mirror center
         p_recentered = Util.recenter_coeff(coeff_total, offset)
@@ -2128,7 +2128,7 @@ class CurvedMirror(Mirror):
         total_error = shapeError2 * 1e-9 + Util.polyval_high_order(p_recentered, zi - cz)
 
         # calculate effect on high order phase for glancing incidence mirror
-        phase = -total_error * 4 * np.pi * cp.sin(self.total_alpha) / beam.lambda0
+        phase = -total_error * 4 * np.pi * np.sin(self.total_alpha) / beam.lambda0
 
         # add phase to high_order
         high_order += phase
@@ -2143,13 +2143,13 @@ class CurvedMirror(Mirror):
         p_scaled = Util.poly_change_coords(coeff_total, scale)
 
         # multiply by -2 sin(alpha) to get total path length change
-        p_scaled *= -2 * cp.sin(self.total_alpha)
+        p_scaled *= -2 * np.sin(self.total_alpha)
 
         # Add normal 2nd order phase to p_scaled
         # p_scaled[-3] += -1 / (2 * self.p) - 1 / (2 * self.q)
 
         p_scaled[-3] += (-1 / (2 * (beamz))
-                         - 1 / (2 * (self.q - cz * cp.cos(self.total_alpha))))
+                         - 1 / (2 * (self.q - cz * np.cos(self.total_alpha))))
 
         # account for decentering
         p_scaled = Util.recenter_coeff(p_scaled, offset_scaled)
@@ -2171,7 +2171,7 @@ class CurvedMirror(Mirror):
 
             # adjust beam direction relative to properly aligned axis
             beam.rotate_nominal(delta_azimuth=2 * self.alpha)
-            delta_ax = -2 * beam.ax + np.arcsin(delta_k[0] / cp.cos(self.alpha)) - linear
+            delta_ax = -2 * beam.ax + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
             delta_ay = np.arcsin(delta_k[1])
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
@@ -2186,12 +2186,12 @@ class CurvedMirror(Mirror):
             beam.change_z(new_zx=new_zx)
 
             # account for roll
-            x2 = beam.x * cp.cos(self.roll) + beam.y * cp.sin(self.roll)
+            x2 = beam.x * np.cos(self.roll) + beam.y * np.sin(self.roll)
             shapeChange = np.pi/beam.lambda0/new_zx*(x2**2 - beam.x**2)
             beam.wave *= cp.exp(1j*shapeChange)
 
             # adjust beam position due to mirror de-centering
-            delta_cx = 2 * self.dx * cp.cos(self.total_alpha)
+            delta_cx = 2 * self.dx * np.cos(self.total_alpha)
             beam.cx = -beam.cx + delta_cx
             beam.x = beam.x + delta_cx
 
@@ -2201,7 +2201,7 @@ class CurvedMirror(Mirror):
 
             # adjust beam direction relative to properly aligned axis
             beam.rotate_nominal(delta_elevation=2 * self.alpha)
-            delta_ay = -2 * beam.ay + np.arcsin(delta_k[0] / cp.cos(self.alpha)) - linear
+            delta_ay = -2 * beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
             delta_ax = -np.arcsin(delta_k[1])
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
@@ -2216,12 +2216,12 @@ class CurvedMirror(Mirror):
             beam.change_z(new_zy=new_zy)
 
             # account for roll
-            y2 = -beam.x * cp.sin(-self.roll) + beam.y * cp.cos(-self.roll)
+            y2 = -beam.x * np.sin(-self.roll) + beam.y * np.cos(-self.roll)
             shapeChange = np.pi / beam.lambda0 / new_zy * (y2 ** 2 - beam.y ** 2)
             beam.wave *= cp.exp(1j * shapeChange)
 
             # adjust beam position due to mirror de-centering
-            delta_cy = 2 * self.dx * cp.cos(self.total_alpha)
+            delta_cy = 2 * self.dx * np.cos(self.total_alpha)
             beam.cy = -beam.cy + delta_cy
             beam.y = beam.y + delta_cy
 
@@ -2231,7 +2231,7 @@ class CurvedMirror(Mirror):
 
             # adjust beam direction relative to properly aligned axis
             beam.rotate_nominal(delta_azimuth=-2 * self.alpha)
-            delta_ax = -2 * beam.ax - np.arcsin(delta_k[0] / cp.cos(self.alpha)) + linear
+            delta_ax = -2 * beam.ax - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
             delta_ay = -np.arcsin(delta_k[1])
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
@@ -2246,12 +2246,12 @@ class CurvedMirror(Mirror):
             beam.change_z(new_zx=new_zx)
 
             # account for roll
-            x2 = beam.x * cp.cos(self.roll) + beam.y * cp.sin(self.roll)
+            x2 = beam.x * np.cos(self.roll) + beam.y * np.sin(self.roll)
             shapeChange = np.pi / beam.lambda0 / new_zx * (x2 ** 2 - beam.x ** 2)
             beam.wave *= cp.exp(1j * shapeChange)
 
             # adjust beam position due to mirror de-centering
-            delta_cx = -2 * self.dx * cp.cos(self.total_alpha)
+            delta_cx = -2 * self.dx * np.cos(self.total_alpha)
             beam.cx = -beam.cx + delta_cx
             beam.x = beam.x + delta_cx
 
@@ -2261,7 +2261,7 @@ class CurvedMirror(Mirror):
 
             # adjust beam direction relative to properly aligned axis
             beam.rotate_nominal(delta_elevation=-2 * self.alpha)
-            delta_ay = -2 * beam.ay - np.arcsin(delta_k[0] / cp.cos(self.alpha)) + linear
+            delta_ay = -2 * beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
             delta_ax = np.arcsin(delta_k[1])
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
@@ -2276,12 +2276,12 @@ class CurvedMirror(Mirror):
             beam.change_z(new_zy=new_zy)
 
             # account for roll
-            y2 = -beam.x * cp.sin(-self.roll) + beam.y * cp.cos(-self.roll)
+            y2 = -beam.x * np.sin(-self.roll) + beam.y * np.cos(-self.roll)
             shapeChange = np.pi / beam.lambda0 / new_zy * (y2 ** 2 - beam.y ** 2)
             beam.wave *= cp.exp(1j * shapeChange)
 
             # adjust beam position due to mirror de-centering
-            delta_cy = -2 * self.dx * cp.cos(self.total_alpha)
+            delta_cy = -2 * self.dx * np.cos(self.total_alpha)
             beam.cy = -beam.cy + delta_cy
             beam.y = beam.y + delta_cy
 

@@ -423,7 +423,7 @@ class Util:
         # get polynomial order
         M = np.size(p2) - 1
 
-        values = np.zeros_like(x)
+        values = cp.zeros_like(x)
 
         for num, coeff in enumerate(p2):
             # order of current coefficient
