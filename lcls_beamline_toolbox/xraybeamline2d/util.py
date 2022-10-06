@@ -776,7 +776,7 @@ class Util:
             radii = [first_width] * num_coords
 
         # initialize left hand side of inequality
-        lhs = np.zeros(array_size)
+        lhs = cp.zeros(array_size)
 
         # loop through coordinates
         for f, c, r in zip(frequencies, coordinates, radii):
