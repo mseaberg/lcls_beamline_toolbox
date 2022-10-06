@@ -332,26 +332,37 @@ class LegendreFit2D:
         yf = self.y.flatten()
 
         # initialize Legendre dictionaries
-        leg_x = {
-            0: np.ones(np.size(xf)),
-            1: xf
-            }
-        leg_y = {
-            0: np.ones(np.size(yf)),
-            1: yf
-            }
+        # leg_x = {
+        #     0: np.ones(np.size(xf)),
+        #     1: xf
+        #     }
+        # leg_y = {
+        #     0: np.ones(np.size(yf)),
+        #     1: yf
+        #     }
+        leg_x = {}
+        leg_y = {}
 
-        # iterate through legendres
         if self.order > 1:
 
-            # start recurrence relation for Legendre polynomials
-            # n starts at 1, leg_x first entry is 2
-            # n ends at order. leg_x last entry is order
-            for i in range(self.order - 1):
-                n = i + 1
+            for i in range(self.order + 1):
 
-                leg_x[n + 1] = ((2 * n + 1) * xf * leg_x[n] - n * leg_x[n - 1]) / (n + 1)
-                leg_y[n + 1] = ((2 * n + 1) * yf * leg_y[n] - n * leg_y[n - 1]) / (n + 1)
+                c = np.zeros(i+1)
+                c[i] = 1
+                leg_x[i] = np.polynomial.legendre.legval(xf, c)
+                leg_y[i] = np.polynomial.legendre.legval(yf, c)
+
+        # iterate through legendres
+        # if self.order > 1:
+        #
+        #     # start recurrence relation for Legendre polynomials
+        #     # n starts at 1, leg_x first entry is 2
+        #     # n ends at order. leg_x last entry is order
+        #     for i in range(self.order - 1):
+        #         n = i + 1
+        #
+        #         leg_x[n + 1] = ((2 * n + 1) * xf * leg_x[n] - n * leg_x[n - 1]) / (n + 1)
+        #         leg_y[n + 1] = ((2 * n + 1) * yf * leg_y[n] - n * leg_y[n - 1]) / (n + 1)
 
         # initialize 2d Legendre dictionary
         leg_2d = {}
@@ -387,37 +398,49 @@ class LegendreFit2D:
         yf = self.y.flatten()
 
         # initialize Legendre gradient dictionaries
-        lx = {
-            0: np.zeros(np.size(xf)),
-            1: np.ones(np.size(xf))
-            }
-        ly = {
-            0: np.zeros(np.size(yf)),
-            1: np.ones(np.size(yf))
-            }
+        # lx = {
+        #     0: np.zeros(np.size(xf)),
+        #     1: np.ones(np.size(xf))
+        #     }
+        # ly = {
+        #     0: np.zeros(np.size(yf)),
+        #     1: np.ones(np.size(yf))
+        #     }
+
+        lx = {}
+        ly = {}
 
         # loop through Legendre orders (1D).
         # n starts at 1. n + 1 starts at 2.
         # n ends at order - 1. n + 1 ends at order.
-        for i in range(self.order - 1):
+        for i in range(self.order + 1):
             # calculate x and y gradient terms based on Legendre recurrence relations
-            n = i + 1
+            # n = i + 1
 
             # initialize current derivative
-            lx[n + 1] = 0.
-            ly[n + 1] = 0.
+            # lx[n + 1] = 0.
+            # ly[n + 1] = 0.
+
+            c = np.zeros(i + 1)
+            c[i] = 1
+
+            c_der = np.polynomial.legendre.legder(c)
+            lx[i] = np.polynomial.legendre.legval(xf, c_der)
+            ly[i] = np.polynomial.legendre.legval(yf, c_der)
 
             # number of terms that contribute to the derivative
-            num = int(np.floor((n + 2) / 2))
+            # num = int(np.floor((n + 2) / 2))
             # loop through contributions
-            for j in range(num):
-                # current contributor
-                n2 = n - j * 2
-                # normalization
-                norm = 2. / (2. * n2 + 1.)
-                # add contribution
-                lx[n + 1] += 2. * self.leg_x[n2] / norm
-                ly[n + 1] += 2. * self.leg_y[n2] / norm
+
+
+            # for j in range(num):
+            #     # current contributor
+            #     n2 = n - j * 2
+            #     # normalization
+            #     norm = 2. / (2. * n2 + 1.)
+            #     # add contribution
+            #     lx[n + 1] += 2. * self.leg_x[n2] / norm
+            #     ly[n + 1] += 2. * self.leg_y[n2] / norm
 
         # combine into one dictionary
         legendre_grad = {}
