@@ -6749,13 +6749,17 @@ class WFS:
 
         if self.phase:
 
-            temp = cp.zeros((2*y_width,2*x_width))
+            temp = cp.zeros((4*y_width,4*x_width))
             for i in range(2):
                 for j in range(2):
-                    minY = int(self.y_pitch) * (j + 1) - y_width
-                    maxY = int(self.y_pitch) * (j + 1) + y_width
-                    minX = int(self.x_pitch) * (i + 1) - x_width
-                    maxX = int(self.x_pitch) * (i + 1) + x_width
+                    # minY = int(self.y_pitch) * (j + 1) - y_width
+                    # maxY = int(self.y_pitch) * (j + 1) + y_width
+                    # minX = int(self.x_pitch) * (i + 1) - x_width
+                    # maxX = int(self.x_pitch) * (i + 1) + x_width
+                    minY = 2*y_width*j
+                    maxY = 2*y_width*(j+1)
+                    minX = 2*x_width*i
+                    maxX = 2*x_width*(i+1)
                     temp[minY:maxY,minX:maxX] = (1 + (-1) ** (i + j) / 2)
 
             self.grating = cp.exp(1j*np.pi*cp.tile(temp, (int(Ng/2),int(Mg/2))))
