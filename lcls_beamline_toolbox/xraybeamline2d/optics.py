@@ -338,7 +338,7 @@ class Mirror:
                 coords_z = (((zi - self.dx / cp.tan(total_alpha)) - cp.amin(zs)) / (cp.amax(zs) - cp.amin(zs))) * Ms
                 coords_y = (((yi - self.dy) - cp.amin(ys)) / (cp.amax(ys) - cp.amin(ys))) * Ns
 
-                coords = cp.zeros((2,Ns*Ms))
+                coords = cp.zeros((2,cp.size(zi)))
                 coords[0,:] = coords_z.flatten()
                 coords[1,:] = coords_y.flatten()
 
