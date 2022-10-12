@@ -4297,7 +4297,7 @@ class PPM:
 
             # phase = unwrap_phase(np.angle(beam.wave))
             f_phase = interpolation.interp2d(xp.asnumpy(x * scaling_x), xp.asnumpy(y * scaling_y), xp.asnumpy(phase), fill_value=0)
-            self.phase = f_phase(self.x, self.y)
+            self.phase = f_phase(xp.asnumpy(self.x), xp.asnumpy(self.y))
 
             if not beam.focused_x:
                 # self.phase += np.pi / beam.lambda0 / beam.zx * (self.xx - beam.cx)**2
