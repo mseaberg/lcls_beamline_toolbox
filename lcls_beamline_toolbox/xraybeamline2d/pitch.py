@@ -311,7 +311,7 @@ class TalbotLineout:
         p0 = np.pi / lambda0 / R2
 
         # define linear phase related to approximate peak location
-        h_grating = xp.exp(-1j * 2. * np.pi * h_peak * xp)
+        h_grating = xp.exp(-1j * 2. * np.pi * h_peak * x_p)
 
         # phase gradient back in real space, multiplied by linear phase to remove linear term
         h_grad = xp.conj(Util.infft1(h_mask) * h_grating)
