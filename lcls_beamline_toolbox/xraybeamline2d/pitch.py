@@ -276,7 +276,7 @@ class TalbotLineout:
         h_2 = Util.threshold_array(x_fft, .2)
 
         # set up coordinates (Talbot image plane) units are pixels
-        xp = xp.linspace(-N/2, N/2-1, N, dtype=float)
+        x_p = xp.linspace(-N/2, N/2-1, N, dtype=float)
 
         # find peaks in Fourier space
         h_peak = xp.sum(h_2 * fx) / xp.sum(xp.abs(h_2))
@@ -331,9 +331,9 @@ class TalbotLineout:
         N2 = xp.size(h_fourier)
 
         # downsampled image coordinates
-        xp = xp.linspace(-N2 / 2, N2 / 2 - 1, N2)
+        x_p = xp.linspace(-N2 / 2, N2 / 2 - 1, N2)
         # multiply by original pixel size, and scale by amount of downsampling.
-        x1 = xp * dx * N / N2
+        x1 = x_p * dx * N / N2
 
         # gradient back in real space, now downsampled
         h_grad = Util.infft1(h_fourier)
@@ -845,8 +845,8 @@ class TalbotImage:
         #
         # zo[zo > 0] = 1
 
-        xp = grad_param['x1']
-        yp = grad_param['y1']
+        x_p = grad_param['x1']
+        y_p = grad_param['y1']
 
         # threshold above noise
         zeroMask = zero_order > (threshold * np.max(zero_order))
