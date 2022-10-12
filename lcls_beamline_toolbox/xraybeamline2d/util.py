@@ -77,19 +77,19 @@ class Util:
         return phi
 
     @staticmethod
-    def applyQ(p, WW):
+    def applyQ(p, WW, pix=1):
         # xp = cp.get_array_module(p)
 
         N, M = xp.shape(p)
-        dx = xp.hstack((xp.diff(p, axis=1), xp.zeros((N, 1))))
-        dy = xp.vstack((xp.diff(p, axis=0), xp.zeros((1, M))))
+        dx = xp.hstack((xp.diff(p, axis=1), xp.zeros((N, 1)))) / pix
+        dy = xp.vstack((xp.diff(p, axis=0), xp.zeros((1, M)))) / pix
 
         WWdx = WW * dx
         WWdy = WW * dy
 
         WWdx2 = xp.hstack((xp.zeros((N, 1)), WWdx))
         WWdy2 = xp.vstack((xp.zeros((1, M)), WWdy))
-        Qp = xp.diff(WWdx2, axis=1) + xp.diff(WWdy2, axis=0)
+        Qp = xp.diff(WWdx2, axis=1) / pix + xp.diff(WWdy2, axis=0) / pix
 
         return Qp
 
