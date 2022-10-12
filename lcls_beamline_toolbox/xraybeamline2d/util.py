@@ -130,7 +130,7 @@ class Util:
 
         # norm1 = cp.zeros(50)
 
-        while xp.sum(cp.abs(rk)) > 0:
+        while xp.sum(xp.abs(rk)) > 0:
             zk = Util.solvePoisson(rk)
 
             k += 1
