@@ -59,7 +59,7 @@ class Util:
         return out
 
     @staticmethod
-    def solvePoisson(array):
+    def solvePoisson(array, pix=1):
         # xp = cp.get_array_module(array)
         # sp = cupyx.scipy.get_array_module(array)
 
@@ -72,7 +72,7 @@ class Util:
         divisor[0, 0] = 1
         phi_hat = rho_hat / divisor
         phi_hat[0, 0] = 0
-        phi = sp.fft.idctn(phi_hat)
+        phi = sp.fft.idctn(phi_hat) * pix**2
 
         return phi
 
@@ -100,6 +100,85 @@ class Util:
         out = xp.mod(array, 2 * np.pi)
         out[out > np.pi] -= 2 * np.pi
         return out
+
+    @staticmethod
+    def laplacian_from_gradient(grad_x, grad_y, pix, weight=None):
+        N, M = xp.shape(grad_x)
+
+        if weight is None:
+            weight = xp.ones_like(grad_x)
+
+        WWdx2 = xp.hstack((xp.zeros((N,1)), grad_x * weight))
+        WWdy2 = xp.vstack((xp.zeros((1,M)), grad_y * weight))
+
+        laplacian = xp.diff(WWdx2, axis=1) / pix + xp.diff(WWdy2, axis=0) / pix
+
+        return laplacian
+
+    @staticmethod
+    def integrate_gradient_gpu(grad_x, grad_y, pix, weight=None, eps=1e-8):
+        # xp = cp.get_array_module(psi)
+
+        N, M = xp.shape(grad_x)
+        # dx = xp.hstack((Util.wrapToPi(xp.diff(psi, axis=1)), xp.zeros((N, 1))))
+        # dy = xp.vstack((Util.wrapToPi(xp.diff(psi, axis=0)), xp.zeros((1, M))))
+
+        if weight is None:
+            weight = xp.ones_like(grad_x)
+
+        WW = weight * weight
+        # WWdx = WW * dx
+        # WWdy = WW * dy
+        #
+        # WWdx2 = xp.hstack((xp.zeros((N, 1)), WWdx))
+        # WWdy2 = xp.vstack((xp.zeros((1, M)), WWdy))
+        # rk = xp.diff(WWdx2, axis=1) + xp.diff(WWdy2, axis=0)
+        rk = Util.laplacian_from_gradient(grad_x, grad_y, pix, weight=WW)
+        normR0 = xp.linalg.norm(rk.flatten())
+
+        k = 0
+        phi = xp.zeros_like(grad_x)
+
+        rk_old = xp.copy(rk)
+        zk_old = xp.zeros_like(rk)
+        zk = xp.zeros_like(rk)
+        pk = xp.zeros_like(rk)
+        beta = 0
+        alpha = 0
+
+        # norm1 = cp.zeros(50)
+
+        while xp.sum(xp.abs(rk)) > 0:
+            zk = Util.solvePoisson(rk)
+
+            k += 1
+
+            if k == 1:
+                pk = zk
+            else:
+                beta = xp.dot(rk.flatten(), zk.flatten()) / xp.dot(rk_old.flatten(), zk_old.flatten())
+                pk = zk + beta * pk
+            # print(k)
+            # print(beta)
+
+            rk_old = xp.copy(rk)
+            zk_old = xp.copy(zk)
+
+            Qpk = Util.applyQ(pk, WW)
+
+            alpha = xp.dot(rk.flatten(), zk.flatten()) / xp.dot(pk.flatten(), Qpk.flatten())
+            # print(alpha)
+            phi = phi + alpha * pk
+            rk = rk - alpha * Qpk
+
+            # norm1[k - 1] = cp.linalg.norm(rk.flatten())
+            # print(cp.linalg.norm(rk.flatten()))
+            if xp.linalg.norm(rk.flatten()) < eps * normR0 or k>20:
+                print('phase unwrap stopping after {} iterations'.format(k))
+
+                break
+
+        return phi
 
     @staticmethod
     def unwrap_phase_gpu(psi, weight, eps=1e-8):

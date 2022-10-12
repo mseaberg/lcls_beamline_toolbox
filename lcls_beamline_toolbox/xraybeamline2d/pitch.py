@@ -879,9 +879,19 @@ class TalbotImage:
 
         # reconstructed phase
         wave = fit_object.wavefront_fit(legendre_coeff)
+        wave2 = Util.integrate_gradient_gpu(h_grad2, v_grad2, dx2, weight=zeroMask)
+
+        plt.figure()
+        plt.imshow(wave)
+        plt.figure()
+        if use_gpu:
+            plt.imshow(xp.asnumpy(wave2))
+        else:
+            plt.imshow(xp.asnumpy(wave))
 
         # recovered beam
-        recovered = xp.exp(1j * xp.asarray(wave)) * xp.sqrt(zero_order) * zeroMask
+        # recovered = xp.exp(1j * xp.asarray(wave)) * xp.sqrt(zero_order) * zeroMask
+        recovered = xp.exp(1j * xp.asarray(wave2)) * xp.sqrt(zero_order) * zeroMask
 
         px = grad_param['p0x'] + np.pi / lambda0 / zT
         py = grad_param['p0y'] + np.pi / lambda0 / zT
