@@ -4296,7 +4296,7 @@ class PPM:
                 phase = unwrap_phase(xp.angle(beam.wave))
 
             # phase = unwrap_phase(np.angle(beam.wave))
-            f_phase = interpolation.interp2d(x * scaling_x, y * scaling_y, phase, fill_value=0)
+            f_phase = interpolation.interp2d(xp.asnumpy(x * scaling_x), xp.asnumpy(y * scaling_y), xp.asnumpy(phase), fill_value=0)
             self.phase = f_phase(self.x, self.y)
 
             if not beam.focused_x:
@@ -4307,8 +4307,8 @@ class PPM:
                 # self.phase += np.pi / beam.lambda0 / beam.zy * (self.yy - beam.cy)**2
                 self.zy = beam.zy
                 self.cy_beam = beam.cy
-            self.phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.xx - beam.cx)
-            self.phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.yy - beam.cy)
+            self.phase += xp.asnumpy(2 * np.pi / beam.lambda0 * beam.ax * (self.xx - beam.cx))
+            self.phase += xp.asnumpy(2 * np.pi / beam.lambda0 * beam.ay * (self.yy - beam.cy))
 
         self.group_delay = beam.group_delay
 
