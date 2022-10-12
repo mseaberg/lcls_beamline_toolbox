@@ -885,9 +885,9 @@ class TalbotImage:
         plt.imshow(wave)
         plt.figure()
         if use_gpu:
-            plt.imshow(xp.asnumpy(wave2))
+            plt.imshow(xp.asnumpy(wave2)-wave)
         else:
-            plt.imshow(xp.asnumpy(wave))
+            plt.imshow(wave2-wave)
 
         # recovered beam
         # recovered = xp.exp(1j * xp.asarray(wave)) * xp.sqrt(zero_order) * zeroMask
