@@ -933,8 +933,8 @@ class TalbotImage:
         # focus = recovered_beam.beam_prop()
 
         param = {
-            'x': xp,
-            'y': yp,
+            'x': x_p,
+            'y': y_p,
             'p0': p0,
             'px': px,
             'py': py,
