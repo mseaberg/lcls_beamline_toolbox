@@ -879,7 +879,7 @@ class TalbotImage:
 
         # reconstructed phase
         wave = fit_object.wavefront_fit(legendre_coeff)
-        wave2 = Util.integrate_gradient_gpu(h_grad2, v_grad2, dx2, weight=zeroMask)
+        wave2 = Util.integrate_gradient_gpu(h_grad2, v_grad2, pix=dx2, weight=zeroMask)
 
         plt.figure()
         plt.imshow(wave)

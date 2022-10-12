@@ -102,7 +102,7 @@ class Util:
         return out
 
     @staticmethod
-    def laplacian_from_gradient(grad_x, grad_y, pix, weight=None):
+    def laplacian_from_gradient(grad_x, grad_y, pix=1, weight=None):
         N, M = xp.shape(grad_x)
 
         if weight is None:
@@ -116,7 +116,7 @@ class Util:
         return laplacian
 
     @staticmethod
-    def integrate_gradient_gpu(grad_x, grad_y, pix, weight=None, eps=1e-8):
+    def integrate_gradient_gpu(grad_x, grad_y, pix=1, weight=None, eps=1e-8):
         # xp = cp.get_array_module(psi)
 
         N, M = xp.shape(grad_x)
@@ -133,7 +133,7 @@ class Util:
         # WWdx2 = xp.hstack((xp.zeros((N, 1)), WWdx))
         # WWdy2 = xp.vstack((xp.zeros((1, M)), WWdy))
         # rk = xp.diff(WWdx2, axis=1) + xp.diff(WWdy2, axis=0)
-        rk = Util.laplacian_from_gradient(grad_x, grad_y, pix, weight=WW)
+        rk = Util.laplacian_from_gradient(grad_x, grad_y, pix=pix, weight=WW)
         normR0 = xp.linalg.norm(rk.flatten())
 
         k = 0
@@ -149,7 +149,7 @@ class Util:
         # norm1 = cp.zeros(50)
 
         while xp.sum(xp.abs(rk)) > 0:
-            zk = Util.solvePoisson(rk)
+            zk = Util.solvePoisson(rk, pix=pix)
 
             k += 1
 
@@ -164,7 +164,7 @@ class Util:
             rk_old = xp.copy(rk)
             zk_old = xp.copy(zk)
 
-            Qpk = Util.applyQ(pk, WW)
+            Qpk = Util.applyQ(pk, WW, pix=pix)
 
             alpha = xp.dot(rk.flatten(), zk.flatten()) / xp.dot(pk.flatten(), Qpk.flatten())
             # print(alpha)
