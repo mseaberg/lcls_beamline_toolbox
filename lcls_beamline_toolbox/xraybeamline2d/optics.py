@@ -191,7 +191,7 @@ class Mirror:
         ## this might be slightly wrong...
         if self.orientation == 1 or self.orientation == 3:
             shape_error_out = np.rot90(shape_error_out)
-
+        print('shape sum: {}'.format(np.sum(shape_error_out)))
         return shape_error_out
 
     def enable_motors(self, *axes):
