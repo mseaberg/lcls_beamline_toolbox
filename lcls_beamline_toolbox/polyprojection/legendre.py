@@ -8,7 +8,6 @@ Consists of the LegendreFit1D class and LegendreFit2D class.
 """
 
 import numpy as np
-import cupy as cp
 # import matplotlib.pyplot as plt
 # from scipy import linalg
 
