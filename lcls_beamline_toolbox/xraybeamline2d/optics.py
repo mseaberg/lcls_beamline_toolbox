@@ -189,8 +189,8 @@ class Mirror:
                 shape_error_out = xp.reshape(ndimage.map_coordinates(self.shapeError, coords), xp.shape(zi))
 
         ## this might be slightly wrong...
-        if self.orientation == 1 or self.orientation == 3:
-            shape_error_out = np.rot90(shape_error_out)
+        # if self.orientation == 1 or self.orientation == 3:
+        #     shape_error_out = np.rot90(shape_error_out)
         print('shape sum: {}'.format(np.sum(shape_error_out)))
         return shape_error_out
 
@@ -4106,6 +4106,8 @@ class PPM:
         self.cy_beam = 0
         self.x_lineout = xp.zeros(self.M)
         self.y_lineout = xp.zeros(self.N)
+        self.x_projection = np.zeros(self.M)
+        self.y_projection = np.zeros(self.N)
         self.fit_x = xp.zeros(self.M)
         self.fit_y = xp.zeros(self.N)
         self.amp_x = 0
@@ -4324,9 +4326,15 @@ class PPM:
         self.group_delay = beam.group_delay
 
         # calculate horizontal lineout
-        self.x_lineout = xp.sum(self.profile, axis=0)
+        self.x_projection = xp.sum(self.profile, axis=0)
         # calculate vertical lineout
-        self.y_lineout = xp.sum(self.profile, axis=1)
+        self.y_projection = xp.sum(self.profile, axis=1)
+
+        # find peak
+        i1 = xp.argmax(self.y_projection)
+        self.x_lineout = self.profile[i1, :]
+        i1 = xp.argmax(self.x_projection)
+        self.y_lineout = self.profile[:, i1]
 
         # get beam wavelength
         self.lambda0 = beam.lambda0
