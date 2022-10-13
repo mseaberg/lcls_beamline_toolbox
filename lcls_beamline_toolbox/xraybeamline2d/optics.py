@@ -4461,7 +4461,7 @@ class PPM:
 
         return wfs_data, wfs_param
 
-    def retrieve_wavefront2D(self, basis_file, wfs, threshold=0.01):
+    def retrieve_wavefront2D(self, basis_file, wfs, threshold=0.01, method='projection'):
         """
         Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
         :param basis_file: string
@@ -4514,7 +4514,7 @@ class PPM:
 
         # calculate 2D legendre coefficients
         print('getting 2D Legendre coefficients')
-        recovered_beam, fit_params = image_calc.get_legendre(fit_object, wfs_param, threshold=threshold)
+        recovered_beam, fit_params = image_calc.get_legendre(fit_object, wfs_param, threshold=threshold, method=method)
 
         # get complete wavefront with defocus
         x = fit_params['x']

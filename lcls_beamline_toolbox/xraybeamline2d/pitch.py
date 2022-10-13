@@ -821,8 +821,10 @@ class TalbotImage:
         # output
         return h_grad, v_grad, params
 
-    def get_legendre(self, fit_object, param, threshold=.01):
+    def get_legendre(self, fit_object, param, threshold=.01, method='projection'):
 
+        # options for method are 'CG' (conjugate gradient) or 'projection'. If neither of these is provided,
+        # 'projection' will be selected.
 
         tic = time.perf_counter()
         # get WFS parameters
@@ -881,8 +883,10 @@ class TalbotImage:
             legendre_coeff = np.zeros(fit_object.P)
 
         # reconstructed phase
-        wave = fit_object.wavefront_fit(legendre_coeff)
-        #wave2 = Util.integrate_gradient_gpu(h_grad2, v_grad2, pix=dx2, weight=zeroMask)
+        if method == 'CG':
+            wave = Util.integrate_gradient_gpu(h_grad2, v_grad2, pix=dx2, weight=zeroMask)
+        else:
+            wave = fit_object.wavefront_fit(legendre_coeff)
 
         toc = time.perf_counter()
         print('wavefront retrieval took {} seconds'.format(toc-tic))
