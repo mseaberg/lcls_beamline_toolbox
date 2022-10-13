@@ -183,8 +183,8 @@ class Mirror:
                 coords_y = (((yi - self.dy) - xp.amin(ys)) / (xp.amax(ys) - xp.amin(ys))) * Ns
 
                 coords = xp.zeros((2,xp.size(zi)))
-                coords[0,:] = coords_z.flatten()
-                coords[1,:] = coords_y.flatten()
+                coords[0,:] = coords_y.flatten()
+                coords[1,:] = coords_z.flatten()
 
                 shape_error_out = xp.reshape(ndimage.map_coordinates(self.shapeError, coords), xp.shape(zi))
 
