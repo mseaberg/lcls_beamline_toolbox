@@ -12,7 +12,7 @@ unless otherwise indicated.
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from .util import Util
+from lcls_beamline_toolbox.utility.util import Util
 from skimage.restoration import unwrap_phase
 import scipy.spatial.transform as transform
 import scipy.optimize as optimization

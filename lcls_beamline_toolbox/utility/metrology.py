@@ -2,11 +2,8 @@
 metrology module for xraybeamline2d package
 """
 import numpy as np
-import numpy.fft as fft
-import scipy.special
 import scipy.optimize as optimize
-import scipy.spatial.transform as transform
-from .util import Util
+from lcls_beamline_toolbox.utility.util import Util
 
 
 class Metrology:

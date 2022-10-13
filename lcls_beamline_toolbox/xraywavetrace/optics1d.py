@@ -17,17 +17,18 @@ PPM: power profile monitor, for viewing beam intensity
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.interpolate as interpolation
 import scipy.ndimage as ndimage
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
 import scipy.integrate as integration
 import os
-from lcls_beamline_toolbox.utility.util import Util, LegendreUtil
-from lcls_beamline_toolbox.utility.pitch import TalbotLineout, TalbotImage
+from .util import Util, LegendreUtil
+from .pitch import TalbotLineout
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
 import xraydb
-from lcls_beamline_toolbox.xrayinteraction import interaction
+from lcls_beamline_trace.xrayinteraction import interaction
 
 
 class Mirror:
@@ -102,7 +103,6 @@ class Mirror:
         self.yaw = 0.
         self.dx = 0.
         self.dy = 0.
-        self.dz = 0.
         self.global_x = 0
         self.global_y = 0
         self.global_alpha = 0
@@ -116,11 +116,17 @@ class Mirror:
         self.beam_cy = 0
         self.beam_ax = 0
         self.beam_ay = 0
+        self.show_figures = False
+        self.x_intersect = 0.0
+        self.y_intersect = 0.0
+        self.z_intersect = 0.0
+        self.use_reflectivity = False
         self.material = 'B4C'
 
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
-                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw','material']
+                             'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw', 'show_figures', 'use_reflectivity',
+                             'material']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -131,6 +137,56 @@ class Mirror:
 
         # set some calculated attributes
         self.projectWidth = np.abs(self.length * (self.alpha + self.delta))
+
+    def find_intersection(self, beam):
+
+        ux = np.reshape(np.array([1, 0, 0]), (3, 1))
+        uy = np.reshape(np.array([0, 1, 0]), (3, 1))
+        uz = np.reshape(np.array([0, 0, 1]), (3, 1))
+
+        beam_center = np.array([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = np.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+
+        # define ellipse coordinate unit vectors
+        # rotation angle to rotate mirror vectors into ellipse coordinates
+        # mirror is already rotated by delta when drifts are added to beamline
+        mirror_rotate = 0.0
+
+        re = transform.Rotation.from_rotvec(-self.sagittal * mirror_rotate)
+        Re = re.as_matrix()
+
+        mirror_x = np.matmul(Re, self.normal)
+        mirror_y = self.sagittal
+        mirror_z = np.matmul(Re, self.transverse)
+
+        central_ray = np.reshape(beam.zhat, (3,1))
+
+        coords = np.reshape(beam_center, (3,1))
+
+        coords -= np.reshape(mirror_center, (3, 1))
+
+        # now write beam coordinates in ellipse coordinates
+        transform_matrix = np.tensordot(np.reshape([mirror_x, mirror_y, mirror_z], (3, 3)),
+                                        np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        coords_mirror = np.tensordot(transform_matrix, coords, axes=(1, 0))
+
+        # now write rays in ellipse coordinates
+        rays_mirror = np.tensordot(transform_matrix, central_ray, axes=(1, 0))
+
+        z_intersect = coords_mirror[2, :] - rays_mirror[2, :] / rays_mirror[0, :] * coords_mirror[0, :]
+        x_intersect = np.reshape(np.array(0.0),(1,))
+        y_intersect = rays_mirror[1, :] / rays_mirror[2, :] * (z_intersect - coords_mirror[2, :]) + coords_mirror[1,:]
+
+        intersect_point = np.reshape(np.array([x_intersect,y_intersect,z_intersect]), (3,1))
+
+        inv_transform = np.linalg.inv(transform_matrix)
+
+        # rotate into global coordinate system, but origin is still at ellipse center
+        intersect_global = np.tensordot(inv_transform, intersect_point, axes=(1, 0))
+
+        intersect_global += np.reshape(mirror_center, (3, 1))
+
+        return intersect_global
 
     def enable_motors(self, *axes):
         """
@@ -332,7 +388,7 @@ class Mirror:
                 shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs, self.shapeError[int(Ns/2),:])
 
         # figure out aperturing due to mirror's finite size
-        z_mask = (np.abs(zi - self.dx / np.tan(total_alpha) + self.dz) < self.length / 2).astype(float)
+        z_mask = (np.abs(zi - self.dx / np.tan(total_alpha)) < self.length / 2).astype(float)
 
         # height error now in meters
         total_error = shapeError2 * 1e-9
@@ -589,7 +645,6 @@ class CurvedMirror(Mirror):
         self.dF1 = dF1
         self.dF2 = dF2
         self.total_alpha = self.alpha + self.delta
-        self._defocus = 0
 
         # check if mirror is too long for distance to focus or source
         if self.length/2 > np.abs(self.p):
@@ -602,15 +657,6 @@ class CurvedMirror(Mirror):
         # get some material properties
         mirror_material = interaction.Mirror(name=name,range='HXR',material=self.material)
         self.density = mirror_material.density
-
-    @property
-    def focus(self):
-        return self._defocus
-
-    @focus.setter
-    def focus(self, value):
-        self._defocus = value
-        self.q += value
 
     def bend(self, cz):
         """
@@ -679,50 +725,6 @@ class CurvedMirror(Mirror):
 
         return z1, reflectivity, inc_angle
 
-    def calc_shape(self, p=None, q=None, alpha=None):
-
-        if p is None:
-            p = self.p
-        if q is None:
-            q = self.q
-        if alpha is None:
-            alpha = self.alpha
-
-        z1, x1, z0, x0, delta = self.calc_ellipse(p, q, alpha)
-
-        x1m = -np.sin(delta) * (z1 - z0) + np.cos(delta) * (x1 - x0) + x0
-        #     x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0) + x0
-
-        x1m -= np.min(x1m)
-
-        z1 -= z0
-
-        return z1, x1m
-
-    def calc_ROC(self, p=None, q=None, alpha=None):
-
-        if p is None:
-            p = self.p
-        if q is None:
-            q = self.q
-        if alpha is None:
-            alpha = self.alpha
-
-        z1, x1, z0, x0, delta = self.calc_ellipse(p, q, alpha)
-
-        x1m = -np.sin(delta) * (z1 - z0) + np.cos(delta) * (x1 - x0) + x0
-        #     x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0) + x0
-
-        x1m -= np.min(x1m)
-
-        z1 -= z0
-
-        p = np.polyfit(z1,x1m,2)
-        A = p[0]
-        R = 1/2/A
-
-        return R
-
     def calc_ellipse(self, p, q, alpha):
         """
         Method to calculate the shape of an ellipse based on mirror specifications. See Ellipse reference documentation.
@@ -749,7 +751,7 @@ class CurvedMirror(Mirror):
 
         # concave elliptical mirror
         if q>=0 and p>=0:
-            print('elliptical')
+
             # calculated ellipse values
             L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
             a2 = (p + q) ** 2 / 4  # a^2 for ellipse
@@ -778,7 +780,7 @@ class CurvedMirror(Mirror):
 
         # convex hyperbolic mirror
         elif q<0 and p>=0:
-            print('convex hyperbolic')
+            print('hyperbolic')
             # calculated hyperbola values
             L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
             print('L %.2f' % L)
@@ -812,7 +814,7 @@ class CurvedMirror(Mirror):
 
         # concave hyperbolic mirror
         elif p<0 and q>=0:
-            print('concave hyperbolic')
+            print('hyperbolic')
             # calculated hyperbola values
             L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
             print('L %.2f' % L)
@@ -844,15 +846,138 @@ class CurvedMirror(Mirror):
 
             return z1, x1, z0, x0, delta
 
-        elif p<0 and q<0:
-            print('convex elliptical')
-            L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
-            print('L %.2f' % L)
+    def ellipse_params(self, p, q, alpha):
+        """
+        Method to calculate the shape of an ellipse based on mirror specifications. See Ellipse reference documentation.
+        :param p: float
+            Nominal distance to source (m)
+        :param q: float
+            Nominal distance to focus (m)
+        :param alpha: float
+            Nominal angle of incidence (radians)
+        :return z1: (N,) ndarray
+            ellipse z-axis coordinates
+        :return x1: (N,) ndarray
+            mirror surface as function of z1
+        :return z0: float
+            z position at center of mirror (relative to ellipse center)
+        :return x0: float
+            x position at center of mirror (relative to ellipse center)
+        :return delta: float
+            angle at center of mirror relative to ellipse z-axis (radians)
+        """
 
+        # arbitrarily chosen array size
+        N = 1024
+
+        # concave elliptical mirror
+        if q>=0 and p>=0:
+
+            # calculated ellipse values
+            L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
             a2 = (p + q) ** 2 / 4  # a^2 for ellipse
             b2 = a2 - (L / 2) ** 2  # b^2 for ellipse
 
+            # angle of incident beam
+            beta = np.arcsin(np.sin(2 * alpha) * q / L)
 
+            # mirror angle
+            delta = alpha - beta
+
+            # mirror offset from ellipse center in x
+            x0 = -p * q / L * np.sin(2 * alpha)
+            if p > q:
+                z0 = np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+            else:
+                z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+
+            params = {
+                'L': L,
+                'a': np.sqrt(a2),
+                'b': np.sqrt(b2),
+                'beta': beta,
+                'delta': delta,
+                'x0': x0,
+                'z0': z0
+            }
+
+            return params
+
+        # convex hyperbolic mirror
+        elif q<0 and p>=0:
+            print('hyperbolic')
+            # calculated hyperbola values
+            L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
+            print('L %.2f' % L)
+            # a2 = (p-q)**2/4
+            a = -(np.abs(q) - np.abs(p))/2
+            a2 = a**2
+            c2 = (L/2)**2
+            b2 = c2-a2
+            print(b2)
+            # angle of incident beam
+            beta = np.arcsin(np.sin(2*alpha)*np.abs(q)/L)
+            print('beta %.2e' % beta)
+
+            # mirror angle
+            delta = alpha + beta
+
+            # mirror offset from hyperbola center in x
+            x0 = -p*q/L*np.sin(2*alpha)
+            if np.abs(p) > np.abs(q):
+                z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+            else:
+                z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+
+            params = {
+                'L': L,
+                'a': np.sqrt(a2),
+                'b': np.sqrt(b2),
+                'beta': beta,
+                'delta': delta,
+                'x0': x0,
+                'z0': z0
+            }
+
+            return params
+
+        # concave hyperbolic mirror
+        elif p<0 and q>=0:
+            print('hyperbolic')
+            # calculated hyperbola values
+            L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+            print('L %.2f' % L)
+            # a2 = (p-q)**2/4
+            a = -(np.abs(q) - np.abs(p)) / 2
+            a2 = a ** 2
+            c2 = (L / 2) ** 2
+            b2 = c2 - a2
+            print(b2)
+            # angle of incident beam
+            beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+            print('beta %.2e' % beta)
+
+            # mirror angle
+            delta = alpha + beta
+
+            # mirror offset from hyperbola center in x
+            x0 = p * q / L * np.sin(2 * alpha)
+            if np.abs(p) > np.abs(q):
+                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+            else:
+                z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+
+            params = {
+                'L': L,
+                'a': np.sqrt(a2),
+                'b': np.sqrt(b2),
+                'beta': beta,
+                'delta': delta,
+                'x0': x0,
+                'z0': z0
+            }
+
+            return params
 
     def calc_misalignment(self, beam, cz):
         """
@@ -924,7 +1049,7 @@ class CurvedMirror(Mirror):
 
         print('z_eff: %.2f' % z_eff_c)
         alpha_total = self.alpha + self.delta + alpha_eff_c
-        print('a_eff: %.2f' % alpha_total)
+        print('a_eff: %.4fmrad' % (alpha_total*1e3))
 
         # calculate ideal ellipse for this angle of incidence
         zI, xI, z0I, x0I, deltaI = self.calc_ellipse(z_eff_c, self.q, alpha_total)
@@ -947,6 +1072,616 @@ class CurvedMirror(Mirror):
 
         return p_res
 
+    def find_intersection(self, beam):
+
+        ux = np.reshape(np.array([1, 0, 0]), (3, 1))
+        uy = np.reshape(np.array([0, 1, 0]), (3, 1))
+        uz = np.reshape(np.array([0, 0, 1]), (3, 1))
+
+        params = self.ellipse_params(self.p, self.q, self.alpha)
+
+        beam_center = np.array([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = np.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+
+        # define ellipse coordinate unit vectors
+        # rotation angle to rotate mirror vectors into ellipse coordinates
+        # mirror is already rotated by delta when drifts are added to beamline
+        ellipse_rotate = params['delta']
+
+        re = transform.Rotation.from_rotvec(-self.sagittal * ellipse_rotate)
+        Re = re.as_matrix()
+
+        ellipse_x = np.matmul(Re, self.normal)
+        ellipse_y = self.sagittal
+        ellipse_z = np.matmul(Re, self.transverse)
+
+        central_ray = np.reshape(beam.zhat, (3,1))
+
+        coords = np.reshape(beam_center, (3,1))
+
+        coords -= np.reshape(mirror_center, (3, 1))
+
+        coords += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+
+        # now write beam coordinates in ellipse coordinates
+        transform_matrix = np.tensordot(np.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)),
+                                        np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        coords_ellipse = np.tensordot(transform_matrix, coords, axes=(1, 0))
+
+        # now write rays in ellipse coordinates
+        rays_ellipse = np.tensordot(transform_matrix, central_ray, axes=(1, 0))
+
+        a = params['a']
+        b = params['b']
+
+        if self.q>=0:
+            aq = b ** 2 / a ** 2 + (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2
+            bq = (-2 * coords_ellipse[2, :] * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 +
+                  2 * coords_ellipse[0, :] * rays_ellipse[0, :] / rays_ellipse[2, :])
+            cq = (coords_ellipse[2, :] ** 2 * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 -
+                  2 * coords_ellipse[0, :] * coords_ellipse[2, :] * rays_ellipse[0, :] / rays_ellipse[2, :] +
+                  coords_ellipse[0, :] ** 2 - b ** 2)
+        else:
+            aq = -b ** 2 / a **2 + (rays_ellipse[0,:] / rays_ellipse[2,:]) ** 2
+            bq = (-2 * coords_ellipse[2,:] * (rays_ellipse[0,:]/rays_ellipse[2,:]) ** 2 +
+                  2 * coords_ellipse[0,:] * rays_ellipse[0,:]/rays_ellipse[2,:])
+            cq = ((coords_ellipse[2,:] * rays_ellipse[0,:]/rays_ellipse[2,:])**2 -
+                  2 * coords_ellipse[0,:] * coords_ellipse[2,:] * rays_ellipse[0,:]/rays_ellipse[2,:] +
+                  coords_ellipse[0,:]**2 + b ** 2)
+
+        z_intersect = (-bq + np.sqrt(bq ** 2 - 4 * aq * cq)) / 2 / aq
+        if self.q>=0:
+            x_intersect = -b * np.sqrt(np.ones_like(z_intersect) - z_intersect ** 2 / a ** 2)
+        else:
+            x_intersect = b * np.sqrt(z_intersect**2/a**2 - np.ones_like(z_intersect))
+        y_intersect = rays_ellipse[1, :] / rays_ellipse[2, :] * (z_intersect - coords_ellipse[2, :]) + coords_ellipse[1,:]
+
+        intersect_point = np.reshape(np.array([x_intersect,y_intersect,z_intersect]), (3,1))
+
+        inv_transform = np.linalg.inv(transform_matrix)
+
+        # rotate into global coordinate system, but origin is still at ellipse center
+        intersect_global = np.tensordot(inv_transform, intersect_point, axes=(1, 0))
+
+        # subtract ellipse center, so that now this is relative to the mirror center
+        intersect_global -= np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+
+        intersect_global += np.reshape(mirror_center, (3, 1))
+
+        return intersect_global
+
+    def trace_surface(self, beam):
+
+        figon = self.show_figures
+        # global unit vectors
+        ux = np.reshape(np.array([1,0,0]),(3,1))
+        uy = np.reshape(np.array([0,1,0]),(3,1))
+        uz = np.reshape(np.array([0,0,1]),(3,1))
+
+        delta_z = self.length / 2 * 1.1
+
+        print('ax: %.6e' % beam.ax)
+        print('ay: %.6e' % beam.ay)
+
+        # propagate beam to just upstream of mirror
+        beam.beam_prop(-delta_z)
+        # define mirror surface (this is in the normal ellipse coordinates)
+        params = self.ellipse_params(self.p, self.q, self.alpha)
+
+        # vector defining displacement from beam location to mirror center. This is in global coordinates
+        beam_center = np.array([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = np.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        beam_to_mirror = beam_center - mirror_center
+
+        # define ellipse coordinate unit vectors
+        # rotation angle to rotate mirror vectors into ellipse coordinates
+        # mirror is already rotated by delta when drifts are added to beamline
+        ellipse_rotate = params['delta']
+
+        re = transform.Rotation.from_rotvec(-self.sagittal*ellipse_rotate)
+        Re = re.as_matrix()
+
+        ellipse_x = np.matmul(Re, self.normal)
+        ellipse_y = self.sagittal
+        ellipse_z = np.matmul(Re, self.transverse)
+
+        print('ellipse unit vectors')
+        print(self.normal)
+        print(ellipse_x)
+        print(ellipse_z)
+
+        # go through all orientation options
+        if self.orientation==0:
+            # calculate beam "rays", in beam local coordinates
+            rays_x = beam.x/beam.zx
+            # transverse unit vector (in global coordinates)
+            t_hat = beam.xhat
+            # beam plane coordinates in global coordinates, but with beam centered at zero
+            coords = np.multiply.outer(beam.xhat, beam.x)
+
+            # relevant wavefront
+            wave = beam.wavex
+
+            beamx = beam.x
+        elif self.orientation==1:
+            # calculate beam "rays", in beam local coordinates
+            rays_x = beam.y/beam.zy
+            # transverse unit vector (in global coordinates)
+            t_hat = beam.yhat
+            # beam plane coordinates in global coordinates (but centered at origin)
+            coords = np.multiply.outer(beam.yhat, beam.y)
+
+            # relevant wavefront
+            wave = beam.wavey
+            beamx = beam.y
+        elif self.orientation==2:
+            # calculate beam "rays", in beam local coordinates
+            rays_x = beam.x/beam.zx
+            # transverse unit vector (in global coordinates)
+            t_hat = beam.xhat
+            # beam plane coordinates in global coordinates (but centered at origin)
+            coords = np.multiply.outer(beam.xhat, beam.x)
+
+            # relevant wavefront
+            wave = beam.wavex
+            beamx = beam.x
+        elif self.orientation==3:
+            # calculate beam "rays", in beam local coordinates
+            rays_x = beam.y/beam.zy
+            # transverse unit vector (in global coordinates)
+            t_hat = beam.yhat
+            # beam plane coordinates in global coordinates (but centered at origin)
+            coords = np.multiply.outer(beam.yhat, beam.y)
+
+            # relevant wavefront
+            wave = beam.wavey
+            beamx = beam.y
+        # reference to global origin by adding beam global center
+        coords += np.reshape(beam_center, (3, 1))
+        # now subtract mirror center so that beam coordinates are in global coordinates,
+        # but with origin at mirror center
+        coords -= np.reshape(mirror_center, (3, 1))
+        # now shift origin to ellipse origin. This should be general since the unit vectors
+        # are defined based on mirror unit vectors
+        coords += np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+
+        print('x0 and z0')
+        print(params['x0'])
+        print(params['z0'])
+
+        # now write beam coordinates in ellipse coordinates
+        transform_matrix = np.tensordot(np.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)),
+                                        np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        coords_ellipse = np.tensordot(transform_matrix, coords, axes=(1, 0))
+
+        # calculate z component of rays (enforcing unit vector)
+        rays_z = np.sqrt(np.ones_like(rays_x) - rays_x ** 2)
+        # ray vectors at each point in the beam
+        rays = np.multiply.outer(t_hat, rays_x) + np.multiply.outer(beam.zhat, rays_z)
+
+        # normalize rays (should be redundant)
+        rays = rays / np.sqrt(np.sum(rays*rays, axis=0))
+
+        # now write rays in ellipse coordinates
+        rays_ellipse = np.tensordot(transform_matrix, rays, axes=(1,0))
+
+        # calculate ellipse for plotting purposes
+        z1, x1, z0, x0, delta = self.calc_ellipse(self.p, self.q, self.alpha)
+
+        if figon:
+            plt.figure()
+            plt.plot(coords_ellipse[2,:],coords_ellipse[0,:])
+            plt.plot(z1, x1)
+            plt.quiver(coords_ellipse[2,:],coords_ellipse[0,:],rays_ellipse[2,:],rays_ellipse[0,:])
+            plt.ylim(-.5,.5)
+            plt.grid()
+            plt.title('incoming rays and mirror')
+
+        # solve quadratic eqn for ellipse/line intersection
+        a = params['a']
+        b = params['b']
+        aq = b**2/a**2 + (rays_ellipse[0,:]/rays_ellipse[2,:])**2
+        bq = (-2*coords_ellipse[2,:]*(rays_ellipse[0,:]/rays_ellipse[2,:])**2 +
+              2*coords_ellipse[0,:]*rays_ellipse[0,:]/rays_ellipse[2,:])
+        cq = (coords_ellipse[2,:]**2*(rays_ellipse[0,:]/rays_ellipse[2,:])**2-
+              2*coords_ellipse[0,:]*coords_ellipse[2,:]*rays_ellipse[0,:]/rays_ellipse[2,:]+
+              coords_ellipse[0,:]**2-b**2)
+
+        # quadratic equation
+        z_intersect = (-bq+np.sqrt(bq**2-4*aq*cq))/2/aq
+
+        # find x and y based on z
+        x_intersect = -b*np.sqrt(np.ones_like(z_intersect)-z_intersect**2/a**2)
+        y_intersect = rays_ellipse[1,:]/rays_ellipse[2,:]*(z_intersect-coords_ellipse[2,:]) + coords_ellipse[1,:]
+
+        intersect_coords = np.zeros((3,np.size(z_intersect)))
+        intersect_coords[0,:] = x_intersect
+        intersect_coords[1,:] = y_intersect
+        intersect_coords[2,:] = z_intersect
+
+        # vectors pointing from beam location to mirror intersection
+        i_vector = intersect_coords - coords_ellipse
+
+        # length of each vector
+        distance_1 = np.sqrt(np.sum(i_vector*i_vector,axis=0))
+
+        # define ellipse normals along mirror surface
+        ellipse_normal = np.zeros_like(rays)
+        ellipse_normal[2,:] = -b/a**2*z_intersect*(1-z_intersect**2/a**2)**(-.5)
+        ellipse_normal[0,:] = np.ones_like(z_intersect)
+
+        # normalize
+        ellipse_normal = ellipse_normal/np.sqrt(np.sum(ellipse_normal*ellipse_normal,axis=0))
+
+        # calculate ray direction after interaction with ellipse
+        rays_out = rays_ellipse - 2 * np.sum(rays_ellipse*ellipse_normal,axis=0) * ellipse_normal
+
+        incidence_angle = (rays_out[0, :] - rays_ellipse[0, :]) / 2
+        angle2 = (rays_out[0,:] - np.mean(rays_ellipse[0,:]))/2
+
+        reflectivity = xraydb.mirror_reflectivity(self.material,incidence_angle, beam.photonEnergy, self.density)
+
+        if figon:
+            plt.figure()
+            plt.plot(beamx,rays_ellipse[0,:])
+            plt.plot(beamx,rays_out[0,:])
+            plt.title('rays in y direction')
+
+            plt.figure()
+            plt.plot(beamx, incidence_angle)
+            plt.plot(beamx, angle2)
+
+            plt.figure()
+            plt.plot(beamx, reflectivity)
+
+
+
+
+        # now find intersection with exit plane
+        # we can define this simply as having a normal vector in the direction of the central ray
+        # and we will define the plane to be a distance length/2*1.1 from the intersection point of the central ray
+        plane_normal = np.reshape(rays_out[:,int(beam.N/2)],(3,1))
+        central_point = np.reshape(intersect_coords[:,int(beam.N/2)],(3,1)) + plane_normal*self.length/2*1.1
+
+        # find z intersection with this plane
+        d2 = np.sum((central_point - intersect_coords)*plane_normal,axis=0)/np.sum(rays_out*plane_normal,axis=0)
+        plane_intersect = intersect_coords + rays_out*d2
+        i_vector = plane_intersect - intersect_coords
+        distance_2 = np.sqrt(np.sum(i_vector*i_vector,axis=0))
+
+        if figon:
+            plt.figure()
+            plt.plot(coords_ellipse[2, :], coords_ellipse[0, :])
+            plt.plot(z1, x1)
+            plt.plot(z_intersect, x_intersect)
+            plt.plot(plane_intersect[2,:],plane_intersect[0,:])
+            # plt.ylim(-.5, .5)
+            plt.grid()
+            plt.title('entrance/exit planes, mirror intersection')
+
+        # total distance for each beam ray
+        total_distance = (distance_1+distance_2)
+        #
+        if figon:
+            plt.figure()
+            plt.plot(intersect_coords[2,:],distance_1)
+            plt.plot(intersect_coords[2,:],distance_2)
+            plt.plot(intersect_coords[2,:],distance_1+distance_2)
+            plt.title('distances')
+
+        # find location of central ray in exit plane
+        origin = np.reshape(plane_intersect[:,int(beam.M/2)],(3,1))
+
+        # put beam center at origin
+        shifted_plane = plane_intersect-origin
+
+        # angle that exit plane makes with ellipse x-axis
+        alpha = np.arctan(shifted_plane[2,0]/shifted_plane[0,0])
+
+        # effective beam coordinates at exit plane (not uniformly spaced)
+        x_eff = shifted_plane[0,:]/np.cos(alpha)
+
+        # calculate desired pixel size due to expected change in beam size
+        if self.orientation==0 or self.orientation==2:
+            dx = beam.dx * (beam.zx + self.length/2*1.1)/beam.zx * (self.q - self.length/2*1.1)/self.q
+            x_out = np.linspace(-beam.M / 2 * dx, (beam.M / 2 - 1) * dx, beam.M)
+        else:
+            dx = beam.dy * (beam.zy + self.length / 2 * 1.1) / beam.zy * (self.q - self.length / 2 * 1.1) / self.q
+            x_out = np.linspace(-beam.N / 2 * dx, (beam.N / 2 - 1) * dx, beam.N)
+        # mask defining mirror acceptance
+        if self.q>=0:
+            mask = np.logical_and(coords_ellipse[0,:]>intersect_coords[0,:], plane_intersect[0,:]>intersect_coords[0,:])
+        else:
+            mask = np.logical_and(coords_ellipse[0, :] < intersect_coords[0, :],
+                                  plane_intersect[0, :] > intersect_coords[0, :])
+
+        # second order fit to ray distance
+        if self.q>=0:
+            mask = np.logical_and(mask, coords_ellipse[0,:]<0)
+        else:
+            mask = np.logical_and(mask, coords_ellipse[0, :] > 0)
+        mask = np.logical_and(mask, np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta']))
+
+        p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
+        linear = p_coeff[-2]
+        # subtract best fit parabola
+        total_distance -= np.polyval(p_coeff,x_eff)
+        #
+        distance_interp = Util.interp_flip(x_out,x_eff[mask],total_distance[mask])
+
+        mask2 = Util.interp_flip(x_out,x_eff[mask],mask[mask])
+        mask2[mask2<.9] = 0
+        # mask2 = mask2.astype(int)
+        mask2 = mask2 > 0.5
+        #
+        if figon:
+            plt.figure()
+            # plt.plot(x_out,mask2)
+            plt.plot(x_eff[mask],mask[mask])
+            #
+            plt.figure()
+            # plt.plot(x_out[mask2],distance_interp[mask2])
+            plt.plot(x_eff[mask],total_distance[mask])
+            plt.title('distance inside mirror footprint')
+
+            plt.figure()
+            plt.plot(beamx[mask]*1e3, incidence_angle[mask]*1e3)
+            plt.plot(beamx[mask]*1e3, angle2[mask]*1e3)
+            plt.xlabel('incident beam coordinates (mm)')
+            plt.ylabel('incidence angle (mrad)')
+        # plt.plot(x_out,mask2)
+
+        z_out = 1/2/p_coeff[-3]
+        print('zout: %.6f' % z_out)
+
+        abs_out = Util.interp_flip(x_out, x_eff[mask], np.abs(wave[mask]))
+        angle_out = Util.interp_flip(x_out, x_eff[mask], np.unwrap(np.angle(wave[mask])))
+
+        angle_in = np.unwrap(np.angle(wave))
+
+        # plt.figure()
+        # plt.plot(angle_out*mask2)
+        if figon:
+            plt.figure()
+            plt.plot(x_eff[mask],np.abs(wave[mask]))
+            plt.plot(x_out,abs_out)
+            plt.plot(x_out,mask2)
+            plt.title("where's the beam?")
+            #
+            plt.figure()
+            plt.plot(x_eff[mask])
+            plt.title('exit plane coordinates')
+
+        if self.orientation==0 or self.orientation==2:
+            if not beam.focused_x:
+                print('adding quadratic phase')
+                quadratic = np.pi / beam.lambda0 / beam.zx * (beam.x) ** 2
+
+                # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
+
+                if figon:
+                    plt.figure()
+                    plt.plot(quadratic)
+                    plt.plot(angle_in)
+                    plt.title('quadratic phase and other phase')
+                angle_in += quadratic
+        else:
+            if not beam.focused_y:
+                print('adding quadratic phase')
+                quadratic = np.pi / beam.lambda0 / beam.zy * (beam.y) ** 2
+
+                # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
+
+                if figon:
+                    plt.figure()
+                    plt.plot(quadratic)
+                    plt.plot(angle_in)
+                    plt.title('quadratic phase and other phase')
+                angle_in += quadratic
+
+        total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
+            # beam.focused_x = True
+        try:
+            # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
+            p_coeff = np.polyfit(x_eff[mask], total_phase[mask], 2)
+        except:
+            print('problem with mask')
+            p_coeff = np.zeros(3)
+        z_2 = np.pi / beam.lambda0 / p_coeff[-3]
+
+        z_total = 1 / (1 / z_out + 1 / z_2)
+        print('new z: %.6f' % z_total)
+
+        linear += p_coeff[-2] * beam.lambda0/2/np.pi
+
+        total_phase -= np.polyval(p_coeff[-2:], x_eff)
+
+        if self.orientation==0 or self.orientation==2:
+            if not beam.focused_x:
+                total_phase -= np.polyval([p_coeff[-3],0,0],x_eff)
+        else:
+            if not beam.focused_y:
+                total_phase -= np.polyval([p_coeff[-3], 0, 0], x_eff)
+
+        phase_interp = Util.interp_flip(x_out, x_eff, total_phase)
+
+        # total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
+
+        reflectivity_interp = Util.interp_flip(x_out, x_eff, reflectivity)
+
+        wave = abs_out * np.exp(1j * phase_interp)
+        if self.use_reflectivity:
+            wave *= np.sqrt(reflectivity_interp)
+        wave *= mask2
+
+        if figon:
+            plt.figure()
+            plt.plot(np.abs(wave))
+            plt.plot(np.abs(beam.wavex))
+
+        # beam.x = -x_out
+
+        ax0 = np.copy(beam.ax)
+        ay0 = np.copy(beam.ay)
+
+        # figure out where the beam is in global coordinates
+        # change in angle
+        if self.orientation==0 or self.orientation==2:
+            k_i = rays_ellipse[:,int(beam.M/2)]
+            k_f = rays_out[:,int(beam.M/2)]
+
+            k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1)), axes=(1,0))
+            delta_theta = np.arccos(np.dot(k_i, k_f))
+            nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.M/2)]
+            delta_ax = delta_theta - 2 * nominal_incidence + linear
+            delta_ax = delta_theta - 2*self.alpha - linear
+            print(beam.ax)
+            print(delta_ax)
+            if self.orientation==0:
+                beam.rotate_nominal(delta_azimuth=2*self.alpha)
+                beam.rotate_beam(delta_ax=delta_ax)
+            else:
+                beam.rotate_nominal(delta_azimuth=-2*self.alpha)
+                beam.rotate_beam(delta_ax=-delta_ax)
+
+            # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
+            print(beam.ax)
+            delta_cx = ax0 * self.length / 2 * 1.1
+            delta_cx += beam.ax * self.length / 2 * 1.1
+            delta_cx += 2*np.dot(self.normal,beam.xhat) * self.dx
+            print('change in beam center')
+            print(delta_cx)
+            # beam.cx = -beam.cx + delta_cx
+            # print(beam.cx)
+            beam.x = x_out
+
+            beam.new_fx()
+
+            print('is beam in the correct direction?')
+            print(np.arccos(np.dot(beam.zhat, k_f)))
+            print(np.arccos(np.dot(beam.zhat, k_f_global[:,0])))
+            print(params['beta'])
+            print(k_f)
+            print(k_f_global)
+
+            beam.wavex = wave
+            # print(np.arccos(np.dot(beam.zhat,np.matmul(np.linalg.inv(transform_matrix),np.reshape(k_f,(3,1))))))
+        else:
+            k_i = rays_ellipse[:, int(beam.N / 2)]
+            k_f = rays_out[:, int(beam.N / 2)]
+
+            k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
+            delta_theta = np.arccos(np.dot(k_i, k_f))
+            nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2)]
+            delta_ay = delta_theta - 2 * nominal_incidence + linear
+            delta_ay = delta_theta - 2 * self.alpha - linear
+            print(beam.ay)
+            # print(beam.cy)
+            print(delta_ay)
+
+            if self.orientation == 1:
+                beam.rotate_nominal(delta_elevation=2 * self.alpha)
+                beam.rotate_beam(delta_ay=delta_ay)
+            else:
+                beam.rotate_nominal(delta_elevation=-2 * self.alpha)
+                beam.rotate_beam(delta_ay=-delta_ay)
+            print(beam.ay)
+            # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
+            # cy1 = beam.cy + ay0 * delta_z
+            # cy2 = -cy1 + beam.ay * delta_z
+
+            delta_cy = ay0 * self.length / 2 * 1.1
+            delta_cy += beam.ay * self.length / 2 * 1.1
+            delta_cy += 2 * np.dot(self.normal, beam.yhat) * self.dx
+            print('change in beam center')
+            # beam.cy = 2 * np.dot(self.normal, beam.yhat) * self.dx + cy2
+            print(delta_cy)
+            # beam.cy = -beam.cy + delta_cy
+            print(beam.cy)
+            beam.y = x_out
+
+            beam.new_fx()
+
+            print('is beam in the correct direction?')
+            print(np.arccos(np.dot(beam.zhat, k_f)))
+            print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0])))
+            print(params['beta'])
+            print(k_f)
+            print(k_f_global)
+
+            beam.wavey = wave
+
+        # now figure out global coordinates
+        # get back into global coordinates using inverse of transformation matrix, just looking at central ray
+        inv_transform = np.linalg.inv(transform_matrix)
+
+        # rotate into global coordinate system, but origin is still at ellipse center
+        origin_global = np.tensordot(inv_transform, origin, axes=(1,0))
+
+        # subtract ellipse center, so that now this is relative to the mirror center
+        origin_global -= np.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
+
+        # now add the mirror center in global coordinates, so that this should be the beam location
+        # in global coordinates
+        origin_global += np.reshape(mirror_center, (3, 1))
+        # origin_global -= np.reshape(self.normal*dx,(3,1))
+        print(origin_global)
+        # now shift origin to ellipse origin
+
+        beam.global_x = origin_global[0,0]
+        beam.global_y = origin_global[1,0]
+        beam.global_z = origin_global[2,0]
+
+        if self.orientation==0 or self.orientation==2:
+            # calculate Fresnel scaling magnification
+
+            if beam.focused_y:
+                # this accounts for change in phase
+                beam.propagation(0,0,2*delta_z)
+            else:
+                mag_y = (beam.zy + 2 * delta_z) / beam.zy
+
+                # calculate effective distance to propagate
+                z_eff_y = 2 * delta_z / mag_y
+
+                # scaled propagation
+                beam.propagation(0, 0, z_eff_y)
+                beam.rescale_y_noshift(mag_y)
+            # beam.y -= beam.cy
+            # beam.cy += beam.ay * 2 * delta_z
+            # beam.y += beam.cy
+            beam.zy += 2*delta_z
+        else:
+            if beam.focused_x:
+                beam.propagation(0,0,2*delta_z)
+            else:
+                # calculate Fresnel scaling magnification
+                mag_x = (beam.zx + 2 * delta_z) / beam.zx
+
+                # calculate effective distance to propagate
+                z_eff_x = 2 * delta_z / mag_x
+
+                # scaled propagation
+                beam.propagation(0, 0, z_eff_x)
+                beam.rescale_x_noshift(mag_x)
+            # beam.x -= beam.cx
+            # beam.cx += beam.ax * 2 * delta_z
+            # beam.x += beam.cx
+            beam.zx += 2*delta_z
+
+        if self.orientation==0 or self.orientation==2:
+            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+            beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
+        else:
+
+            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+            beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
+
+        beam.new_fx()
+        print('global_x: %.2f' % beam.global_x)
+        print('global_y: %.2f' % beam.global_y)
+        print('global_z: %.2f' % beam.global_z)
+
     def reflect(self, beam):
         """
         Method to imprint a phase/amplitude onto the beam related to the effect of a (possibly misaligned) elliptical
@@ -960,6 +1695,7 @@ class CurvedMirror(Mirror):
         high_order = np.zeros_like(beam.x)
         quadratic = 0
         linear = 0
+
 
         # initialize some other arrays
         zi = np.zeros_like(beam.x)
@@ -982,7 +1718,6 @@ class CurvedMirror(Mirror):
         self.total_alpha = self.alpha + self.delta
 
         shapeError2 = np.zeros_like(beam.x)
-        shapeError_sagittal = np.zeros_like(beam.y)
 
         # check distance to beam focus
         self.projectWidth = np.abs(self.length * (self.alpha + self.delta))
@@ -1103,22 +1838,17 @@ class CurvedMirror(Mirror):
                 Ms = mirror_shape[1]
                 # mirror coordinates
                 max_xs = self.length / 2
-                max_ys = self.width / 2
                 # mirror coordinates
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
-                ys = np.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
 
                 # 1D interpolation onto beam coordinates (just take central line)
                 shapeError2 = np.interp(zi_1d - self.dx / np.tan(self.total_alpha), zs, self.shapeError[int(Ns/2), :])
-                shapeError_sagittal = np.interp(yi_1d, ys, self.shapeError[:, int(Ms / 2)])
 
         # figure out aperturing due to mirror's finite size
         z_mask = (np.abs(zi - self.dx / np.tan(self.total_alpha)) < self.length / 2).astype(float)
 
         # calculate effect of ellipse misalignment
         p_misalign = self.calc_misalignment(beam, cz)
-
-        print(p_misalign)
 
         # apply benders
         bend_coeff = self.bend(cz)
@@ -1145,9 +1875,6 @@ class CurvedMirror(Mirror):
 
         # add phase to high_order
         high_order += phase
-
-        high_order_y = (-4 * np.pi / beam.lambda0 * (np.sin(self.total_alpha))
-                        * shapeError_sagittal * 1e-9)
 
         # scaling between mirror z-axis and new beam coordinates
         scale = np.sin(self.total_alpha)
@@ -1183,132 +1910,156 @@ class CurvedMirror(Mirror):
         # factor out 2pi/lambda for linear term (so equal to change in propagation angle)
         linear += p_scaled[-2]
 
+        cx = np.copy(beam.cx)
+        cy = np.copy(beam.cy)
+
+        self.trace_surface(beam)
+        beam.beam_prop(-self.length / 2 * 1.1)
+
+        print('x')
+        print(beam.global_x)
+        print('y')
+        print(beam.global_y)
+        print('z')
+        print(beam.global_z)
+
         # now change outgoing beam k-vector based on mirror orientation, and apply quadratic phase
-        if self.orientation == 0:
-
-            # modify beam's wave attribute by mirror aperture and phase error
-            beam.wavex *= z_mask * np.exp(1j * high_order)
-            beam.wavey *= np.exp(1j * high_order_y)
-
-            # take into account mirror reflection causing beam to invert
-            beam.x *= -1
-
-            # adjust beam direction relative to properly aligned axis
-            beam.rotate_nominal(delta_azimuth=2 * self.alpha)
-            delta_ax = -2 * beam.ax + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
-            # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ay = np.arcsin(delta_k[1])
-            beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
-
-            # adjust beam direction relative to properly aligned axis
-            # beam.ax = -beam.ax + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
-            # beam.ay += np.arcsin(delta_k[1])
-
-            # adjust beam quadratic phase
-            # beam.zx = 1 / (1 / beam.zx + quadratic)
-            new_zx = 1 / (1 / beam.zx + quadratic)
-            print(new_zx)
-            beam.change_z(new_zx=new_zx)
-
-            # adjust beam position due to mirror de-centering
-            delta_cx = 2 * self.dx * np.cos(self.total_alpha)
-            beam.cx = -beam.cx + delta_cx
-            beam.x = beam.x + delta_cx
-
-        elif self.orientation == 1:
-
-            # modify beam's wave attribute by mirror aperture and phase error
-            beam.wavey *= z_mask * np.exp(1j * high_order)
-            beam.wavex *= np.exp(1j * high_order_y)
-
-            # take into account mirror reflection causing beam to invert
-            beam.y *= -1
-
-            # adjust beam direction relative to properly aligned axis
-            beam.rotate_nominal(delta_elevation=2 * self.alpha)
-            delta_ay = -2 * beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
-            # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ax = -np.arcsin(delta_k[1])
-            beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
-
-            # adjust beam direction relative to properly aligned axis
-            # beam.ax += -np.arcsin(delta_k[1])
-            # beam.ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
-
-            # adjust beam quadratic phase
-            # beam.zy = 1 / (1 / beam.zy + quadratic)
-            new_zy = 1 / (1 / beam.zy + quadratic)
-            beam.change_z(new_zy=new_zy)
-
-            # adjust beam position due to mirror de-centering
-            delta_cy = 2 * self.dx * np.cos(self.total_alpha)
-            beam.cy = -beam.cy + delta_cy
-            beam.y = beam.y + delta_cy
-
-        elif self.orientation == 2:
-
-            # modify beam's wave attribute by mirror aperture and phase error
-            beam.wavex *= z_mask * np.exp(1j * high_order)
-            beam.wavey *= np.exp(1j * high_order_y)
-
-            # take into account mirror reflection causing beam to invert
-            beam.x *= -1
-
-            # adjust beam direction relative to properly aligned axis
-            beam.rotate_nominal(delta_azimuth=-2 * self.alpha)
-            delta_ax = -2 * beam.ax - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
-            # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ay = -np.arcsin(delta_k[1])
-            beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
-
-            # adjust beam direction relative to properly aligned axis
-            # beam.ax = -beam.ax - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
-            # beam.ay += -np.arcsin(delta_k[1])
-
-            # adjust beam quadratic phase
-            # beam.zx = 1 / (1 / beam.zx + quadratic)
-            new_zx = 1 / (1 / beam.zx + quadratic)
-            beam.change_z(new_zx=new_zx)
-
-            # adjust beam position due to mirror de-centering
-            delta_cx = -2 * self.dx * np.cos(self.total_alpha)
-            beam.cx = -beam.cx + delta_cx
-            beam.x = beam.x + delta_cx
-
-        elif self.orientation == 3:
-
-            # modify beam's wave attribute by mirror aperture and phase error
-            beam.wavey *= z_mask * np.exp(1j * high_order)
-            beam.wavex *= np.exp(1j * high_order_y)
-
-            # take into account mirror reflection causing beam to invert
-            beam.y *= -1
-
-            # adjust beam direction relative to properly aligned axis
-            beam.rotate_nominal(delta_elevation=-2 * self.alpha)
-            delta_ay = -2 * beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
-            # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ax = np.arcsin(delta_k[1])
-            beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
-
-            # adjust beam direction relative to properly aligned axis
-            # beam.ax += np.arcsin(delta_k[1])
-            # beam.ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
-
-            # adjust beam quadratic phase
-            # beam.zy = 1 / (1 / beam.zy + quadratic)
-            new_zy = 1 / (1 / beam.zy + quadratic)
-            beam.change_z(new_zy=new_zy)
-
-            # adjust beam position due to mirror de-centering
-            delta_cy = -2 * self.dx * np.cos(self.total_alpha)
-            beam.cy = -beam.cy + delta_cy
-            beam.y = beam.y + delta_cy
+        # if self.orientation == 0:
+        #
+        #     # modify beam's wave attribute by mirror aperture and phase error
+        #     # beam.wavex *= z_mask * np.exp(1j * high_order)
+        #
+        #     # take into account mirror reflection causing beam to invert
+        #     # beam.x *= -1
+        #
+        #     # adjust beam direction relative to properly aligned axis
+        #     # beam.rotate_nominal(delta_azimuth=2 * self.alpha)
+        #     # delta_ax = -2 * beam.ax + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
+        #     # # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
+        #     # delta_ay = np.arcsin(delta_k[1])
+        #     # beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
+        #     #
+        #     # # adjust beam direction relative to properly aligned axis
+        #     # # beam.ax = -beam.ax + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
+        #     # # beam.ay += np.arcsin(delta_k[1])
+        #     #
+        #     # # adjust beam quadratic phase
+        #     # # beam.zx = 1 / (1 / beam.zx + quadratic)
+        #     # # new_zx = 1 / (1 / beam.zx + quadratic)
+        #     # # beam.change_z(new_zx=new_zx)
+        #     #
+        #     # # adjust beam position due to mirror de-centering
+        #     # delta_cx = 2 * self.dx * np.cos(self.total_alpha)
+        #     # beam.cx = -beam.cx + delta_cx
+        #     # beam.x = beam.x + delta_cx
+        #     # beam.x -= beam.cx
+        #     beam.cx = -cx
+        #     # beam.x += beam.cx
+        #
+        # elif self.orientation == 1:
+        #
+        #     # modify beam's wave attribute by mirror aperture and phase error
+        #     # beam.wavey *= z_mask * np.exp(1j * high_order)
+        #
+        #     # take into account mirror reflection causing beam to invert
+        #     # beam.y *= -1
+        #
+        #     # # adjust beam direction relative to properly aligned axis
+        #     # beam.rotate_nominal(delta_elevation=2 * self.alpha)
+        #     # delta_ay = -2 * beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
+        #     # # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
+        #     # delta_ax = -np.arcsin(delta_k[1])
+        #     # beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
+        #     #
+        #     # # adjust beam direction relative to properly aligned axis
+        #     # # beam.ax += -np.arcsin(delta_k[1])
+        #     # # beam.ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.alpha)) - linear
+        #     #
+        #     # # adjust beam quadratic phase
+        #     # # beam.zy = 1 / (1 / beam.zy + quadratic)
+        #     # # new_zy = 1 / (1 / beam.zy + quadratic)
+        #     # # beam.change_z(new_zy=new_zy)
+        #     #
+        #     # # adjust beam position due to mirror de-centering
+        #     # delta_cy = 2 * self.dx * np.cos(self.total_alpha)
+        #     # beam.cy = -beam.cy + delta_cy
+        #     # beam.y = beam.y + delta_cy
+        #     # beam.y -= beam.cy
+        #     beam.cy = -cy
+        #     # beam.y += beam.cy
+        #
+        # elif self.orientation == 2:
+        #
+        #     # modify beam's wave attribute by mirror aperture and phase error
+        #     # beam.wavex *= z_mask * np.exp(1j * high_order)
+        #
+        #     # take into account mirror reflection causing beam to invert
+        #     # beam.x *= -1
+        #
+        #     # adjust beam direction relative to properly aligned axis
+        #     # beam.rotate_nominal(delta_azimuth=-2 * self.alpha)
+        #     # delta_ax = -2 * beam.ax - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
+        #     # # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
+        #     # delta_ay = -np.arcsin(delta_k[1])
+        #     # beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
+        #     #
+        #     # # adjust beam direction relative to properly aligned axis
+        #     # # beam.ax = -beam.ax - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
+        #     # # beam.ay += -np.arcsin(delta_k[1])
+        #     #
+        #     # # adjust beam quadratic phase
+        #     # # beam.zx = 1 / (1 / beam.zx + quadratic)
+        #     # # new_zx = 1 / (1 / beam.zx + quadratic)
+        #     # # beam.change_z(new_zx=new_zx)
+        #     #
+        #     # # adjust beam position due to mirror de-centering
+        #     # delta_cx = -2 * self.dx * np.cos(self.total_alpha)
+        #     # beam.cx = -beam.cx + delta_cx
+        #     # beam.x = beam.x + delta_cx
+        #     # beam.x -= beam.cx
+        #     beam.cx = -cx
+        #     # beam.x += beam.cx
+        #
+        # elif self.orientation == 3:
+        #
+        #     # modify beam's wave attribute by mirror aperture and phase error
+        #     # beam.wavey *= z_mask * np.exp(1j * high_order)
+        #
+        #     # take into account mirror reflection causing beam to invert
+        #     # beam.y *= -1
+        #
+        #     # adjust beam direction relative to properly aligned axis
+        #     # beam.rotate_nominal(delta_elevation=-2 * self.alpha)
+        #     # delta_ay = -2 * beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
+        #     # # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
+        #     # delta_ax = np.arcsin(delta_k[1])
+        #     # beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
+        #     #
+        #     # # adjust beam direction relative to properly aligned axis
+        #     # # beam.ax += np.arcsin(delta_k[1])
+        #     # # beam.ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.alpha)) + linear
+        #     #
+        #     # # adjust beam quadratic phase
+        #     # # beam.zy = 1 / (1 / beam.zy + quadratic)
+        #     # # new_zy = 1 / (1 / beam.zy + quadratic)
+        #     # # beam.change_z(new_zy=new_zy)
+        #     #
+        #     # # adjust beam position due to mirror de-centering
+        #     # delta_cy = -2 * self.dx * np.cos(self.total_alpha)
+        #     # beam.cy = -beam.cy + delta_cy
+        #     # beam.y = beam.y + delta_cy
+        #     # beam.y -= beam.cy
+        #     beam.cy = -cy
+        #     # beam.y += beam.cy
 
         # plt.figure()
         # plt.plot(np.abs(beam.wavex))
         # plt.figure()
         # plt.plot(np.angle(beam.wavex))
+
+        # beam.global_x = self.x_intersect
+        # beam.global_y = self.y_intersect
+        # beam.global_z = self.z_intersect
 
         return
 
@@ -1385,7 +2136,7 @@ class Mono:
         # set grating focal length
         self.grating.f = self.f
         # set grating energy
-        self.grating.lambda0 = 1239.842/E0*1e-9
+        self.grating.lambda0 = 1239.8/E0*1e-9
 
         # calculate some reference angles
         self.m_ref = np.arctan(.012 / .68) / 2
@@ -1394,7 +2145,7 @@ class Mono:
 
         # calculate reference energy
         lambda1 = np.cos(self.alpha_ref) - np.cos(np.arcsin(self.cff * np.sin(self.alpha_ref))) / self.grating.n0
-        self.energy_ref = 1239.842 / (lambda1 * 1e9)
+        self.energy_ref = 1239.8 / (lambda1 * 1e9)
 
         # set pre-mirror alpha (angle of incidence when beam is centered on pre-mirror)
         self.m2.alpha = self.m_ref
@@ -1413,7 +2164,7 @@ class Mono:
         self.delta_mirror = self.delta * (1 + 1 / self.cff) / 2
 
         # pre-mirror distance adjustment
-        self.m2.z = self.m2.z - .006 * (self.delta_mirror + delta_mirror) - .68 * (
+        self.m2.z = self.m2.z + .006 * (self.delta_mirror + delta_mirror) - .68 * (
                 np.cos(self.delta_mirror + delta_mirror) - 1)
         # pre-mirror x-axis position adjustment
         # self.m2.dx = self.m2.dx - .68 * (self.delta_mirror + delta_mirror) - .006 * (
@@ -1446,7 +2197,7 @@ class Mono:
         # calculate corresponding wavelength
         lambda1 = (np.cos(alpha) - np.cos(np.arcsin(self.cff * np.sin(alpha)))) / self.grating.n0
         # convert to photon energy (eV)
-        energy1 = 1239.842 / (lambda1 * 1e9)
+        energy1 = 1239.8 / (lambda1 * 1e9)
 
         # interpolate to find the proper angle for this energy
         alpha0 = Util.interp_flip(self.e0, energy1, alpha)
@@ -1461,7 +2212,7 @@ class Mono:
             grating glancing diffraction angle (radians)
         """
         # calculate wavelength
-        lambda0 = 1239.842 / self.e0 * 1e-9
+        lambda0 = 1239.8 / self.e0 * 1e-9
         # calculate diffraction angle based on grating equation
         beta = np.arccos(np.cos(alpha) - self.grating.n0 * lambda0)
         return beta
@@ -1476,7 +2227,7 @@ class Mono:
         self.beta_ref = self.cff * self.alpha_ref
 
         lambda1 = np.cos(self.alpha_ref) - np.cos(np.arcsin(self.cff * np.sin(self.alpha_ref))) / self.grating.n0
-        self.energy_ref = 1239.842 / (lambda1 * 1e9)
+        self.energy_ref = 1239.8 / (lambda1 * 1e9)
 
     def propagate(self, beam):
         """
@@ -2135,13 +2886,13 @@ class Crystal(Mirror):
         self.material = material
         self.pol = pol
         self.E0 = E0
-        self.lambda0 = 1239.842 / E0 * 1e-9
+        self.lambda0 = 1239.8 / E0 * 1e-9
 
         # define xrt crystal for reflectivity and crystal parameters
         if self.material == 'Si':
             self.crystal = materials.CrystalSi(hkl=self.hkl)
         elif self.material == 'diamond':
-            self.crystal = materials.CrystalDiamond(hkl=self.hkl,d=0.8917,elements='C')
+            self.crystal = materials.CrystalDiamond(hkl=self.hkl)
 
         # lattice spacing
         self.d = self.crystal.d * 1e-10
@@ -2149,9 +2900,8 @@ class Crystal(Mirror):
         # get bragg peak angle
         self.bragg = self.crystal.get_Bragg_angle(self.E0) - self.crystal.get_dtheta(self.E0, alpha=alphaAsym)
 
-        if 'alpha' not in kwargs.keys():
-            # calculate proper angle of incidence for energy E0 (general case is asymmetric)
-            self.alpha = self.bragg + self.alphaAsym
+        # calculate proper angle of incidence for energy E0 (general case is asymmetric)
+        self.alpha = self.bragg + self.alphaAsym
 
         # define nominal beam k_i
         k_ix = -np.sin(self.alpha)
@@ -2283,11 +3033,13 @@ class Crystal(Mirror):
         :return: None
         """
         # if we're operating in zero order, just acts like a mirror
-        if self.order == 0:
-            self.reflect(beam)
-        # if we're in first order, calculate diffraction
-        elif self.order == 1:
-            self.diffract(beam)
+        # if self.order == 0:
+        #     self.reflect(beam)
+        # # if we're in first order, calculate diffraction
+        # elif self.order == 1:
+        #     self.diffract(beam)
+        self.trace_surface(beam)
+        beam.beam_prop(-self.length / 2 * 1.1)
 
     def calc_kf(self, z_s, k_iy, alpha_in, slope_error, lambda0):
         # calculate diffraction angle at every point on the grating
@@ -2319,6 +3071,491 @@ class Crystal(Mirror):
 
         return k_i, k_f, m_x, c_normal
 
+    def trace_surface(self, beam):
+
+        figon = self.show_figures
+        # global unit vectors
+        ux = np.reshape(np.array([1,0,0]),(3,1))
+        uy = np.reshape(np.array([0,1,0]),(3,1))
+        uz = np.reshape(np.array([0,0,1]),(3,1))
+
+        delta_z = self.length / 2 * 1.1
+
+        print('ax: %.6e' % beam.ax)
+        print('ay: %.6e' % beam.ay)
+
+        # propagate beam to just upstream of mirror
+        beam.beam_prop(-delta_z)
+
+        # vector defining displacement from beam location to mirror center. This is in global coordinates
+        beam_center = np.array([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = np.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        beam_to_mirror = beam_center - mirror_center
+
+        crystal_x = self.normal
+        crystal_y = self.sagittal
+        crystal_z = self.transverse
+
+        print('crystal unit vectors')
+        print(self.normal)
+        print(crystal_x)
+        print(crystal_z)
+
+        # go through all orientation options
+        if self.orientation==0:
+            # calculate beam "rays", in beam local coordinates
+            rays_x = beam.x/beam.zx
+            # transverse unit vector (in global coordinates)
+            t_hat = beam.xhat
+            # beam plane coordinates in global coordinates, but with beam centered at zero
+            coords = np.multiply.outer(beam.xhat, beam.x)
+
+            # relevant wavefront
+            wave = beam.wavex
+
+            beamx = beam.x
+        elif self.orientation==1:
+            # calculate beam "rays", in beam local coordinates
+            rays_x = beam.y/beam.zy
+            # transverse unit vector (in global coordinates)
+            t_hat = beam.yhat
+            # beam plane coordinates in global coordinates (but centered at origin)
+            coords = np.multiply.outer(beam.yhat, beam.y)
+
+            # relevant wavefront
+            wave = beam.wavey
+            beamx = beam.y
+        elif self.orientation==2:
+            # calculate beam "rays", in beam local coordinates
+            rays_x = beam.x/beam.zx
+            # transverse unit vector (in global coordinates)
+            t_hat = beam.xhat
+            # beam plane coordinates in global coordinates (but centered at origin)
+            coords = np.multiply.outer(beam.xhat, beam.x)
+
+            # relevant wavefront
+            wave = beam.wavex
+            beamx = beam.x
+        elif self.orientation==3:
+            # calculate beam "rays", in beam local coordinates
+            rays_x = beam.y/beam.zy
+            # transverse unit vector (in global coordinates)
+            t_hat = beam.yhat
+            # beam plane coordinates in global coordinates (but centered at origin)
+            coords = np.multiply.outer(beam.yhat, beam.y)
+
+            # relevant wavefront
+            wave = beam.wavey
+            beamx = beam.y
+        # reference to global origin by adding beam global center
+        coords += np.reshape(beam_center, (3, 1))
+        # now subtract mirror center so that beam coordinates are in global coordinates,
+        # but with origin at mirror center
+        coords -= np.reshape(mirror_center, (3, 1))
+
+        # now write beam coordinates in crystal coordinates
+        transform_matrix = np.tensordot(np.reshape([crystal_x, crystal_y, crystal_z], (3, 3)),
+                                        np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        coords_crystal = np.tensordot(transform_matrix, coords, axes=(1, 0))
+
+        # calculate z component of rays (enforcing unit vector)
+        rays_z = np.sqrt(np.ones_like(rays_x) - rays_x ** 2)
+        # ray vectors at each point in the beam
+        rays = np.multiply.outer(t_hat, rays_x) + np.multiply.outer(beam.zhat, rays_z)
+
+        # normalize rays (should be redundant)
+        rays = rays / np.sqrt(np.sum(rays*rays, axis=0))
+
+        # now write rays in ellipse coordinates
+        rays_crystal = np.tensordot(transform_matrix, rays, axes=(1,0))
+
+        if figon:
+            plt.figure()
+            plt.plot(coords_crystal[2,:],coords_crystal[0,:])
+            # plt.plot(z1, x1)
+            plt.plot([-self.length/2,self.length/2],[0,0])
+            plt.quiver(coords_crystal[2,:],coords_crystal[0,:],rays_crystal[2,:],rays_crystal[0,:])
+            plt.ylim(-.5,.5)
+            plt.grid()
+            plt.title('incoming rays and mirror')
+
+        # find intersection with crystal
+        z_intersect = coords_crystal[2, :] - rays_crystal[2, :] / rays_crystal[0, :] * coords_crystal[0, :]
+        # x intersection is by definition at zero (on the crystal surface)
+        x_intersect = np.zeros_like(z_intersect)
+
+        # find y based on z
+        y_intersect = rays_crystal[1,:]/rays_crystal[2,:]*(z_intersect-coords_crystal[2,:]) + coords_crystal[1,:]
+
+        intersect_coords = np.zeros((3,np.size(z_intersect)))
+        intersect_coords[0,:] = x_intersect
+        intersect_coords[1,:] = y_intersect
+        intersect_coords[2,:] = z_intersect
+
+        # vectors pointing from beam location to mirror intersection
+        i_vector = intersect_coords - coords_crystal
+
+        # length of each vector
+        distance_1 = np.sqrt(np.sum(i_vector*i_vector,axis=0))
+
+        # define crystal normals along surface
+        surface_normal = np.zeros_like(rays)
+        # crystal_normal[2,:] = -b/a**2*z_intersect*(1-z_intersect**2/a**2)**(-.5)
+        # surface_normal[2,:] = np.zeros_like(rays)
+        surface_normal[0,:] = np.ones_like(z_intersect)
+
+        # define crystal plane normal
+        crystal_normal = np.zeros_like(rays)
+        crystal_normal[0,:] = np.ones_like(z_intersect) * np.cos(self.alphaAsym)
+        crystal_normal[2,:] = np.ones_like(z_intersect) * np.sin(self.alphaAsym)
+
+        c_parallel = np.sum(crystal_normal* uz, axis=0) * uz * self.lambda0/self.d
+
+        plt.figure()
+        plt.plot(c_parallel[2,:])
+        plt.title('parallel component')
+        print(np.shape(c_parallel))
+
+        print(np.shape(uy))
+        print(np.shape(rays_crystal))
+
+        rays_y = np.sum(rays_crystal * uy, axis=0) * uy
+        print(np.shape(rays_y))
+
+        rays_z = np.sum(rays_crystal * uz, axis=0) * uz + c_parallel
+        rays_x = np.sqrt(np.ones_like(z_intersect) - np.sum(rays_y*rays_y,axis=0)-
+                         np.sum(rays_z*rays_z,axis=0)) * ux
+
+        plt.figure()
+        plt.plot(rays_z[0, :])
+        plt.plot(rays_z[1, :])
+        plt.plot(rays_z[2, :])
+        plt.plot(rays_crystal[2, :])
+
+        rays_out = rays_x + rays_y + rays_z
+
+        # normalize
+        # crystal_normal = crystal_normal/np.sqrt(np.sum(crystal_normal*crystal_normal,axis=0))
+
+        # calculate ray direction after interaction with crystal
+        # rays_out = rays_crystal - 2 * np.sum(rays_crystal*crystal_normal,axis=0) * crystal_normal
+
+        if figon:
+            plt.figure()
+            plt.plot(beamx,rays_crystal[0,:])
+            plt.plot(beamx,rays_out[0,:])
+            plt.title('rays in y direction')
+
+        # now find intersection with exit plane
+        # we can define this simply as having a normal vector in the direction of the central ray
+        # and we will define the plane to be a distance length/2*1.1 from the intersection point of the central ray
+        plane_normal = np.reshape(rays_out[:,int(beam.N/2)],(3,1))
+        central_point = np.reshape(intersect_coords[:,int(beam.N/2)],(3,1)) + plane_normal*self.length/2*1.1
+
+        # find z intersection with this plane
+        d2 = np.sum((central_point - intersect_coords)*plane_normal,axis=0)/np.sum(rays_out*plane_normal,axis=0)
+        plane_intersect = intersect_coords + rays_out*d2
+        i_vector = plane_intersect - intersect_coords
+        distance_2 = np.sqrt(np.sum(i_vector*i_vector,axis=0))
+
+        if figon:
+            plt.figure()
+            plt.plot(coords_crystal[2, :], coords_crystal[0, :])
+            plt.plot(z_intersect, x_intersect)
+            plt.plot(plane_intersect[2,:],plane_intersect[0,:])
+            # plt.ylim(-.5, .5)
+            plt.grid()
+            plt.title('entrance/exit planes, mirror intersection')
+
+        # total distance for each beam ray
+        total_distance = (distance_1+distance_2)
+        #
+        if figon:
+            plt.figure()
+            plt.plot(intersect_coords[2,:],distance_1)
+            plt.plot(intersect_coords[2,:],distance_2)
+            plt.plot(intersect_coords[2,:],distance_1+distance_2)
+            plt.title('distances')
+
+        # find location of central ray in exit plane
+        origin = np.reshape(plane_intersect[:,int(beam.M/2)],(3,1))
+
+        # put beam center at origin
+        shifted_plane = plane_intersect-origin
+
+        # angle that exit plane makes with ellipse x-axis
+        alpha = np.arctan(shifted_plane[2,0]/shifted_plane[0,0])
+
+        # effective beam coordinates at exit plane (not uniformly spaced)
+        x_eff = shifted_plane[0,:]/np.cos(alpha)
+
+        ##### CHECKED UP UNTIL THIS POINT #####
+        # calculate desired pixel size due to expected change in beam size due to possible crystal asymmetry
+
+        if self.orientation==0 or self.orientation==2:
+            dx = beam.dx * np.abs(np.sin(self.beta0) / np.sin(self.alpha))
+            x_out = np.linspace(-beam.M / 2 * dx, (beam.M / 2 - 1) * dx, beam.M)
+        else:
+            dx = beam.dy * np.abs(np.sin(self.beta0) / np.sin(self.alpha))
+            x_out = np.linspace(-beam.N / 2 * dx, (beam.N / 2 - 1) * dx, beam.N)
+        # mask defining mirror acceptance
+        mask = coords_crystal[0,:]>intersect_coords[0,:]
+
+        mask = np.logical_and(mask, np.abs(intersect_coords[2, :]) < self.length / 2)
+
+        p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
+        # linear = p_coeff[-2]
+        linear = 0
+        # subtract best fit parabola
+        total_distance -= np.polyval(p_coeff,x_eff)
+        #
+        distance_interp = Util.interp_flip(x_out,x_eff[mask],total_distance[mask])
+
+        mask2 = Util.interp_flip(x_out,x_eff[mask],mask[mask])
+        mask2[mask2<.9] = 0
+        # mask2 = mask2.astype(int)
+        mask2 = mask2 > 0.5
+        #
+        if figon:
+            plt.figure()
+            # plt.plot(x_out,mask2)
+            plt.plot(x_eff[mask],mask[mask])
+            #
+            plt.figure()
+            # plt.plot(x_out[mask2],distance_interp[mask2])
+            plt.plot(x_eff[mask],total_distance[mask])
+            plt.title('distance inside mirror footprint')
+        # plt.plot(x_out,mask2)
+
+        z_out = 1/2/p_coeff[-3]
+        print('zout: %.6f' % z_out)
+
+        abs_out = Util.interp_flip(x_out, x_eff[mask], np.abs(wave[mask]))
+        angle_out = Util.interp_flip(x_out, x_eff[mask], np.unwrap(np.angle(wave[mask])))
+
+        angle_in = np.unwrap(np.angle(wave))
+
+        # plt.figure()
+        # plt.plot(angle_out*mask2)
+        if figon:
+            plt.figure()
+            plt.plot(x_eff[mask],np.abs(wave[mask]))
+            plt.plot(x_out,abs_out)
+            plt.plot(x_out,mask2)
+            plt.title("where's the beam?")
+            #
+            plt.figure()
+            plt.plot(x_eff[mask])
+            plt.title('exit plane coordinates')
+
+        if self.orientation==0 or self.orientation==2:
+            if not beam.focused_x:
+                print('adding quadratic phase')
+                quadratic = np.pi / beam.lambda0 / beam.zx * (beam.x) ** 2
+
+                # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
+
+                if figon:
+                    plt.figure()
+                    plt.plot(quadratic)
+                    plt.plot(angle_in)
+                    plt.title('quadratic phase and other phase')
+                angle_in += quadratic
+        else:
+            if not beam.focused_y:
+                print('adding quadratic phase')
+                quadratic = np.pi / beam.lambda0 / beam.zy * (beam.y) ** 2
+
+                # quadratic = Util.interp_flip(x_out, x_eff - xcenter, )
+
+                if figon:
+                    plt.figure()
+                    plt.plot(quadratic)
+                    plt.plot(angle_in)
+                    plt.title('quadratic phase and other phase')
+                angle_in += quadratic
+
+        # total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
+        total_phase = angle_in
+            # beam.focused_x = True
+        try:
+            # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
+            p_coeff = np.polyfit(x_eff[mask], total_phase[mask], 2)
+        except:
+            print('problem with mask')
+            p_coeff = np.zeros(3)
+        z_2 = np.pi / beam.lambda0 / p_coeff[-3]
+
+        plt.figure()
+        plt.plot(total_phase[mask])
+
+        z_total = 1 / (1 / z_out + 1 / z_2)
+        print('new z: %.6f' % z_total)
+        print(z_2)
+        z_total = z_2
+
+        linear += p_coeff[-2] * beam.lambda0/2/np.pi
+
+        total_phase -= np.polyval(p_coeff[-2:], x_eff)
+
+        if self.orientation==0 or self.orientation==2:
+            if not beam.focused_x:
+                total_phase -= np.polyval([p_coeff[-3],0,0],x_eff)
+        else:
+            if not beam.focused_y:
+                total_phase -= np.polyval([p_coeff[-3], 0, 0], x_eff)
+
+        phase_interp = Util.interp_flip(x_out, x_eff, total_phase)
+
+        # total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
+
+        wave = abs_out * np.exp(1j * phase_interp)
+        wave *= mask2
+
+        if figon:
+            plt.figure()
+            plt.plot(np.abs(wave),label='new amplitude')
+            plt.plot(np.abs(beam.wavex),label='old amplitude')
+            plt.legend()
+
+        # beam.x = -x_out
+
+        ax0 = np.copy(beam.ax)
+        ay0 = np.copy(beam.ay)
+
+        # figure out where the beam is in global coordinates
+        # change in angle
+        if self.orientation==0 or self.orientation==2:
+            k_i = rays_crystal[:,int(beam.M/2)]
+            k_f = rays_out[:,int(beam.M/2)]
+
+            k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f,(3,1)), axes=(1,0))
+            delta_theta = np.arccos(np.dot(k_i, k_f))
+
+            delta_ax = delta_theta - self.alpha -self.beta0 - linear
+            print(beam.ax)
+            print(delta_ax)
+            if self.orientation==0:
+                beam.rotate_nominal(delta_azimuth=self.alpha+self.beta0)
+                beam.rotate_beam(delta_ax=delta_ax)
+            else:
+                beam.rotate_nominal(delta_azimuth=-self.alpha-self.beta0)
+                beam.rotate_beam(delta_ax=-delta_ax)
+
+            beam.x = -x_out
+
+            beam.new_fx()
+
+            print('is beam in the correct direction?')
+            print(np.arccos(np.dot(beam.zhat, k_f)))
+            print(np.arccos(np.dot(beam.zhat, k_f_global[:,0])))
+            print(k_f)
+            print(k_f_global)
+
+            beam.wavex = wave
+            # print(np.arccos(np.dot(beam.zhat,np.matmul(np.linalg.inv(transform_matrix),np.reshape(k_f,(3,1))))))
+        else:
+            k_i = rays_crystal[:, int(beam.N / 2)]
+            k_f = rays_out[:, int(beam.N / 2)]
+
+            k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
+            delta_theta = np.arccos(np.dot(k_i, k_f))
+            delta_ay = delta_theta - self.alpha -self.beta0 - linear
+            print(beam.ay)
+            # print(beam.cy)
+            print(delta_ay)
+
+            if self.orientation == 1:
+                beam.rotate_nominal(delta_elevation=self.alpha+self.beta0)
+                beam.rotate_beam(delta_ay=delta_ay)
+            else:
+                beam.rotate_nominal(delta_elevation=-self.alpha-self.beta0)
+                beam.rotate_beam(delta_ay=-delta_ay)
+            print(beam.ay)
+            # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
+            # cy1 = beam.cy + ay0 * delta_z
+            # cy2 = -cy1 + beam.ay * delta_z
+
+            beam.y = -x_out
+
+            beam.new_fx()
+
+            print('is beam in the correct direction?')
+            print(np.arccos(np.dot(beam.zhat, k_f)))
+            print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0])))
+            print(k_f)
+            print(k_f_global)
+
+            beam.wavey = wave
+
+        # now figure out global coordinates
+        # get back into global coordinates using inverse of transformation matrix, just looking at central ray
+        inv_transform = np.linalg.inv(transform_matrix)
+
+        # rotate into global coordinate system, but origin is still at ellipse center
+        origin_global = np.tensordot(inv_transform, origin, axes=(1,0))
+
+        # now add the mirror center in global coordinates, so that this should be the beam location
+        # in global coordinates
+        origin_global += np.reshape(mirror_center, (3, 1))
+        # origin_global -= np.reshape(self.normal*dx,(3,1))
+        print(origin_global)
+        # now shift origin to ellipse origin
+
+        beam.global_x = origin_global[0,0]
+        beam.global_y = origin_global[1,0]
+        beam.global_z = origin_global[2,0]
+
+        if self.orientation==0 or self.orientation==2:
+            # calculate Fresnel scaling magnification
+
+            if beam.focused_y:
+                # this accounts for change in phase
+                beam.propagation(0,0,2*delta_z)
+            else:
+                mag_y = (beam.zy + 2 * delta_z) / beam.zy
+
+                # calculate effective distance to propagate
+                z_eff_y = 2 * delta_z / mag_y
+
+                # scaled propagation
+                beam.propagation(0, 0, z_eff_y)
+                beam.rescale_y_noshift(mag_y)
+            # beam.y -= beam.cy
+            # beam.cy += beam.ay * 2 * delta_z
+            # beam.y += beam.cy
+            beam.zy += 2*delta_z
+        else:
+            if beam.focused_x:
+                beam.propagation(0,0,2*delta_z)
+            else:
+                # calculate Fresnel scaling magnification
+                mag_x = (beam.zx + 2 * delta_z) / beam.zx
+
+                # calculate effective distance to propagate
+                z_eff_x = 2 * delta_z / mag_x
+
+                # scaled propagation
+                beam.propagation(0, 0, z_eff_x)
+                beam.rescale_x_noshift(mag_x)
+            # beam.x -= beam.cx
+            # beam.cx += beam.ax * 2 * delta_z
+            # beam.x += beam.cx
+            beam.zx += 2*delta_z
+
+        if self.orientation==0 or self.orientation==2:
+            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+            beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
+        else:
+
+            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+            beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
+
+        beam.new_fx()
+        print('global_x: %.2f' % beam.global_x)
+        print('global_y: %.2f' % beam.global_y)
+        print('global_z: %.2f' % beam.global_z)
+
     def diffract(self, beam):
         """
         Method to calculate diffraction from a grating, including VLS parameters.
@@ -2331,7 +3568,6 @@ class Crystal(Mirror):
 
         # initialize some arrays
         shapeError2 = np.zeros_like(beam.x)
-        shapeError_sagittal = np.zeros_like(beam.y)
         k_ix = 0
         k_iy = 0
         k_iz = 0
@@ -2372,10 +3608,8 @@ class Crystal(Mirror):
             self.f = -beam.zx * (np.abs(np.sin(self.beta0)/np.sin(self.alpha))**2)
             # self.f = -beam.zx
             beamz = beam.zx
-            beamz_y = beam.zy
 
             wavefront = np.copy(beam.wavex)
-
             if beam.focused_x:
                 print('subtracting second order')
                 wavefront *= np.exp(-1j * np.pi / beam.lambda0 / beam.zx * (beam.x - beam.cx) ** 2)
@@ -2406,7 +3640,6 @@ class Crystal(Mirror):
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
             beamz = beam.zy
-            beamz_y = beam.zx
 
             wavefront = np.copy(beam.wavey)
 
@@ -2439,7 +3672,6 @@ class Crystal(Mirror):
             self.f = -beam.zx * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zx
             beamz = beam.zx
-            beamz_y = beam.zy
 
             wavefront = np.copy(beam.wavex)
 
@@ -2474,7 +3706,6 @@ class Crystal(Mirror):
             self.f = -beam.zy * (np.abs(np.sin(self.beta0) / np.sin(self.alpha)) ** 2)
             # self.f = -beam.zy
             beamz = beam.zy
-            beamz_y = beam.zx
 
             wavefront = np.copy(beam.wavey)
 
@@ -2503,16 +3734,12 @@ class Crystal(Mirror):
                 Ms = mirror_shape[1]
                 # mirror coordinates
                 max_xs = self.length / 2
-                max_ys = self.width / 2
                 # mirror coordinates
                 zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
-                ys = np.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
 
                 # just take central line for 1d shape error
                 shapeError2 = np.interp(zi_1d - self.dx / np.tan(total_alpha), zs,
                                         self.shapeError[int(Ns / 2), :])
-
-                shapeError_sagittal = np.interp(yi_1d, ys, self.shapeError[:, int(Ms / 2)])
 
 
         # zi_1d is centered around cz, and beam is centered on cz
@@ -2520,7 +3747,6 @@ class Crystal(Mirror):
         # to make the mask, we need coordinates that are centered on the crystal,
         # with no offset this is zi_1d, with offset this is z_c = zi_1d - self.dx / np.tan(total_alpha)
         z_c = zi_1d - self.dx / np.tan(total_alpha)
-        y_c = yi_1d
 
         # beam-centered coordinates are zi_1d - cz (meaning zero at beam center) - we will call this z_b
         # This implies that z_b = z_c + self.dx / np.tan(total_alpha) - cz, which is consistent with the
@@ -2533,17 +3759,11 @@ class Crystal(Mirror):
         mask = np.abs(z_c) <= self.length / 2
         print(np.sum(mask)/np.size(z_c))
 
-        mask_sagittal = np.abs(y_c) <= self.width / 2
-
         # perform a Legendre fit on the shape error, limited to the size of the crystal
         shapePoly = LegendreUtil(z_c[mask], shapeError2[mask], 16)
 
-        shapePoly_sagittal = LegendreUtil(y_c[mask_sagittal], shapeError_sagittal[mask_sagittal], 16)
-
         # get second order term of Legendre fit for curved crystal calculation
         second_order = shapePoly.quad_coeff()
-
-        second_order_sagittal = shapePoly.quad_coeff()
 
         # take derivative to get slope error
         slope_error = np.gradient(shapeError2, z_c) * 1e-9
@@ -2563,15 +3783,6 @@ class Crystal(Mirror):
         ##############################
         beam_slope_error = np.gradient(np.unwrap(np.angle(wavefront)),z_b*np.sin(total_alpha))*beam.lambda0/2/np.pi
         ##############################
-        # plt.figure()
-        # plt.plot(np.angle(wavefront))
-        # plt.plot(np.unwrap(np.angle(wavefront)))
-
-        beam_slope_error = np.nan_to_num(beam_slope_error,posinf=0,neginf=0)
-        beam_slope_p = np.polynomial.legendre.legfit(z_b*np.sin(total_alpha),beam_slope_error,4,w=np.abs(wavefront)**2)
-        # beam_slope_p[0:2] = 0
-        beam_slope_error = np.polynomial.legendre.legval(z_b*np.sin(total_alpha),beam_slope_p)
-        # plt.plot(beam_slope_error)
 
         # plt.figure()
         # plt.plot(z_b, beam_slope_error)
@@ -2615,47 +3826,6 @@ class Crystal(Mirror):
         # f2 = -object_distance
         self.f = f2
         print('Calculated distance to focus: %.6f' % f2)
-
-        #### Sagittal focusing (y-direction)
-
-        R_s = 1 / (2 * second_order_sagittal * 1e-9)
-        print(R_s)
-        # use equation for curved grating sagittal imaging condition.
-        f_s = 1 / ((np.sin(self.alpha) + np.sin(self.beta0)) / R_s - 1 / beamz_y)
-        #
-        print('Calculated distance to sagittal focus: %.6f' % f_s)
-
-        # limit fit to size of crystal
-        mask_z = np.abs(z_c) <= self.length / 2
-        mask_y = np.abs(y_c) <= self.width / 2
-
-        # subtract second order from shape error
-        shape_sagittal_subtract = np.copy(shapeError_sagittal)
-        shape_sagittal_subtract[mask_y] -= shapePoly_sagittal.legval(2)
-
-        shape_sagittal_subtract *= 1e-9
-
-        p_int_y = np.zeros(3)
-
-        high_order_y = (-2*np.pi / beam.lambda0 * (np.sin(total_alpha) + np.sin(self.beta0 - self.delta))
-                        * shape_sagittal_subtract)
-
-        offset_y = cy - self.dy
-        # account for any decentering
-
-        #### might need to add back in
-        # Add 2nd order phase to p_scaled
-        p_int_y[-3] += -1 / (2 * f_s)
-        #####
-
-        p_centered_y = Util.recenter_coeff(p_int_y, offset_y)
-
-        # 2nd order phase (factoring out pi/lambda)
-        p2nd_y = 2 * p_centered_y[-3]
-
-        # 1st order phase (factoring out 2 pi/lambda)
-        # (only add any 1st order phase due to de-centering since the rest is already accounted for in delta_k).
-        p1st_y = p_centered_y[-2] - p_int_y[-2]
 
         # calculate desired slope at each point of the grating
         x1 = self.f * np.sin(self.beta0 - self.delta) - self.dx
@@ -2730,6 +3900,7 @@ class Crystal(Mirror):
         high_order_temp = integration.cumtrapz(slope_error, z_c, initial=0)
         high_order_temp[mask] -= shapePoly.legval(2)
 
+
         # plt.plot(zi[int(Ns / 2), mask_z], shapePoly_z.legval(2))
         # plt.plot(zi[int(Ns / 2), mask_z], shape_lineout_z[mask_z])
 
@@ -2793,16 +3964,11 @@ class Crystal(Mirror):
         else:
             C = C2
 
-        # plt.figure()
-        # plt.plot(np.abs(C))
-        # plt.plot(beam_slope_error)
-
         # handle beam re-pointing depending on the orientation
         if self.orientation == 0:
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavex *= z_mask * np.exp(1j * high_order) * C
-            beam.wavey *= np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
@@ -2814,9 +3980,8 @@ class Crystal(Mirror):
             # beam.zx = 1 / (1 / beam.zx + p2nd)
             # beam.zx = 1 / p2nd
             new_zx = 1 / p2nd
-            new_zy = 1 / p2nd_y
             print('z: %.2f' % new_zx)
-            beam.change_z(new_zx=new_zx, new_zy=new_zy)
+            beam.change_z(new_zx=new_zx)
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -2826,7 +3991,7 @@ class Crystal(Mirror):
             beam.rotate_nominal(delta_azimuth=self.alpha+self.beta0)
             delta_ax = -beam.ax + np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ay = -beam.ay + np.arcsin(delta_k[1]) + p1st_y
+            delta_ay = np.arcsin(delta_k[1])
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2842,7 +4007,6 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavey *= z_mask * np.exp(1j * high_order) * C
-            beam.wavex *= np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
@@ -2854,8 +4018,7 @@ class Crystal(Mirror):
             # beam.zy = 1 / (1 / beam.zy + p2nd)
             # beam.zy = 1 / p2nd
             new_zy = 1 / p2nd
-            new_zx = 1 / p2nd_y
-            beam.change_z(new_zx=new_zx, new_zy=new_zy)
+            beam.change_z(new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -2865,7 +4028,7 @@ class Crystal(Mirror):
             beam.rotate_nominal(delta_elevation=self.alpha + self.beta0)
             delta_ay = -beam.ay + np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ax = -beam.ax + -np.arcsin(delta_k[1]) - p1st_y
+            delta_ax = -np.arcsin(delta_k[1])
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2881,7 +4044,6 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavex *= z_mask * np.exp(1j * high_order) * C
-            beam.wavey *= np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
@@ -2893,9 +4055,8 @@ class Crystal(Mirror):
             # beam.zx = 1 / (1 / beam.zx + p2nd)
             # beam.zx = 1 / p2nd
             new_zx = 1 / p2nd
-            new_zy = 1 / p2nd_y
             print('z: %.2f' % new_zx)
-            beam.change_z(new_zx=new_zx, new_zy=new_zy)
+            beam.change_z(new_zx=new_zx)
 
             # take into account mirror reflection causing beam to invert
             beam.x *= -1
@@ -2909,7 +4070,7 @@ class Crystal(Mirror):
             # delta_ax = -beam.ax - np.arcsin(delta_k[0] / np.cos(self.beta0)) + p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
 
-            delta_ay = -beam.ay - np.arcsin(delta_k[1]) - p1st_y
+            delta_ay = np.arcsin(delta_k[1])
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2925,7 +4086,6 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavey *= z_mask * np.exp(1j * high_order) * C
-            beam.wavex *= np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
@@ -2937,8 +4097,7 @@ class Crystal(Mirror):
             # beam.zy = 1 / (1 / beam.zy + p2nd)
             # beam.zy = 1 / p2nd
             new_zy = 1 / p2nd
-            new_zx = 1 / p2nd_y
-            beam.change_z(new_zx=new_zx, new_zy=new_zy)
+            beam.change_z(new_zy=new_zy)
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
@@ -2948,7 +4107,7 @@ class Crystal(Mirror):
             beam.rotate_nominal(delta_elevation=-self.alpha - self.beta0)
             delta_ay = -beam.ay - np.arcsin(delta_k[0] / np.cos(self.beta0)) - p1st
             # delta_ax = -2*beam.ax + np.arcsin(delta_k[0])
-            delta_ax = -beam.ax + np.arcsin(delta_k[1]) + p1st_y
+            delta_ax = np.arcsin(delta_k[1])
             beam.rotate_beam(delta_ax=delta_ax, delta_ay=delta_ay)
 
             # adjust beam direction relative to properly aligned axis
@@ -2964,9 +4123,6 @@ class Crystal(Mirror):
         # plt.plot(np.abs(beam.wavex))
         # plt.figure()
         # plt.plot(np.angle(beam.wavex))
-
-        # plt.figure()
-        # plt.plot(np.abs(beam.wavex))
 
         return
 
@@ -3061,7 +4217,7 @@ class Slit:
         z location along beamline
     """
 
-    def __init__(self, name, x_width=5e-3, y_width=5e-3, dx=0, dy=0, z=None, transmission=0):
+    def __init__(self, name, x_width=5e-3, y_width=5e-3, dx=0, dy=0, z=None):
         """
         Method to create a Slit object.
         :param name: str
@@ -3080,7 +4236,6 @@ class Slit:
         self.name = name
         self.x_width = x_width
         self.y_width = y_width
-        self.transmission = transmission
         self.dx = dx
         self.dy = dy
         self.z = z
@@ -3102,9 +4257,6 @@ class Slit:
         # define slit aperture in beam coordinates
         aperture_x = (np.abs(beam.x - self.dx) < self.x_width / 2).astype(float)
         aperture_y = (np.abs(beam.y - self.dy) < self.y_width / 2).astype(float)
-
-        aperture_x[aperture_x<1] = self.transmission
-        aperture_y[aperture_y<1] = self.transmission
 
         # multiply beam by aperture
         beam.wavex *= aperture_x
@@ -3273,18 +4425,34 @@ class Drift:
                            (nx * kx + ny * ky + nz * kz))
 
         x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
-        print('x intersect: %.4e' % x_intersect)
-        print('component x: %.4e' % self.downstream_component.global_x)
+        print('x intersect: %.10e' % x_intersect)
+        print('component x: %.10e' % self.downstream_component.global_x)
         y_intersect = k[1] / k[2] * (z_intersect - beam.global_z) + beam.global_y
-        print('y intersect: %.4e' % y_intersect)
-        print('component y: %.4e' % self.downstream_component.global_y)
-        print('z intersect: %.4e' % z_intersect)
-        print('component z: %.4e' % self.downstream_component.z)
+        print('y intersect: %.10e' % y_intersect)
+        print('component y: %.10e' % self.downstream_component.global_y)
+        print('z intersect: %.10e' % z_intersect)
+        print('component z: %.10e' % self.downstream_component.z)
         dx = x_intersect - beam.global_x
         dy = y_intersect - beam.global_y
         dz = z_intersect - beam.global_z
+
+        if issubclass(type(self.downstream_component), Mirror):
+
+            print('found curved mirror')
+            intersection = self.downstream_component.find_intersection(beam).flatten()
+            print(intersection)
+            x_intersect = intersection[0]
+            y_intersect = intersection[1]
+            z_intersect = intersection[2]
+            dx = x_intersect - beam.global_x
+            dy = y_intersect - beam.global_y
+            dz = z_intersect - beam.global_z
         # re-calculate propagation distance
         old_z = np.copy(self.dz)
+
+        self.downstream_component.x_intersect = x_intersect
+        self.downstream_component.y_intersect = y_intersect
+        self.downstream_component.z_intersect = z_intersect
 
         self.dz = np.sqrt(dx**2 + dy**2 + dz**2)
         self.downstream_component.correction = self.dz - old_z
@@ -3295,7 +4463,7 @@ class Drift:
         # beam.global_z =
 
         beam.beam_prop(self.dz)
-
+        # beam.beam_prop(old_z)
 
 class PPM:
     """
@@ -3400,6 +4568,9 @@ class PPM:
         self.xhat = None
         self.yhat = None
         self.zhat = None
+        self.x_intersect = 0
+        self.y_intersect = 0
+        self.z_intersect = 0
 
         # calculate PPM coordinates
         self.x = np.linspace(-N / 2, N / 2 - 1, N) * dx + xoffset
@@ -3429,8 +4600,6 @@ class PPM:
         self.cy = 0.0
         self.wx = 0.0
         self.wy = 0.0
-        self.sx = 0.0
-        self.sy = 0.0
         self.lambda0 = 0.0
         self.group_delay = 0
 
@@ -3455,8 +4624,6 @@ class PPM:
         self.cy = 0.0
         self.wx = 0.0
         self.wy = 0.0
-        self.sx = 0.0
-        self.sy = 0.0
         self.lambda0 = 0.0
 
     def beam_analysis(self, line_x, line_y):
@@ -3568,6 +4735,12 @@ class PPM:
         :return: None
         """
 
+        beam_shift = np.array([self.x_intersect-self.global_x,
+                               self.y_intersect-self.global_y,
+                               self.z_intersect-self.z])
+        x_shift = np.dot(beam_shift,self.xhat)
+        y_shift = np.dot(beam_shift,self.yhat)
+
         # Calculate intensity from complex beam
         profilex = np.abs(beam.wavex) ** 2
         profiley = np.abs(beam.wavey) ** 2
@@ -3592,21 +4765,12 @@ class PPM:
             profiley = ndimage.filters.gaussian_filter1d(profiley, y_width)
 
         # get beam coordinates for interpolation
-        x = beam.x
-        y = beam.y
+        x = beam.x + x_shift
+        y = beam.y + y_shift
 
         # interpolating function from np.interp (allowing for flipped coordinates)
         profilex_interp = Util.interp_flip(self.x, x * scaling_x, profilex)
         profiley_interp = Util.interp_flip(self.y, y * scaling_y, profiley)
-
-        profilex_interp *= self.dx / beam.dx
-        profiley_interp *= self.dx / beam.dy
-        self.x_lineout = profilex_interp
-        self.y_lineout = profiley_interp
-
-        # self.x_lineout = np.sum(self.profile, axis=0)
-        # # calculate vertical lineout
-        # self.y_lineout = np.sum(self.profile, axis=1)
 
         # beam phase
         x_phase = np.unwrap(np.angle(beam.wavex))
@@ -3643,12 +4807,12 @@ class PPM:
             self.cy_beam = beam.cy
 
         # calculate horizontal lineout
-        # self.x_lineout = np.sum(self.profile, axis=0)
-        # # calculate vertical lineout
-        # self.y_lineout = np.sum(self.profile, axis=1)
+        self.x_lineout = np.sum(self.profile, axis=0)
+        # calculate vertical lineout
+        self.y_lineout = np.sum(self.profile, axis=1)
 
         # calculate centroids and beam widths
-        self.cx, self.cy, self.wx, self.wy, self.sx, self.sy = self.beam_analysis(self.x_lineout, self.y_lineout)
+        self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
 
         # get beam wavelength
         self.lambda0 = beam.lambda0
@@ -3679,7 +4843,7 @@ class PPM:
         """
         self.calc_profile(beam)
 
-    def view_vertical(self, ax=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
+    def view_vertical(self, ax_y=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
         """
         Method to view
         :param normalized: whether to normalize the lineout
@@ -3688,87 +4852,43 @@ class PPM:
 
         gaussian_fit = np.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)
 
-        if ax is None:
+        if ax_y is None:
             # generate the figure
             plt.figure()
-            ax = plt.subplot2grid((1,1), (0, 0))
+            ax_y = plt.subplot2grid((1,1), (0, 0))
         if normalized:
             # show the vertical lineout (distance in microns)
             if log:
-                ax.semilogy(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
+                ax_y.semilogy(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
             else:
-                ax.plot(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
-                ax.set_ylim(0, 1.05)
-            ax.set_ylabel('Intensity (normalized)')
+                ax_y.plot(self.y * 1e6, self.y_lineout / np.max(self.y_lineout), label=label)
+                ax_y.set_ylim(0, 1.05)
+            ax_y.set_ylabel('Intensity (normalized)')
         else:
             # show the vertical lineout (distance in microns)
             if log:
-                ax.semilogy(self.y * 1e6, self.y_lineout, label=label)
+                ax_y.semilogy(self.y * 1e6, self.y_lineout, label=label)
             else:
-                ax.plot(self.y * 1e6, self.y_lineout, label=label)
+                ax_y.plot(self.y * 1e6, self.y_lineout, label=label)
             gaussian_fit *= np.max(self.y_lineout)
-            ax.set_ylabel('Intensity (arbitrary units)')
+            ax_y.set_ylabel('Intensity (arbitrary units)')
         # also plot the Gaussian fit
         if show_fit:
             if log:
-                ax.semilogy(self.y*1e6, gaussian_fit, label='fit')
+                ax_y.semilogy(self.y*1e6, gaussian_fit, label='fit')
             else:
-                ax.plot(self.y * 1e6, gaussian_fit, label='fit')
+                ax_y.plot(self.y * 1e6, gaussian_fit, label='fit')
         if legend:
-            ax.legend()
-        ax.set_xlabel('Y Coordinates (\u03BCm)')
+            ax_y.legend()
+        ax_y.set_xlabel('Y Coordinates (\u03BCm)')
         # show a grid
-        ax.grid(True)
+        ax_y.grid(True)
         # set limits
 
 
-        return ax
+        return ax_y
 
-    def view_horizontal(self, ax=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
-        """
-        Method to view
-        :param normalized: whether to normalize the lineout
-        :return:
-        """
-
-        gaussian_fit = np.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
-
-        if ax is None:
-            # generate the figure
-            plt.figure()
-            ax = plt.subplot2grid((1,1), (0, 0))
-        if normalized:
-            # show the vertical lineout (distance in microns)
-            if log:
-                ax.semilogy(self.x * 1e6, self.x_lineout / np.max(self.x_lineout), label=label)
-            else:
-                ax.plot(self.x * 1e6, self.x_lineout / np.max(self.x_lineout), label=label)
-                ax.set_ylim(0, 1.05)
-            ax.set_ylabel('Intensity (normalized)')
-        else:
-            # show the vertical lineout (distance in microns)
-            if log:
-                ax.semilogy(self.x * 1e6, self.x_lineout, label=label)
-            else:
-                ax.plot(self.x * 1e6, self.x_lineout, label=label)
-            gaussian_fit *= np.max(self.x_lineout)
-            ax.set_ylabel('Intensity (arbitrary units)')
-        # also plot the Gaussian fit
-        if show_fit:
-            if log:
-                ax.semilogy(self.x*1e6, gaussian_fit, label='fit')
-            else:
-                ax.plot(self.x * 1e6, gaussian_fit, label='fit')
-        if legend:
-            ax.legend()
-        ax.set_xlabel('X Coordinates (\u03BCm)')
-        # show a grid
-        ax.grid(True)
-        # set limits
-
-        return ax
-
-    def view_beam(self):
+    def view_beam(self, title=None):
         """
         Method to view beam after the fact. Will be zero intensity everywhere if calc_profile (or propagate)
         haven't been called yet.
@@ -3808,7 +4928,10 @@ class PPM:
         # label coordinates
         ax_profile.set_xlabel('X coordinates (%s)' % units)
         ax_profile.set_ylabel('Y coordinates (%s)' % units)
-        ax_profile.set_title(self.name)
+        if title is None:
+            ax_profile.set_title(self.name)
+        else:
+            ax_profile.set_title(title)
 
         # show the vertical lineout (distance in microns)
         ax_y.plot(self.y_lineout/np.max(self.y_lineout), self.y * mult)
@@ -4157,13 +5280,11 @@ class PPM:
         mag = (zT + wfs.f0) / wfs.f0
 
         # number of pixels to sum across to get lineout
-        lineout_width = int(wfs.pitch / self.dx * 10 * mag)
+        lineout_width = int(wfs.pitch / self.dx * 5 * mag)
 
         # lineout boundaries in pixels (distance from center)
         x_lim = int(self.wx/self.dx)
         y_lim = int(self.wy/self.dx)
-        print('x_lim')
-        print(x_lim)
 
         # calculated beam center in pixels
         x_center = int(self.cx/self.dx) + self.N/2
@@ -4284,8 +5405,7 @@ class CRL:
         Imaginary part of index of refraction. n = 1 - delta + 1j * beta
     """
 
-    def __init__(self, name, diameter=300e-6, roc=50e-6, E0=None, f=None, material='Be', z=0, dx=0, orientation=0,
-                 absorb=True):
+    def __init__(self, name, diameter=300e-6, roc=50e-6, E0=None, f=None, material='Be', z=0, dx=0, orientation=0):
         """
         Method to create a CRL object.
         :param name: str
@@ -4316,7 +5436,6 @@ class CRL:
         self.E0 = E0
         self.f = f
         self.material = material
-        self.absorb = absorb
         self.dx = dx
         self.z = z
         self.global_x = 0
@@ -4390,10 +5509,7 @@ class CRL:
         # phase shift at center of beam
         phase_shift = np.interp(beamc, beamx, thickness)*delta*2*np.pi/beam.lambda0
 
-        if self.absorb:
-            transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask# * np.exp(1j*phase_shift)
-        else:
-            transmission = np.exp(1j * phase) * mask
+        transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask# * np.exp(1j*phase_shift)
 
         # adjust beam properties
         new_zx = 1 / (1 / beamz + p2 * beam.lambda0 / np.pi)
@@ -4569,8 +5685,7 @@ class WFS:
 
     """
 
-    def __init__(self, name, pitch=None, duty_cycle=0.1, z=None, f0=100, phase=False, enabled=True, fraction=1,
-                 grating_phase=np.pi):
+    def __init__(self, name, pitch=None, duty_cycle=0.1, z=None, f0=100, phase=False, enabled=True, fraction=1):
         """
         Method to initialize a wavefront sensor.
         :param name: str
@@ -4594,7 +5709,6 @@ class WFS:
         # set attributes
         self.name = name
         self.pitch = pitch
-        self.grating_phase = grating_phase
         self.duty_cycle = duty_cycle
         self.f0 = f0
         self.z = z
@@ -4606,8 +5720,8 @@ class WFS:
         self.azimuth = 0
         self.elevation = 0
         # initialize some calculated attributes
-        self.x_pitch = None
-        self.y_pitch = None
+        self.x_pitch = 0.
+        self.y_pitch = 0.
         self.x_pitch_units = 0
         self.y_pitch_units = 0
         self.grating_x = np.zeros(0)
@@ -4637,7 +5751,7 @@ class WFS:
         zT = ppm_object.z - self.z
 
         # wavelength
-        lambda0 = 1239.842/E0 * 1e-9
+        lambda0 = 1239.8/E0 * 1e-9
 
         # magnification
         M = (zT + f0) / f0
@@ -4697,10 +5811,8 @@ class WFS:
         M = np.size(beam.x)
 
         # Number of pixels per grating period
-        if self.x_pitch is None:
-            self.x_pitch = np.round(self.pitch/beam.dx)
-        if self.y_pitch is None:
-            self.y_pitch = np.round(self.pitch/beam.dy)
+        self.x_pitch = np.round(self.pitch/beam.dx)
+        self.y_pitch = np.round(self.pitch/beam.dy)
 
         self.x_pitch_units = self.x_pitch * beam.dx
         self.y_pitch_units = self.y_pitch * beam.dy
@@ -4738,12 +5850,8 @@ class WFS:
         # convert to checkerboard pi phase grating if desired
         if self.phase:
 
-            self.grating_x = np.exp(1j*self.grating_phase*self.grating_x)
-            self.grating_y = np.exp(1j*self.grating_phase*self.grating_y)
-
-        # shift grating if there is an offset
-        self.grating_x = np.roll(self.grating_x, int(np.round(beam.cx/beam.dx)))
-        self.grating_y = np.roll(self.grating_y, int(np.round(beam.cy / beam.dy)))
+            self.grating_x = np.exp(1j*np.pi*self.grating_x)
+            self.grating_y = np.exp(1j*np.pi*self.grating_y)
 
         # multiply beam by grating
         beam.wavex *= self.grating_x

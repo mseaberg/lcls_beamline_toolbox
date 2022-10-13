@@ -13,7 +13,7 @@ from .optics import Drift, Mono, Mirror
 # import matplotlib.pyplot as plt
 import copy
 import numpy as np
-from .util import Util
+from lcls_beamline_toolbox.utility.util import Util
 import time
 
 

@@ -15,7 +15,7 @@ unless otherwise indicated.
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from .util import Util
+from lcls_beamline_toolbox.utility.util import Util
 import scipy.optimize as optimize
 
 

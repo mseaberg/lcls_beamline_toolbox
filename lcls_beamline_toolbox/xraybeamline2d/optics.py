@@ -27,7 +27,7 @@ except ImportError:
 import matplotlib.pyplot as plt
 import json
 from time import sleep
-from .pitch import TalbotLineout, TalbotImage
+from lcls_beamline_toolbox.utility.pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolation
 
 import scipy.optimize as optimize
@@ -36,8 +36,7 @@ from skimage.restoration import unwrap_phase
 import time
 import os
 import pickle
-from ..polyprojection.legendre import LegendreFit2D
-from .util import Util, LegendreUtil
+from lcls_beamline_toolbox.utility.util import Util, LegendreUtil
 try:
     from epics import PV
     from pcdsdevices.areadetector.detectors import PCDSAreaDetector
