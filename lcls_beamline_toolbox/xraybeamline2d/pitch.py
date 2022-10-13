@@ -966,7 +966,8 @@ class TalbotImage:
             'h_grad': h_grad2*zeroMask,
             'v_grad': v_grad2*zeroMask,
             'h_mean': h_mean,
-            'v_mean': v_mean
+            'v_mean': v_mean,
+            'wave': wave
             # 'xf': xf,
             # 'yf': yf
         }

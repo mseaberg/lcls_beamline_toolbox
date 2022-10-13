@@ -4524,10 +4524,19 @@ class PPM:
         coeff = fit_params['coeff']
 
         # add defocus to wavefront fit
-        if use_gpu:
-            full_wave = fit_object.wavefront_fit(coeff) + xp.asnumpy(px * x**2 + py * y**2)
+        if method == 'CG':
+            full_wave = fit_params['wave']
         else:
-            full_wave = fit_object.wavefront_fit(coeff) + (px * x ** 2 + py * y ** 2)
+            full_wave = fit_object.wavefront_fit(coeff)
+
+        # if use_gpu:
+        #     full_wave = fit_object.wavefront_fit(coeff) + xp.asnumpy(px * x**2 + py * y**2)
+        # else:
+        #     full_wave = fit_object.wavefront_fit(coeff) + (px * x ** 2 + py * y ** 2)
+        if use_gpu:
+            full_wave += xp.asnumpy(px * x**2 + py * y**2)
+        else:
+            full_wave += (px * x ** 2 + py * y ** 2)
 
         # output. See method docstring for descriptions.
         wfs_data2D = {
