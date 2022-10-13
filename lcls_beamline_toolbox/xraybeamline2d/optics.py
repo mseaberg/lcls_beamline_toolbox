@@ -4525,7 +4525,7 @@ class PPM:
 
         # add defocus to wavefront fit
         if method == 'CG':
-            full_wave = fit_params['wave']
+            full_wave = fit_params['wave'] + (px * x ** 2 + py * y ** 2)
         else:
             full_wave = fit_object.wavefront_fit(coeff)
             if use_gpu:
