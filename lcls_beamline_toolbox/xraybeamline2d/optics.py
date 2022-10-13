@@ -2840,52 +2840,53 @@ class Grating(Mirror):
         # beta at beam center
         beta1 = np.arccos(k_f[2])
 
-        # mirror shape error interpolation onto beam coordinates (if applicable)
-        if self.shapeError is not None:
-            # get shape of shape error input
-            mirror_shape = np.shape(self.shapeError)
-
-            # assume this is the central line shaper error along the long axis if only 1D
-            if np.size(mirror_shape) == 1:
-                # assume this is the central line and it's the same across the mirror width
-                Ms = mirror_shape[0]
-                # mirror coordinates (beam coordinates)
-                max_zs = self.length / 2
-                # mirror coordinates
-                zs = xp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
-                # 1D interpolation onto beam coordinates
-                central_line = xp.interp(zi_1d - self.dx / xp.tan(total_alpha), zs, self.shapeError)
-                # tile onto mirror short axis direction
-                shapeError2 = xp.tile(central_line, (xp.size(yi_1d), 1))*1e-9
-            # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
-            else:
-                # shape error array shape
-                Ns = mirror_shape[0]
-                Ms = mirror_shape[1]
-                # mirror coordinates
-                max_xs = self.length / 2
-                # mirror coordinates
-                zs = xp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
-                max_ys = self.width / 2
-                ys = xp.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
-
-                # 2D interpolation onto beam coordinates
-                # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
-                # shapeError2 = f(zi_1d - self.dx / xp.tan(total_alpha), yi_1d - self.dy)*1e-9
-
-                zs,ys = xp.meshgrid(zs,ys)
-
-                coords_z = xp.ndarray.flatten(
-                    ((zi - self.dx / xp.tan(total_alpha)) - xp.amin(zs)) / (xp.amax(zs) - xp.amin(zs))) * Ms
-                coords_y = xp.ndarray.flatten(((yi - self.dy) - xp.amin(ys)) / (xp.amax(ys) - xp.amin(ys))) * Ns
-
-                shapeError2 = xp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y, coords_z]), xp.shape(zi))*1e-9
-
-            if self.orientation == 1:
-                shapeError2 = np.swapaxes(shapeError2, 0, 1)
-
-            elif self.orientation == 3:
-                shapeError2 = np.swapaxes(shapeError2, 0, 1)
+        # # mirror shape error interpolation onto beam coordinates (if applicable)
+        # if self.shapeError is not None:
+        #     # get shape of shape error input
+        #     mirror_shape = np.shape(self.shapeError)
+        #
+        #     # assume this is the central line shaper error along the long axis if only 1D
+        #     if np.size(mirror_shape) == 1:
+        #         # assume this is the central line and it's the same across the mirror width
+        #         Ms = mirror_shape[0]
+        #         # mirror coordinates (beam coordinates)
+        #         max_zs = self.length / 2
+        #         # mirror coordinates
+        #         zs = xp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
+        #         # 1D interpolation onto beam coordinates
+        #         central_line = xp.interp(zi_1d - self.dx / xp.tan(total_alpha), zs, self.shapeError)
+        #         # tile onto mirror short axis direction
+        #         shapeError2 = xp.tile(central_line, (xp.size(yi_1d), 1))*1e-9
+        #     # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
+        #     else:
+        #         # shape error array shape
+        #         Ns = mirror_shape[0]
+        #         Ms = mirror_shape[1]
+        #         # mirror coordinates
+        #         max_xs = self.length / 2
+        #         # mirror coordinates
+        #         zs = xp.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_xs / (Ms / 2 - 1)
+        #         max_ys = self.width / 2
+        #         ys = xp.linspace(-Ns / 2, Ns / 2 - 1, Ns) * max_ys / (Ns / 2 - 1)
+        #
+        #         # 2D interpolation onto beam coordinates
+        #         # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
+        #         # shapeError2 = f(zi_1d - self.dx / xp.tan(total_alpha), yi_1d - self.dy)*1e-9
+        #
+        #         zs,ys = xp.meshgrid(zs,ys)
+        #
+        #         coords_z = xp.ndarray.flatten(
+        #             ((zi - self.dx / xp.tan(total_alpha)) - xp.amin(zs)) / (xp.amax(zs) - xp.amin(zs))) * Ms
+        #         coords_y = xp.ndarray.flatten(((yi - self.dy) - xp.amin(ys)) / (xp.amax(ys) - xp.amin(ys))) * Ns
+        #
+        #         shapeError2 = xp.reshape(ndimage.map_coordinates(self.shapeError, [coords_y, coords_z]), xp.shape(zi))*1e-9
+        #
+        #     if self.orientation == 1:
+        #         shapeError2 = np.swapaxes(shapeError2, 0, 1)
+        #
+        #     elif self.orientation == 3:
+        #         shapeError2 = np.swapaxes(shapeError2, 0, 1)
+        shapeError2 = self.interpolate_shape(zi, yi, zi_1d, yi_1d, total_alpha)
 
 
         # project beam angle onto grating axis
@@ -3783,7 +3784,11 @@ class CRL:
                     ((xi - self.dx)  - xp.amin(xs)) / (xp.amax(xs) - xp.amin(xs))) * Ms
                 coords_y = xp.ndarray.flatten(((yi - self.dy) - xp.amin(ys)) / (xp.amax(ys) - xp.amin(ys))) * Ns
 
-                shapeError2 = xp.reshape(ndimage.map_coordinates(shape, [coords_y, coords_x]), xp.shape(xi))
+                coords = xp.zeros((2, xp.size(xi)))
+                coords[0, :] = coords_y.flatten()
+                coords[1, :] = coords_x.flatten()
+
+                shapeError2 = xp.reshape(ndimage.map_coordinates(shape, coords), xp.shape(xi))
 
         # CRL thickness (for now assuming perfect lenses but might add aberrations later)
         thickness = 2 * self.roc * (1 / 2 * ((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) / self.roc ** 2)
@@ -3924,7 +3929,11 @@ class CRL1D(CRL):
                     ((xi - self.dx ) - xp.amin(xs)) / (xp.amax(xs) - xp.amin(xs))) * Ms
                 coords_y = xp.ndarray.flatten(((yi - self.dy) - xp.amin(ys)) / (xp.amax(ys) - xp.amin(ys))) * Ns
 
-                shapeError2 = xp.reshape(ndimage.map_coordinates(shape, [coords_y, coords_x]), xp.shape(xi))
+                coords = xp.zeros((2, xp.size(xi)))
+                coords[0, :] = coords_y.flatten()
+                coords[1, :] = coords_x.flatten()
+
+                shapeError2 = xp.reshape(ndimage.map_coordinates(shape, coords), xp.shape(xi))
 
         if self.orientation == 0:
             beamx = beam.x
