@@ -4288,6 +4288,13 @@ class PPM:
         x_map = (self.xx - xp.amin(x))/(xp.amax(x)-xp.amin(x)) * beam.M
         y_map = (self.yy - xp.amin(y))/(xp.amax(y)-xp.amin(y)) * beam.N
 
+        coords = xp.zeros((2,self.N**2))
+        coords[0,:] = y_map.flatten()
+        coords[1,:] = x_map.flatten()
+
+        self.profile = xp.reshape(ndimage.map_coordinates(profile,coords),(self.N,self.N))
+
+        # self.profile = ndimage.zoom(profile, (scaling_x,scaling_y))
         # account for coordinate scaling between PPM and beam
         self.profile *= self.dx / beam.dx * self.dx / beam.dy
 
