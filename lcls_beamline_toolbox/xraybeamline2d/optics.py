@@ -4282,7 +4282,7 @@ class PPM:
 
         # interpolating function from Scipy's interp2d. Extrapolation value is set to zero.
         # f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
-        # do the interpolation to get the profile we'll see on the PPM
+        # # do the interpolation to get the profile we'll see on the PPM
         # self.profile = f(self.x, self.y)
 
         x_map = (self.xx - xp.amin(x))/(xp.amax(x)-xp.amin(x)) * beam.M
