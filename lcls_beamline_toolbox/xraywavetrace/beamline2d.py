@@ -116,67 +116,67 @@ class Beamline:
             if issubclass(type(device), Mirror):
                 # update global alpha
                 if device.orientation == 0:
-                    device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
+                    device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(xhat,yhat,zhat,
                                                                                        delta=device.alpha+device.delta)
 
 
 
-                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0)
+                    xhat,yhat,zhat = Util.rotate_3d_trace(xhat,yhat,zhat,delta=device.alpha+device.beta0)
 
                     # device.global_alpha = device.alpha + azimuth
                     # azimuth += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, azimuth))
                 elif device.orientation == 1:
-                    sagittal, normal, transverse = Util.rotate_3d(xhat,yhat,zhat,
+                    sagittal, normal, transverse = Util.rotate_3d_trace(xhat,yhat,zhat,
                                                                                        delta=-device.alpha-device.delta,
                                                                                        dir='elevation')
                     device.sagittal = -sagittal
                     device.normal = normal
                     device.transverse = transverse
 
-                    device.normal, device.sagittal, device.transverse = Util.rotate_3d(device.normal,
+                    device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(device.normal,
                                                                                        device.sagittal,
                                                                                        device.transverse,
                                                                                        delta=device.roll,
                                                                                        dir='roll')
 
-                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=-device.alpha-device.beta0,dir='elevation')
+                    xhat,yhat,zhat = Util.rotate_3d_trace(xhat,yhat,zhat,delta=-device.alpha-device.beta0,dir='elevation')
                     # device.global_alpha = device.alpha + elevation
                     # elevation += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, elevation))
                 elif device.orientation == 2:
-                    normal, sagittal, transverse = Util.rotate_3d(xhat, yhat, zhat,
+                    normal, sagittal, transverse = Util.rotate_3d_trace(xhat, yhat, zhat,
                                                                                        delta=-device.alpha-device.delta)
                     device.normal = -normal
                     device.sagittal = -sagittal
                     device.transverse = transverse
-                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0)
+                    xhat, yhat, zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=-device.alpha - device.beta0)
 
                     # device.global_alpha = azimuth - device.alpha
                     # azimuth -= (device.alpha + device.beta0)
                     # print('after %s: %.4f' % (device.name, azimuth))
 
                 elif device.orientation == 3:
-                    sagittal, normal, transverse = Util.rotate_3d(xhat, yhat, zhat,
+                    sagittal, normal, transverse = Util.rotate_3d_trace(xhat, yhat, zhat,
                                                                                        delta=device.alpha+device.delta,
                                                                                        dir='elevation')
                     device.sagittal = sagittal
                     device.normal = -normal
                     device.transverse = transverse
-                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.alpha + device.beta0,
+                    xhat, yhat, zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=device.alpha + device.beta0,
                                                       dir='elevation')
 
                     # device.global_alpha = elevation - device.alpha
                     # elevation -= (device.alpha + device.beta0)
                     # print('after %s: %.4f' % (device.name, elevation))
 
-                device.normal, device.sagittal, device.transverse = Util.rotate_3d(device.normal,
+                device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(device.normal,
                                                                                    device.sagittal,
                                                                                    device.transverse,
                                                                                    delta=device.roll,
                                                                                    dir='roll')
 
-                device.normal, device.sagittal, device.transverse = Util.rotate_3d(device.normal,
+                device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(device.normal,
                                                                                    device.sagittal,
                                                                                    device.transverse,
                                                                                    delta=device.yaw,
