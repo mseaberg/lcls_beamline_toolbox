@@ -16,6 +16,7 @@ requirements:
     - numpy
     - matplotlib
     - scikit-image >=0.16.2
+    - xrt
 
 test:
   imports:

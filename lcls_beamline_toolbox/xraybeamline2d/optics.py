@@ -6636,6 +6636,8 @@ class WFS:
                     maxX = int(self.x_pitch) * (i + 1) + x_width
                     self.grating[minY:maxY, minX:maxX] = (1 + (-1) ** (i + j) / 2)
             self.grating = np.exp(1j*np.pi*self.grating)
+            plt.figure()
+            plt.imshow(np.angle(self.grating))
         # otherwise make a pinhole array
         else:
             # loop through periods in the grating
