@@ -14,6 +14,7 @@ from .beam import Beam
 from .util import Util
 import matplotlib.pyplot as plt
 from skimage.restoration import unwrap_phase
+import skimage.transform as sktransform
 
 
 class TalbotLineout:
@@ -701,7 +702,8 @@ class TalbotImage:
         tilt_angle = (angle_h+angle_v)/2*180/np.pi
 
         if np.abs(tilt_angle) > 0.05:
-            fourier_plane = Util.nfft(ndimage.rotate(self.image,tilt_angle,reshape=False))
+            #fourier_plane = Util.nfft(ndimage.rotate(self.image,tilt_angle,reshape=False))
+            fourier_plane = Util.nfft(sktransform.rotate(self.image,tilt_angle))
 
         # define new masks centered on calculated peaks
         h_mask = Util.fourier_mask((fx, fy), (h_peak, 0), fG/mag/4, cosine_mask=True)

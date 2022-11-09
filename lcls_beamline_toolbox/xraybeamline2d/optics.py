@@ -24,6 +24,7 @@ import scipy.interpolate as interpolation
 import scipy.ndimage as ndimage
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
+import skimage.transform as sktransform
 from skimage.restoration import unwrap_phase
 import os
 import pickle
@@ -3552,7 +3553,8 @@ class PPM_Device(PPM):
         #print(self.N)
 
         #angle = -0.2
-        self.profile = ndimage.rotate(self.profile, angle, reshape=False)
+        #self.profile = ndimage.rotate(self.profile, angle, reshape=False)
+        self.profile = sktransform.rotate(self.profile, angle)
 
         temp_profile = Util.threshold_array(self.profile, self.threshold)
 
