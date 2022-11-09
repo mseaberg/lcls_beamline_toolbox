@@ -13,7 +13,8 @@ from .optics import Drift, Mono, Mirror
 # import matplotlib.pyplot as plt
 import copy
 import numpy as np
-from .util import Util
+from lcls_beamline_toolbox.utility.util import Util
+import time
 
 
 class Beamline:
@@ -329,7 +330,11 @@ class Beamline:
             # print name
             print('\033[1m' +device.name+'\033[0m')
             # propagate through device. beam is modified directly.
+            tic = time.perf_counter()
             device.propagate(beam)
+            toc = time.perf_counter()
+
+            print('{} took {} seconds'.format(device.name, toc-tic))
             print('zx: %.6f' % beam.zx)
             print('zy: %.6f' % beam.zy)
             print('azimuth %.2f mrad' % (beam.global_azimuth * 1e3))

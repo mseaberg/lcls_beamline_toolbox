@@ -12,7 +12,7 @@ unless otherwise indicated.
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from .util import Util
+from lcls_beamline_toolbox.utility.util import Util
 from skimage.restoration import unwrap_phase
 import scipy.spatial.transform as transform
 import scipy.optimize as optimization
@@ -214,8 +214,10 @@ class Beam:
         self.global_z = beam_params['z_source'] + (self.zx + self.zy) / 2
 
         # initialize global angles
-        self.global_azimuth = np.copy(self.ax)
-        self.global_elevation = np.copy(self.ay)
+        # self.global_azimuth = np.copy(self.ax)
+        # self.global_elevation = np.copy(self.ay)
+        self.global_azimuth = 0.0
+        self.global_elevation = 0.0
 
         # initialize group delay
         self.group_delay = 0.0
@@ -251,6 +253,8 @@ class Beam:
         self.xhat = np.array([1,0,0])
         self.yhat = np.array([0,1,0])
         self.zhat = np.array([0,0,1])
+
+        self.rotate_nominal(delta_elevation=self.ay,delta_azimuth=self.ax)
 
         # define LCLS unit vectors
         self.x_nom = np.copy(self.xhat)
@@ -587,12 +591,22 @@ class Beam:
                 # scaled propagation
                 self.propagation(dz_remaining, z_eff_x, z_eff_y)
 
+                # get current beam sampling for adjustment of amplitude
+                dx_old = np.copy(self.dx)
+                dy_old = np.copy(self.dy)
+
                 # rescale coordinates based on magnification
                 self.rescale_x_noshift(mag_x)
                 self.rescale_y_noshift(mag_y)
 
                 # update beam center and radii of curvature
                 self.update_parameters(dz_remaining)
+
+                # adjust amplitude based on change in sampling
+                # self.wavex *= self.dx/dx_old
+                # self.wavey *= self.dy/dy_old
+                # self.wavex *= np.sqrt(dx_old/self.dx)
+                # self.wavey *= np.sqrt(dy_old/self.dy)
 
                 # return the wave
                 return self.wavex, self.wavey
@@ -739,12 +753,22 @@ class Beam:
                 # general propagation step, may or may not be Fresnel scaling
                 self.propagation(prop_step, z_eff_x, z_eff_y)
 
+                # get current beam sampling for adjustment of amplitude
+                dx_old = np.copy(self.dx)
+                dy_old = np.copy(self.dy)
+
                 # rescale just in case. If propagation is unscaled mag_x and mag_y still equal one.
                 self.rescale_x_noshift(mag_x)
                 self.rescale_y_noshift(mag_y)
 
                 # update beam geometric parameters based on propagation distance
                 self.update_parameters(prop_step)
+
+                # adjust amplitude based on change in sampling
+                # self.wavex *= self.dx / dx_old
+                # self.wavey *= self.dy / dy_old
+                # self.wavex *= np.sqrt(dx_old / self.dx)
+                # self.wavey *= np.sqrt(dy_old / self.dy)
 
                 # check if we need to add phase near focus, and alter the focus state
                 if transition_to_x_focus:
@@ -1874,13 +1898,14 @@ class Pulse:
                 ax.semilogy(self.energy - self.E0, gauss_plot, label=width_label)
             if show_phase:
                 ax.semilogy(self.energy - self.E0, profile, label='spectral phase')
+            ax.set_ylim(1e-7,1.1)
         else:
             ax.plot(self.energy - self.E0, y_data/np.max(y_data), label='Simulated')
             if show_fit:
                 ax.plot(self.energy - self.E0, gauss_plot, label=width_label)
             if show_phase:
                 ax.plot(self.energy - self.E0, profile, label='spectral phase')
-        ax.set_ylim(-.05,1.3)
+            ax.set_ylim(-.05,1.3)
         ax.set_xlabel('Energy (eV)')
         ax.set_ylabel('Intensity (normalized)')
         if integrated:
@@ -2074,6 +2099,46 @@ class Pulse:
 
         # fit a line to the peaks
         p = np.polyfit(x, time_peaks, 1)
+        # return slope (units are fs/micron)
+        slope = p[0]
+
+        return slope
+
+    def get_spatial_tilt(self, image_name):
+
+        # minima and maxima of the field of view (in microns) for imshow extent
+        minx = np.round(np.min(self.x[image_name]) * 1e6)
+        maxx = np.round(np.max(self.x[image_name]) * 1e6)
+        miny = np.round(np.min(self.y[image_name]) * 1e6)
+        maxy = np.round(np.max(self.y[image_name]) * 1e6)
+        profile = np.sum(np.abs(self.time_stacks[image_name]) ** 2, axis=2)
+
+        x = self.x[image_name]*1e6
+        y = self.y[image_name]*1e6
+        N = y.size
+        M = x.size
+        dy = (maxy - miny)/N
+        # find peak at central x position
+        index = np.argmax(profile[:,int(M / 2)])
+
+
+        # distance between array center and peak
+        shift = int(np.size(profile[:,int(M / 2)]) / 2 - index)
+
+        profile = np.roll(profile, shift, axis=0)
+
+        # find peak (in time) at each position and put into fs units
+        spatial_peaks = np.argmax(profile, axis=0) * dy
+
+        # mask out anything outside the fwhm
+        spatial_projection = np.sum(profile, axis=0)
+        mask = spatial_projection > 0.5 * np.max(spatial_projection)
+
+        spatial_peaks = spatial_peaks[mask]
+        x = x[mask]
+
+        # fit a line to the peaks
+        p = np.polyfit(x, spatial_peaks, 1)
         # return slope (units are fs/micron)
         slope = p[0]
 

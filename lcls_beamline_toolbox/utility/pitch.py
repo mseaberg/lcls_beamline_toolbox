@@ -8,12 +8,17 @@ Currently implements the single class TalbotLineout.
 """
 
 import numpy as np
-import scipy.ndimage as ndimage
-from ..polyprojection.legendre import LegendreFit1D
-from .beam import Beam
-from .util import Util
-import matplotlib.pyplot as plt
-from skimage.restoration import unwrap_phase
+try:
+    import cupy as xp
+    import cupyx.scipy.ndimage as ndimage
+    use_gpu=True
+except ImportError:
+    import numpy as xp
+    import scipy.ndimage as ndimage
+    use_gpu=False
+from lcls_beamline_toolbox.polyprojection.legendre import LegendreFit1D
+from lcls_beamline_toolbox.xraybeamline2d.beam import Beam
+from lcls_beamline_toolbox.utility.util import Util
 import time
 
 
@@ -142,7 +147,10 @@ class TalbotLineout:
 
         # get Legendre coefficients. Nothing is masked out for now.
         #W = fit_object.coeff_from_grad(grad, dx2, np.ones(np.size(grad), dtype=bool)).flatten()
-        W = fit_object.coeff_from_grad(grad, dx2, zeroMask).flatten()
+        if use_gpu:
+            W = fit_object.coeff_from_grad(xp.asnumpy(grad), dx2, xp.asnumpy(zeroMask)).flatten()
+        else:
+            W = fit_object.coeff_from_grad((grad), dx2, (zeroMask)).flatten()
 
         # second order coefficient based on distance to focus
         max_x = dx2*np.size(xcoord)/2
@@ -227,8 +235,11 @@ class TalbotLineout:
                 Fourier domain of lineout
         """
 
-        # get WFS parameters        
-        dg = param['dg']
+        # get WFS parameters
+        if use_gpu:
+            dg = xp.asnumpy(param['dg'])
+        else:
+            dg = param['dg']
         fraction = param['fraction']
         dx = param['dx']
         zT = param['zT']
@@ -240,13 +251,13 @@ class TalbotLineout:
         dfx = 1./N
 
         # spatial frequencies
-        fx = np.linspace(-N/2, N/2-1, N, dtype=float) * dfx
+        fx = xp.linspace(-N/2, N/2-1, N, dtype=float) * dfx
 
         # Mask around the peak
         mask0 = (fx - self.fc)**2 < (self.fc / 2 / fraction)**2
 
         # fourier transform
-        fourier_plane = Util.nfft1(self.lineout)
+        fourier_plane = Util.nfft1(xp.asarray(self.lineout))
 
         # FT with everything but the peak masked out
         x_fft = fourier_plane * mask0
@@ -264,10 +275,10 @@ class TalbotLineout:
         h_2 = Util.threshold_array(x_fft, .2)
 
         # set up coordinates (Talbot image plane) units are pixels
-        xp = np.linspace(-N/2, N/2-1, N, dtype=float)
+        x_p = xp.linspace(-N/2, N/2-1, N, dtype=float)
 
         # find peaks in Fourier space
-        h_peak = np.sum(h_2 * fx) / np.sum(np.abs(h_2))
+        h_peak = xp.sum(h_2 * fx) / xp.sum(xp.abs(h_2))
 
         # updated mask centered on peak
         h_mask = (fx - h_peak)**2 < (self.fc / 2 / fraction)**2
@@ -277,11 +288,17 @@ class TalbotLineout:
         # thresholding of masked Fourier peaks to calculate peak location
         h_2 = Util.threshold_array(h_2, .2)
         # find peaks in Fourier space
-        h_peak = np.sum(h_2*fx)/np.sum(np.abs(h_2))
+        h_peak = xp.sum(h_2*fx)/xp.sum(xp.abs(h_2))
 
         # find peak widths in Fourier space
-        h_width = np.sqrt(np.sum(h_2*(fx-h_peak)**2)/np.sum(np.abs(h_2)))
+        if use_gpu:
+            h_width = xp.asnumpy(xp.sqrt(xp.sum(h_2*(fx-h_peak)**2)/xp.sum(xp.abs(h_2))))
 
+            h_peak = xp.asnumpy(h_peak)
+        else:
+            h_width = (xp.sqrt(xp.sum(h_2 * (fx - h_peak) ** 2) / xp.sum(xp.abs(h_2))))
+
+            h_peak = (h_peak)
         # max spatial frequency
         fxmax = 1.0/(dx*2)
 
@@ -293,10 +310,10 @@ class TalbotLineout:
         p0 = np.pi / lambda0 / R2
 
         # define linear phase related to approximate peak location
-        h_grating = np.exp(-1j * 2. * np.pi * h_peak * xp)
+        h_grating = xp.exp(-1j * 2. * np.pi * h_peak * x_p)
 
         # phase gradient back in real space, multiplied by linear phase to remove linear term
-        h_grad = np.conj(Util.infft1(h_mask) * h_grating)
+        h_grad = xp.conj(Util.infft1(h_mask) * h_grating)
 
         # back to Fourier space, now peaks have been shifted to zero
         h_fourier = Util.nfft1(h_grad)
@@ -310,12 +327,12 @@ class TalbotLineout:
         zero_fourier = zero_fourier[int(np.floor(N / 2 - N / down)):int(np.floor(N / 2 + N / down))]
 
         # downsampled array size
-        N2 = np.size(h_fourier)
+        N2 = xp.size(h_fourier)
 
         # downsampled image coordinates
-        xp = np.linspace(-N2 / 2, N2 / 2 - 1, N2)
+        x_p = xp.linspace(-N2 / 2, N2 / 2 - 1, N2)
         # multiply by original pixel size, and scale by amount of downsampling.
-        x1 = xp * dx * N / N2
+        x1 = x_p * dx * N / N2
 
         # gradient back in real space, now downsampled
         h_grad = Util.infft1(h_fourier)
@@ -598,7 +615,7 @@ class TalbotImage:
         """
         self.image = image
 
-        self.N, self.M = np.shape(self.image)
+        self.N, self.M = xp.shape(self.image)
 
         # fc has units of 1/pixel
         self.fc = fc
@@ -635,7 +652,10 @@ class TalbotImage:
         start = time.time()
 
         # get WFS parameters
-        dg = param['dg']
+        if use_gpu:
+            dg = xp.asnumpy(param['dg'])
+        else:
+            dg = param['dg']
         fraction = param['fraction']
         dx = param['dx']
         zT = param['zT']
@@ -652,7 +672,7 @@ class TalbotImage:
         #print('magnification: %.1f' % mag)
 
         # get image dimensions
-        N, M = np.shape(self.image)
+        N, M = xp.shape(self.image)
 
         # set up coordinates (Talbot image plane)
         x1, y1 = Util.get_coordinates(self.image, dx)
@@ -700,21 +720,19 @@ class TalbotImage:
         v_peak_x = 0
 
         # find peaks in Fourier space
-        if np.sum(np.abs(h_mask)) > 0 and np.sum(np.abs(v_mask)) > 0:
-            h_peak = np.sum(h_mask * fx) / np.sum(np.abs(h_mask))
-            v_peak = np.sum(v_mask * fy) / np.sum(np.abs(v_mask))
+        if xp.sum(xp.abs(h_thresh)) > 0 and xp.sum(xp.abs(v_thresh)) > 0:
+            h_peak = xp.sum(h_thresh * fx) / xp.sum(xp.abs(h_thresh))
+            v_peak = xp.sum(v_thresh * fy) / xp.sum(xp.abs(v_thresh))
 
             # find centroid off-axis
-            h_peak_y = np.sum(h_mask * fy) / np.sum(np.abs(h_mask))
-            v_peak_x = np.sum(v_mask * fx) / np.sum(np.abs(v_mask))
+            h_peak_y = xp.sum(h_thresh * fy) / xp.sum(xp.abs(h_thresh))
+            v_peak_x = xp.sum(v_thresh * fx) / xp.sum(xp.abs(v_thresh))
         else:
             h_peak = fG/mag
             v_peak = fG/mag
 
-        # 0.96 seconds to here
-
-        angle_h = np.arctan(h_peak_y/h_peak)
-        angle_v = np.arctan(-v_peak_x/v_peak)
+        angle_h = xp.arctan(h_peak_y/h_peak)
+        angle_v = xp.arctan(-v_peak_x/v_peak)
 
         # calculate tilt angle in degrees
         tilt_angle = (angle_h+angle_v)/2*180/np.pi
@@ -749,23 +767,34 @@ class TalbotImage:
         # 2.75 seconds to here
 
         # find peaks in Fourier space (centroid)
-        if np.sum(np.abs(h_thresh)) > 0 and np.sum(np.abs(v_thresh)) > 0:
-            h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
-            v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
+        if xp.sum(xp.abs(h_thresh)) > 0 and xp.sum(xp.abs(v_thresh)) > 0:
+            h_peak = xp.sum(h_thresh * fx) / xp.sum(xp.abs(h_thresh))
+            v_peak = xp.sum(v_thresh * fy) / xp.sum(xp.abs(v_thresh))
 
         print('h_angle: %.3f' % (angle_h*180/np.pi))
         print('v_angle: %.3f' % (angle_v*180/np.pi))
 
         # find peak widths in Fourier space (second moments centered on centroids)
-        h_width = np.sqrt(np.sum(h_thresh * (fx - h_peak) ** 2) / np.sum(np.abs(h_thresh)))
-        v_width = np.sqrt(np.sum(v_thresh * (fy - v_peak) ** 2) / np.sum(np.abs(v_thresh)))
+        if use_gpu:
+            h_width = xp.asnumpy(xp.sqrt(xp.sum(h_thresh * (fx - h_peak) ** 2) / xp.sum(xp.abs(h_thresh))))
+            v_width = xp.asnumpy(xp.sqrt(xp.sum(v_thresh * (fy - v_peak) ** 2) / xp.sum(np.abs(v_thresh))))
+            # calculate average position of horizontal/vertical peaks
+            mid_peak = xp.asnumpy((v_peak + h_peak) / 2.)
 
-        # calculate average position of horizontal/vertical peaks
-        mid_peak = (v_peak + h_peak) / 2.
+            # second order coefficients
+            p0x = -np.pi / lambda0 / zT * dg * xp.asnumpy(h_peak)
+            p0y = -np.pi / lambda0 / zT * dg * xp.asnumpy(v_peak)
+        else:
+            h_width = (xp.sqrt(xp.sum(h_thresh * (fx - h_peak) ** 2) / xp.sum(xp.abs(h_thresh))))
+            v_width = (xp.sqrt(xp.sum(v_thresh * (fy - v_peak) ** 2) / xp.sum(np.abs(v_thresh))))
+            # calculate average position of horizontal/vertical peaks
+            mid_peak = ((v_peak + h_peak) / 2.)
 
-        # second order coefficients
-        p0x = -np.pi / lambda0 / zT * dg * h_peak
-        p0y = -np.pi / lambda0 / zT * dg * v_peak
+            # second order coefficients
+            p0x = -np.pi / lambda0 / zT * dg * (h_peak)
+            p0y = -np.pi / lambda0 / zT * dg * (v_peak)
+
+
 
         # distance to circle of least confusion
         R2 = zT / (1 - dg * mid_peak)
@@ -773,21 +802,12 @@ class TalbotImage:
         p0 = np.pi / lambda0 / R2
 
         # define linear phase related to approximate peak location
-        h_linear = np.exp(-1j * 2. * np.pi * h_peak * x1)
-        v_linear = np.exp(-1j * 2. * np.pi * v_peak * y1)
+        h_linear = xp.exp(-1j * 2. * np.pi * h_peak * x1)
+        v_linear = xp.exp(-1j * 2. * np.pi * v_peak * y1)
 
-        # 3.6 seconds to here
-
-        if ifft_object is not None:
-            # Fourier transform back to real space, and multiply by linear phase
-            h_grad = np.conj(Util.ipyfft(h_masked, ifft_object) * h_linear)
-            v_grad = np.conj(Util.ipyfft(v_masked, ifft_object) * v_linear)
-        else:
-            # Fourier transform back to real space, and multiply by linear phase
-            h_grad = np.conj(Util.infft(h_masked) * h_linear)
-            v_grad = np.conj(Util.infft(v_masked) * v_linear)
-
-        # 4.3 seconds to here
+        # Fourier transform back to real space, and multiply by linear phase
+        h_grad = xp.conj(Util.infft(h_masked) * h_linear)
+        v_grad = xp.conj(Util.infft(v_masked) * v_linear)
 
         # downsampling amount
         down = (2 ** downsample)
@@ -800,10 +820,10 @@ class TalbotImage:
 
         # avoid an extra fourier transform by handling zero order a bit differently
         zero_fourier = Util.crop_center(zero_masked, M/down, N/down)
-        zero_order = np.abs(Util.infft(zero_fourier))
+        zero_order = xp.abs(Util.infft(zero_fourier))
 
         # downsampled array size
-        N2, M2 = np.shape(h_grad)
+        N2, M2 = xp.shape(h_grad)
 
         # pixel size after downsampling
         dx_down = dx * M / M2
@@ -832,8 +852,12 @@ class TalbotImage:
         # output
         return h_grad, v_grad, params
 
-    def get_legendre(self, fit_object, param, threshold=.01, fft_object=None, ifft_object=None):
+    def get_legendre(self, fit_object, param, threshold=.01, method='projection'):
 
+        # options for method are 'CG' (conjugate gradient) or 'projection'. If neither of these is provided,
+        # 'projection' will be selected.
+
+        tic = time.perf_counter()
         # get WFS parameters
         dg = param['dg']
         zT = param['zT']
@@ -851,25 +875,27 @@ class TalbotImage:
         dx2 = grad_param['dx']
 
         # define "zero order" based on magnitude of gradients
-        zero_order = (np.abs(h_grad) + np.abs(v_grad)) / 2.0
+        zero_order = (xp.abs(h_grad) + xp.abs(v_grad)) / 2.0
 
         # zo = Util.threshold_array(zero_order, 0.04)
         #
         # zo[zo > 0] = 1
 
-        xp = grad_param['x1']
-        yp = grad_param['y1']
+        x_p = grad_param['x1']
+        y_p = grad_param['y1']
 
         # threshold above noise
         zeroMask = zero_order > (threshold * np.max(zero_order))
 
         # unwrap phase in 2D, multiply by shear factor
-        h_grad2 = unwrap_phase(np.angle(h_grad), seed=0) * dg / lambda0 / zT
-        v_grad2 = unwrap_phase(np.angle(v_grad), seed=0) * dg / lambda0 / zT
+        # h_grad2 = unwrap_phase(np.angle(h_grad), seed=0) * dg / lambda0 / zT
+        # v_grad2 = unwrap_phase(np.angle(v_grad), seed=0) * dg / lambda0 / zT
+        h_grad2 = Util.unwrap_phase_gpu(xp.angle(h_grad),zeroMask) * dg / lambda0 / zT
+        v_grad2 = Util.unwrap_phase_gpu(xp.angle(v_grad),zeroMask) * dg / lambda0 / zT
 
         # store mean of gradient
-        h_mean = np.mean(h_grad2[zeroMask])
-        v_mean = np.mean(v_grad2[zeroMask])
+        h_mean = xp.mean(h_grad2[zeroMask])
+        v_mean = xp.mean(v_grad2[zeroMask])
 
         # subtract mean (better performance for Legendre projection). Can be added in later
         h_grad2 -= h_mean
@@ -878,16 +904,35 @@ class TalbotImage:
         # fit gradient using Legendre polynomials (making sure there is intensity above the threshold)
         if np.sum(zeroMask) > 0:
             # fit Legendre coefficients by projecting gradients onto orthonormal basis
-            legendre_coeff = fit_object.coeff_from_grad(h_grad2, v_grad2, dx2, zeroMask).flatten()
+            if use_gpu:
+                legendre_coeff = fit_object.coeff_from_grad(xp.asnumpy(h_grad2), xp.asnumpy(v_grad2), dx2, xp.asnumpy(zeroMask)).flatten()
+            else:
+                legendre_coeff = fit_object.coeff_from_grad((h_grad2), (v_grad2), dx2,
+                                                            (zeroMask)).flatten()
         else:
             # just set everything to zero if intensity is too low
             legendre_coeff = np.zeros(fit_object.P)
 
         # reconstructed phase
-        wave = fit_object.wavefront_fit(legendre_coeff)
+        if method == 'CG':
+            wave = Util.integrate_gradient_gpu(h_grad2, v_grad2, pix=dx2, weight=zeroMask)
+        else:
+            wave = fit_object.wavefront_fit(legendre_coeff)
+
+        toc = time.perf_counter()
+        print('wavefront retrieval took {} seconds'.format(toc-tic))
+
+        #plt.figure()
+        #plt.imshow(wave)
+        #plt.figure()
+        #if use_gpu:
+        #    plt.imshow(xp.asnumpy(wave2))
+        #else:
+        #    plt.imshow(wave2)
 
         # recovered beam
-        recovered = np.exp(1j * wave) * np.sqrt(zero_order) * zeroMask
+        recovered = xp.exp(1j * xp.asarray(wave)) * xp.sqrt(zero_order) * zeroMask
+        #recovered = xp.exp(1j * xp.asarray(wave2)) * xp.sqrt(zero_order) * zeroMask
 
         px = grad_param['p0x'] + np.pi / lambda0 / zT
         py = grad_param['p0y'] + np.pi / lambda0 / zT
@@ -907,11 +952,8 @@ class TalbotImage:
 
         N,M = np.shape(recovered)        
 
-        Nd = int(N*2)
-        Md = int(M*2)
-
-        recovered2 = np.zeros((Nd,Md),dtype=complex)
-        recovered2[int(N-N/2):int(N+N/2),int(M-M/2):int(M+M/2)] = recovered
+        recovered2 = xp.zeros((512,512),dtype=complex)
+        recovered2[int(256-N/2):int(256+N/2),int(256-M/2):int(256+M/2)] = recovered
 
         recovered_beam = Beam(initial_beam=recovered2, beam_params=beam_parameters)
 
@@ -942,8 +984,8 @@ class TalbotImage:
         # focus = recovered_beam.beam_prop()
 
         param = {
-            'x': xp,
-            'y': yp,
+            'x': x_p,
+            'y': y_p,
             'p0': p0,
             'px': px,
             'py': py,
@@ -955,7 +997,8 @@ class TalbotImage:
             'h_grad': h_grad2*zeroMask,
             'v_grad': v_grad2*zeroMask,
             'h_mean': h_mean,
-            'v_mean': v_mean
+            'v_mean': v_mean,
+            'wave': wave
             # 'xf': xf,
             # 'yf': yf
         }

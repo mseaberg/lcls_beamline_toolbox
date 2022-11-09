@@ -9,12 +9,13 @@ Currently implements the following classes:
 Beamline: stores list of optics devices, and interfaces with Beam to propagate through beamline sections.
 """
 
-from .optics1d import Drift, Mono, Mirror
+from .optics import Drift, Mono, Mirror
 # import matplotlib.pyplot as plt
 import copy
 import numpy as np
 from lcls_beamline_toolbox.utility.util import Util
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 # from matplotlib.collections import PatchCollection
 # from matplotlib.patches import Rectangle
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -115,50 +116,72 @@ class Beamline:
             if issubclass(type(device), Mirror):
                 # update global alpha
                 if device.orientation == 0:
-                    device.normal, device.sagittal, device.transverse = Util.rotate_3d(xhat,yhat,zhat,
+                    device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(xhat,yhat,zhat,
                                                                                        delta=device.alpha+device.delta)
 
-                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0)
+
+
+                    xhat,yhat,zhat = Util.rotate_3d_trace(xhat,yhat,zhat,delta=device.alpha+device.beta0)
+
                     # device.global_alpha = device.alpha + azimuth
                     # azimuth += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, azimuth))
                 elif device.orientation == 1:
-                    sagittal, normal, transverse = Util.rotate_3d(xhat,yhat,zhat,
-                                                                                       delta=device.alpha+device.delta,
+                    sagittal, normal, transverse = Util.rotate_3d_trace(xhat,yhat,zhat,
+                                                                                       delta=-device.alpha-device.delta,
                                                                                        dir='elevation')
                     device.sagittal = -sagittal
                     device.normal = normal
                     device.transverse = transverse
-                    xhat,yhat,zhat = Util.rotate_3d(xhat,yhat,zhat,delta=device.alpha+device.beta0,dir='elevation')
+
+                    device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(device.normal,
+                                                                                       device.sagittal,
+                                                                                       device.transverse,
+                                                                                       delta=device.roll,
+                                                                                       dir='roll')
+
+                    xhat,yhat,zhat = Util.rotate_3d_trace(xhat,yhat,zhat,delta=-device.alpha-device.beta0,dir='elevation')
                     # device.global_alpha = device.alpha + elevation
                     # elevation += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, elevation))
                 elif device.orientation == 2:
-                    normal, sagittal, transverse = Util.rotate_3d(xhat, yhat, zhat,
+                    normal, sagittal, transverse = Util.rotate_3d_trace(xhat, yhat, zhat,
                                                                                        delta=-device.alpha-device.delta)
                     device.normal = -normal
                     device.sagittal = -sagittal
                     device.transverse = transverse
-
-                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0)
+                    xhat, yhat, zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=-device.alpha - device.beta0)
 
                     # device.global_alpha = azimuth - device.alpha
                     # azimuth -= (device.alpha + device.beta0)
                     # print('after %s: %.4f' % (device.name, azimuth))
 
                 elif device.orientation == 3:
-                    sagittal, normal, transverse = Util.rotate_3d(xhat, yhat, zhat,
-                                                                                       delta=-device.alpha-device.delta,
+                    sagittal, normal, transverse = Util.rotate_3d_trace(xhat, yhat, zhat,
+                                                                                       delta=device.alpha+device.delta,
                                                                                        dir='elevation')
                     device.sagittal = sagittal
                     device.normal = -normal
                     device.transverse = transverse
-                    xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=-device.alpha - device.beta0,
+                    xhat, yhat, zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=device.alpha + device.beta0,
                                                       dir='elevation')
 
                     # device.global_alpha = elevation - device.alpha
                     # elevation -= (device.alpha + device.beta0)
                     # print('after %s: %.4f' % (device.name, elevation))
+
+                device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(device.normal,
+                                                                                   device.sagittal,
+                                                                                   device.transverse,
+                                                                                   delta=device.roll,
+                                                                                   dir='roll')
+
+                device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(device.normal,
+                                                                                   device.sagittal,
+                                                                                   device.transverse,
+                                                                                   delta=device.yaw,
+                                                                                   dir='elevation')
+                # xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.roll * 2, dir='roll')
 
                 # update k
                 k = np.copy(zhat)
@@ -256,6 +279,95 @@ class Beamline:
         ax.add_collection3d(col)
 
         return ax, zs
+    # def add_drifts(self):
+    #     """
+    #     Method to calculate drift sections. Creates a bunch of Drift objects and adds them to self.full_list.
+    #     :return: None
+    #     """
+    #
+    #     if not self.ordered:
+    #         # sort device list based on z
+    #         self.device_list.sort(key=lambda device: device.z)
+    #
+    #     # initialize drift list
+    #     drift_list = []
+    #
+    #     # initialize coordinates
+    #     x = 0
+    #     y = 0
+    #
+    #     # initialize angles
+    #     elevation = 0
+    #     azimuth = 0
+    #
+    #     # beam direction
+    #     k = Util.get_k(elevation, azimuth)
+    #
+    #     # initialize drift number
+    #     i = 0
+    #     # initialize previous device
+    #     prev_device = None
+    #     for device in self.device_list:
+    #         # don't need any drifts upstream of first device
+    #         if i > 0:
+    #
+    #             # z difference between devices
+    #             dz = device.z - prev_device.z
+    #
+    #             # figure out device location
+    #             x += k[0] / k[2] * dz
+    #             y += k[1] / k[2] * dz
+    #             # x += k[0] * dz
+    #             # y += k[1] * dz
+    #             # update device
+    #             device.global_x = x
+    #             device.global_y = y
+    #
+    #             # set drift name
+    #             name = 'drift%d' % i
+    #             if isinstance(prev_device, Mono):
+    #                 prev_device = prev_device.grating
+    #             drift_list.append(Drift(name, upstream_component=prev_device,
+    #                                     downstream_component=device))
+    #
+    #         # update global orientation
+    #         if issubclass(type(device), Mirror):
+    #             # update global alpha
+    #             if device.orientation == 0:
+    #                 device.global_alpha = device.alpha + azimuth
+    #                 azimuth += device.alpha + device.beta0
+    #                 print('after %s: %.4f' % (device.name, azimuth))
+    #             elif device.orientation == 1:
+    #                 device.global_alpha = device.alpha + elevation
+    #                 elevation += device.alpha + device.beta0
+    #                 print('after %s: %.4f' % (device.name, elevation))
+    #             elif device.orientation == 2:
+    #                 device.global_alpha = azimuth - device.alpha
+    #                 azimuth -= (device.alpha + device.beta0)
+    #                 print('after %s: %.4f' % (device.name, azimuth))
+    #
+    #             elif device.orientation == 3:
+    #                 device.global_alpha = elevation - device.alpha
+    #                 elevation -= (device.alpha + device.beta0)
+    #                 print('after %s: %.4f' % (device.name, elevation))
+    #
+    #             # update k
+    #             k = Util.get_k(elevation, azimuth)
+    #         # update previous device
+    #         prev_device = device
+    #         # increment drift number
+    #         i += 1
+    #
+    #     if not self.ordered:
+    #         # add drifts to full list
+    #         self.full_list.extend(drift_list)
+    #
+    #         # sort list based on z
+    #         self.full_list.sort(key=lambda device: device.z)
+    #     else:
+    #         # keep everything in the same order, interleave drifts in between devices
+    #         for num, drift in enumerate(drift_list):
+    #             self.full_list.insert(2 * num + 1, drift)
 
     def update_devices(self):
         """
@@ -310,65 +422,31 @@ class Beamline:
         # make a full copy of the beam input so that we don't modify the input
         beam = copy.deepcopy(beam_in)
 
-        # distance between source and first device
-        dz = self.full_list[0].z - beam.z_source
-        beam.reinitialize(dz)
+        if beam.beam_provided:
+            # add a drift between the beam input and the first device
+            drift0 = Drift('temp',upstream_component=beam, downstream_component=self.full_list[0])
+            # propagate through the drift
+            drift0.propagate(beam)
+        else:
+            dz = self.full_list[0].z - beam.z_source
+            beam.reinitialize(dz)
 
         # loop through all devices including drifts
         for device in self.full_list:
             # print name
             print('\033[1m' +device.name+'\033[0m')
-
             # propagate through device. beam is modified directly.
             device.propagate(beam)
-            # print some beam info
             print('zx: %.6f' % beam.zx)
             print('zy: %.6f' % beam.zy)
-            print('azimuth %.2f mrad' % (beam.global_azimuth*1e3))
+            print('azimuth %.2f mrad' % (beam.global_azimuth * 1e3))
+            # print some beam info
+            # print('zy: %.2f' % beam.zy)
             # print('ay: %.2f microrad' % (beam.ay*1e6))
             # print('cy: %.2f microns' % (beam.cy*1e6))
 
         # return the output of the beamline
         return beam
-
-    def scan(self, beam_in, axes=None, scan_start=None, scan_stop=None, scan_steps=0, imagers=None, measurements=None):
-        """
-        Method to scan one or multiple axes together
-        """
-        if axes is not None:
-            scan_dict_list = []
-            if isinstance(axes, list):
-                for num, axis in enumerate(axes):
-                    axis_dict = {}
-                    # parse device and axis
-                    dot_index = axis.find('.')
-                    device_name = axis[:dot_index]
-                    axis_name = axis[dot_index+1:]
-                    # get actual axis
-                    device = getattr(self, device_name)
-                    axis_dict['device'] = device
-                    axis_dict['axis'] = axis_name
-                    axis_dict['pos'] = np.linspace(scan_start[num], scan_stop[num], scan_steps)
-
-                    scan_dict_list.append(axis_dict)
-
-            elif isinstance(axes, str):
-                # parse device and axis
-                dot_index = axes.find('.')
-                device_name = axes[:dot_index]
-                axis_name = axes[dot_index + 1:]
-
-                axis_dict = {'device': getattr(self, device_name), 'axis': axis_name,
-                             'pos': np.linspace(scan_start, scan_stop, scan_steps)}
-
-                scan_dict_list.append(axis_dict)
-
-        # initialize measurements
-        measurement_dict = {}
-        if isinstance(imagers, list):
-            for num, imager in enumerate(imagers):
-                pass
-            pass
 
     def propagate_until(self, beam_in, last_device, include_last=True):
         """
@@ -746,9 +824,6 @@ class Beamline:
         deltaC_y.append(my['z']-yGoals['z'])
         deltaC_y.append(my['L3']-yGoals['L3'])
 
-        print('deltaC_x: ' + str(deltaC_x))
-        print('deltaC_y: ' + str(deltaC_y))
-
         # calculate motion necessary for alignment
         deltaX_x = np.dot(Ax, np.array(deltaC_x))
         deltaX_y = np.dot(Ay, np.array(deltaC_y))
@@ -756,8 +831,6 @@ class Beamline:
         # get available motors
         motors_x = mirror_x.motor_list
         motors_y = mirror_y.motor_list
-
-        print(motors_x)
 
         # move motors accordingly
         for num, motor in enumerate(motors_x):

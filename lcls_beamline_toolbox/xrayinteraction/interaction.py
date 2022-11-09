@@ -2,6 +2,7 @@ import numpy as np
 import os
 import csv
 import matplotlib.pyplot as plt
+from lcls_beamline_toolbox.utility.util import Util
 
 class Device:
 
@@ -518,7 +519,104 @@ class Crystal(Device):
         self.alpha = alpha
         self.asymmetry_type=asymmetry_type
 
+class Multilayer:
 
+    def __init__(self, substrate, *layers):
+        # layers are ordered in ascending order, such that the first one is the one closest to the substrate, and
+        # the last one is the vacuum interface
+
+        # self.substrate = substrate
+        layer_list = [item for item in layers]
+
+        if hasattr(substrate.thickness,'shape'):
+            self.vacuum = Vacuum(substrate.thickness.shape)
+        else:
+            self.vacuum = Vacuum(0)
+        self.layers = [substrate] + layer_list
+
+    def reflectivity(self, lambda0, alpha_in, polarization='s'):
+
+        # self.vacuum.update_index(alpha_in.shape)
+        all_layers = self.layers + [self.vacuum]
+        index_l = np.zeros(len(all_layers), dtype=complex)
+
+
+
+        cos_alpha_l = np.zeros(len(all_layers), dtype=complex)
+        sin_alpha_l = np.zeros_like(cos_alpha_l)
+
+        for n, layer in enumerate(all_layers[:-1]):
+            index_l[n] = Util.interp_flip(lambda0, layer.wavelength, layer.index)
+
+        index_l[-1] = self.vacuum.index
+        # print(index_l)
+
+        for n in range(len(all_layers)):
+            cos_alpha_l[n] = np.cos(alpha_in) / index_l[n]
+            sin_alpha_l[n] = np.sqrt(1 - cos_alpha_l[n]**2)
+
+        # print(cos_alpha_l)
+        # print(sin_alpha_l)
+        if hasattr(all_layers[0].thickness,'shape'):
+            ri = np.ones(all_layers[0].thickness.shape, dtype=complex)
+        else:
+            ri = np.array([1],dtype=complex)
+        # ri_total = np.zeros_like(ri)
+        rj = np.zeros_like(ri)
+        #rj = self.reflect_layer(self.layers[0], self.layers[1], alpha_in, polarization)
+
+        for j, layer in enumerate(all_layers[:-1]):
+            i = j+1
+
+            # alpha_j = self.calc_alpha(alpha_in, self.layers[j])
+            # alpha_i = self.calc_alpha(alpha_in, self.layers[i])
+
+            # # initialize recursive reflectivity, starting at substrate
+            # alpha_s = self.calc_alpha(alpha_in, self.substrate, index_s)
+            # beta_i = self.calc_beta(self.layers[i], index_l[i], alpha_in, lambda0)
+            beta_i = 2*np.pi*all_layers[i].thickness*index_l[i]*sin_alpha_l[i]/lambda0
+            # print('beta: {}'.format(beta_i))
+            if polarization=='s':
+                rij = ((index_l[i] * sin_alpha_l[i] - index_l[j] * sin_alpha_l[j])/
+                       (index_l[i] * sin_alpha_l[i] + index_l[j] * sin_alpha_l[j]))
+            else:
+                rij = ((index_l[i] * sin_alpha_l[j] - index_l[j] * sin_alpha_l[i])/
+                       (index_l[i] * sin_alpha_l[j] + index_l[j] * sin_alpha_l[i]))
+
+            # print(np.abs(rij)**2)
+            # rij = self.reflect_layer(self.layers[j], self.layers[i], alpha_in, polarization)
+
+            #ri = (rij + rj * np.exp(2*1j * beta_i)) / (1 + rij * rj * np.exp(2 * 1j * beta_i))
+            ri = np.exp(2*1j*beta_i) * (rij + rj) / (1 + rij*rj)
+
+            # ri_total += ri
+
+            # print('ri {}'.format(ri))
+            # print(i)
+            # beta_i = self.calc_beta(layer, index_l[n+1])
+            rj = np.copy(ri)
+            #rij = self.reflect_layer(self.layers[n], self.layers[n+1], alpha_in, polarization)
+
+        return ri
+
+    def calc_beta(self, layer, index, alpha_in, lambda0):
+
+        # n1 cosalpha1 = n2 cosalpha2
+        # cosalpha2 = cosalpha1*n1/n2
+
+        cos_alpha_i = np.cos(alpha_in) / index
+        sin_alpha_i = np.sqrt(1 - cos_alpha_i**2)
+        beta = 2*np.pi*layer.thickness*index*sin_alpha_i/lambda0
+
+        return beta
+
+class Vacuum:
+    def __init__(self, shape):
+        self.thickness = np.zeros(shape)
+        self.index = 1
+
+    def update_thickness(self, shape):
+        self.thickness = np.zeros(shape)
 
 
 class DeviceCollection:
