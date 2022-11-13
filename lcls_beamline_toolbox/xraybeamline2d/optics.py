@@ -3079,7 +3079,8 @@ class PPM_Device(PPM):
             self.cx_target = 0.0
             self.cy_target = 0.0
 
-        
+        self.cx_target = PV(self.imager_prefix + 'CAM:X_RTCL_CTR').get()
+        self.cy_target = PV(self.imager_prefix + 'CAM:Y_RTCL_CTR').get()
 
         #self.cx_target = 0
         #self.cy_target = 0
