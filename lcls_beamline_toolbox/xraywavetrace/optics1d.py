@@ -23,12 +23,12 @@ import scipy.optimize as optimize
 import scipy.spatial.transform as transform
 import scipy.integrate as integration
 import os
-from .util import Util, LegendreUtil
-from .pitch import TalbotLineout
+from lcls_beamline_toolbox.utility.util import Util, LegendreUtil
+from lcls_beamline_toolbox.utility.pitch import TalbotLineout
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
 import xraydb
-from lcls_beamline_trace.xrayinteraction import interaction
+from lcls_beamline_toolbox.xrayinteraction import interaction
 
 
 class Mirror:

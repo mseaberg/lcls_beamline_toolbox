@@ -6170,6 +6170,8 @@ class PPM:
         self.blur = False
         self.view_angle_x = 90
         self.view_angle_y = 90
+        self.xoffset = 0
+        self.yoffset = 0
         self.resolution = 5e-6
         self.calc_phase = False
         self.threshold = 0.0
@@ -6184,7 +6186,7 @@ class PPM:
 
         # set allowed kwargs
         allowed_arguments = ['N', 'dx', 'FOV', 'z', 'blur', 'view_angle_x',
-                             'view_angle_y', 'resolution', 'calc_phase', 'threshold']
+                             'view_angle_y', 'resolution', 'calc_phase', 'threshold', 'xoffset', 'yoffset']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -6204,8 +6206,8 @@ class PPM:
         # self.calc_phase = calc_phase
 
         # calculate PPM coordinates
-        self.x = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx
-        self.y = np.copy(self.x)
+        self.x = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx + self.xoffset
+        self.y = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx + self.yoffset
 
         f_x = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
         f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
