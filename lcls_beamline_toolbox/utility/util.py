@@ -41,6 +41,16 @@ class Util:
         return y
 
     @staticmethod
+    def pyfft(a, fft_object):
+        fft_object.input_array[:] = fft.ifftshift(a)
+        return fft.fftshift(fft_object())
+
+    @staticmethod
+    def ipyfft(a, ifft_object):
+        ifft_object.input_array[:] = fft.ifftshift(a)
+        return fft.fftshift(ifft_object())
+    
+    @staticmethod
     def laplace(array,p,q):
         # xp = cp.get_array_module(array)
         # sp = cupyx.scipy.get_array_module(array)

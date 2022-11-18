@@ -627,7 +627,7 @@ class TalbotImage:
         self.x_vis = 0.
         self.vis2 = 0.
 
-    def calc_gradients(self, param):
+    def calc_gradients(self, param, fft_object=None, ifft_object=None):
         """This function performs Fourier fringe analysis of the Talbot image,
         and downsamples the gradient by selecting an ROI around the Fourier peak
         Arguments:
@@ -647,6 +647,9 @@ class TalbotImage:
             mid_peak -- average Fourier location of horizontal and vertical peaks
             p0 -- base second order coefficient
         """
+
+
+        start = time.time()
 
         # get WFS parameters
         if use_gpu:
@@ -677,8 +680,16 @@ class TalbotImage:
         # get spatial frequencies
         fx, fy = Util.get_spatial_frequencies(self.image, dx)
 
+        # 0.035 seconds to here
+
+        if fft_object is not None:
+            print('using pyfftw')
+            fourier_plane = Util.pyfft(self.image, fft_object)
         # fourier transform
-        fourier_plane = Util.nfft(self.image)
+        else:
+            fourier_plane = Util.nfft(self.image)
+
+        # 0.25 seconds up to here
 
         # spatial frequency of grating (m^-1)
         fG = 1.0 / dg
@@ -688,16 +699,21 @@ class TalbotImage:
         v_mask = Util.fourier_mask((fx, fy), (0, fG/mag), fG/mag/4, cosine_mask=False)
         zero_mask = Util.fourier_mask((fx, fy), (0, 0), fG/mag/4, cosine_mask=False)
 
+        # .48 seconds to here (would probably get some speed-up if I used 
+        # less general code for the fourier masks
+
         # apply masks to isolate peaks
-        h_masked = fourier_plane * h_mask
-        v_masked = fourier_plane * v_mask
+        h_mask = fourier_plane * h_mask
+        v_mask = fourier_plane * v_mask
         zero_masked = fourier_plane * zero_mask
 
         # find peak location for both horizontal and vertical
         # project along each dimension
         # thresholding of masked Fourier peaks to calculate peak location
-        h_thresh = Util.threshold_array(h_masked, .2)
-        v_thresh = Util.threshold_array(v_masked, .2)
+        h_mask = Util.threshold_array(h_mask, .2)
+        v_mask = Util.threshold_array(v_mask, .2)
+
+        # 0.82 seconds to here. Is the problem dynamic memory allocation?
 
         # initialize centroids for finding if the image is at an angle
         h_peak_y = 0
@@ -722,11 +738,20 @@ class TalbotImage:
         tilt_angle = (angle_h+angle_v)/2*180/np.pi
 
         if np.abs(tilt_angle) > 0.05:
-            fourier_plane = Util.nfft(ndimage.rotate(self.image,tilt_angle,reshape=False))
+            print('rotating')
+            if fft_object is not None:
+                fourier_plane = Util.pyfft(ndimage.rotate(self.image, tilt_angle, reshape=False), fft_object)
+            else:
+                fourier_plane = Util.nfft(ndimage.rotate(self.image,tilt_angle,reshape=False))
+
+        # 1.8 seconds to here: rotation costs almost 1 second
 
         # define new masks centered on calculated peaks
         h_mask = Util.fourier_mask((fx, fy), (h_peak, 0), fG/mag/4, cosine_mask=True)
         v_mask = Util.fourier_mask((fx, fy), (0, v_peak), fG/mag/4, cosine_mask=True)
+
+        # 2.47 seconds to here. Again, not sure if this is from generating
+        # new large arrays
 
         # apply masks to isolate peaks
         h_masked = fourier_plane * h_mask
@@ -738,6 +763,8 @@ class TalbotImage:
         # thresholding of masked Fourier peaks to calculate peak location
         h_thresh = Util.threshold_array(h_masked, .2)
         v_thresh = Util.threshold_array(v_masked, .2)
+
+        # 2.75 seconds to here
 
         # find peaks in Fourier space (centroid)
         if xp.sum(xp.abs(h_thresh)) > 0 and xp.sum(xp.abs(v_thresh)) > 0:
@@ -789,6 +816,8 @@ class TalbotImage:
         h_grad = Util.fourier_downsampling(h_grad, down)
         v_grad = Util.fourier_downsampling(v_grad, down)
 
+        # 4.8 seconds to here
+
         # avoid an extra fourier transform by handling zero order a bit differently
         zero_fourier = Util.crop_center(zero_masked, M/down, N/down)
         zero_order = xp.abs(Util.infft(zero_fourier))
@@ -802,6 +831,7 @@ class TalbotImage:
         # downsampled image coordinates
         x1, y1 = Util.get_coordinates(h_grad, dx_down)
 
+        # 4.82 seconds to here
         params = {'zero_order': zero_order,
                   'x1': x1,
                   'y1': y1,
@@ -815,6 +845,9 @@ class TalbotImage:
                   'p0': p0,
                   'fourier': fourier_plane,
                   'tilt_angle': tilt_angle}
+
+        end = time.time()
+        print('gradient calculation took {} seconds'.format(end-start))
 
         # output
         return h_grad, v_grad, params
@@ -831,7 +864,7 @@ class TalbotImage:
         lambda0 = param['lambda0']
 
         # calculate gradients
-        h_grad, v_grad, grad_param = self.calc_gradients(param)
+        h_grad, v_grad, grad_param = self.calc_gradients(param, fft_object=fft_object, ifft_object=ifft_object)
 
         # 2D fourier transform
         F0 = grad_param['fourier']
