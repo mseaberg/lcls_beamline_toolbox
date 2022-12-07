@@ -5813,7 +5813,7 @@ class PPM_Data(PPM):
         }
 
         talbot_image = TalbotImage(im1, fc, fraction)
-        recovered_beam, wfs_param_out = talbot_image.get_legendre(self.fit_object, wfs_param, threshold=.1, fft_object=fft_object, ifft_object=ifft_object)
+        recovered_beam, wfs_param_out = talbot_image.get_legendre(self.fit_object, wfs_param, threshold=.1, method='CG')
 
         Nout, Mout = np.shape(recovered_beam.wave)
         amp = np.abs(recovered_beam.wave[int(Nout/2 - self.Nd/2):int(Nout/2 + self.Nd/2), int(Mout/2 - self.Md/2):int(Mout/2 + self.Md/2)])
@@ -5826,9 +5826,11 @@ class PPM_Data(PPM):
         # for now require that centroid data is also valid
         self.wavefront_is_valid = validity
 
-        wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
-
         center = int(self.N / 2**3)
+        #wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
+        wave = np.angle(recovered_beam.wave)[center - int(self.Nd / 2):center + int(self.Nd / 2),
+                      center - int(self.Md / 2):center + int(self.Md / 2)]
+
 
         mask = np.abs(recovered_beam.wave[center - int(self.Nd / 2):center + int(self.Nd / 2),
                       center - int(self.Md / 2):center + int(self.Md / 2)]) > 0
@@ -7019,7 +7021,7 @@ class WFS_Device(WFS):
             'PF1K0': [39.6, 41],
             'PF1L0': [28.4, 29.9, 31.7, 33.9, 36.6],
             'PF1K4': [35.8, 35.8, 35.8, 35.8, 34.6],
-            'PF2K4': [33.3],
+            'PF2K4': [33.3, 33.3, 33.3, 33.3, 33.3],
             'PF1K2': [32, 36.4]
         }
 
@@ -7244,7 +7246,7 @@ class WFS_Data(WFS):
             'PF1K0': [39.6, 41],
             'PF1L0': [28.4, 29.9, 31.7, 33.9, 36.6],
             'PF1K4': [35.8, 35.8, 35.8, 35.8, 34.6],
-            'PF2K4': [33.3],
+            'PF2K4': [33.3, 33.3, 33.3, 33.3, 33.3],
             'PF1K2': [32, 36.4],
             'PF2K2': [36.4,36.4,36.4,36.4,32.0]
 
@@ -7255,7 +7257,8 @@ class WFS_Data(WFS):
             'PF1L0': 735.6817413,
             'PF1K4': 763.515,
             #'PF1K4': 763.66694 - .0093,
-            'PF2K4': 768.583,
+            'PF2K4': 768.583-.0093,
+            #'PF2K4': 768.583,
             'PF1K2': 786.918,
             'PF2K2': 792.319-.0093
         }
