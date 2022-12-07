@@ -6170,6 +6170,8 @@ class PPM:
         self.blur = False
         self.view_angle_x = 90
         self.view_angle_y = 90
+        self.xoffset = 0
+        self.yoffset = 0
         self.resolution = 5e-6
         self.calc_phase = False
         self.threshold = 0.0
@@ -6184,7 +6186,7 @@ class PPM:
 
         # set allowed kwargs
         allowed_arguments = ['N', 'dx', 'FOV', 'z', 'blur', 'view_angle_x',
-                             'view_angle_y', 'resolution', 'calc_phase', 'threshold']
+                             'view_angle_y', 'resolution', 'calc_phase', 'threshold', 'xoffset', 'yoffset']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -6204,8 +6206,8 @@ class PPM:
         # self.calc_phase = calc_phase
 
         # calculate PPM coordinates
-        self.x = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx
-        self.y = np.copy(self.x)
+        self.x = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx + self.xoffset
+        self.y = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx + self.yoffset
 
         f_x = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
         f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
@@ -6375,6 +6377,12 @@ class PPM:
         f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
         # do the interpolation to get the profile we'll see on the PPM
         self.profile = f(self.x, self.y)
+
+        # points = np.zeros((np.size(beam.x),2))
+        # points[:,0] = (beam.x.flatten() + x_shift)*scaling_x
+        # points[:,1] = (beam.y.flatten() + y_shift)*scaling_y
+        # print('using griddata')
+        # self.profile = interpolation.griddata(points, profile, (self.x, self.y), method='linear')
 
         # account for coordinate scaling between PPM and beam
         self.profile *= self.dx/beam.dx * self.dx/beam.dy

@@ -3634,6 +3634,9 @@ class PPM:
         # multiply two dimensions together to get the 2d profile
         self.profile = np.reshape(profiley_interp, (self.N, 1)) * np.reshape(profilex_interp, (1, self.N))
 
+        # account for coordinate scaling between PPM and beam
+        self.profile *= self.dx / beam.dx * self.dx / beam.dy
+
         # if beam is not focused get quadratic phase information
         if not beam.focused_x:
             self.zx = beam.zx

@@ -54,12 +54,12 @@ class Metrology:
         #     plt.plot(x1,y1)
 
         y1m = -np.sin(-delta) * (x1 - x0) + np.cos(-delta) * (y1 - y0) + y0
-        #     x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0) + x0
+        x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0)
 
         y1m -= np.min(y1m)
-        #     x1m -= np.mean(x1m)
+        x1m -= np.mean(x1m)
 
-        return y1m
+        return x1m, y1m
 
     #     plt.figure()
     #     plt.plot(x,x1m)
