@@ -6378,6 +6378,12 @@ class PPM:
         # do the interpolation to get the profile we'll see on the PPM
         self.profile = f(self.x, self.y)
 
+        # points = np.zeros((np.size(beam.x),2))
+        # points[:,0] = (beam.x.flatten() + x_shift)*scaling_x
+        # points[:,1] = (beam.y.flatten() + y_shift)*scaling_y
+        # print('using griddata')
+        # self.profile = interpolation.griddata(points, profile, (self.x, self.y), method='linear')
+
         # account for coordinate scaling between PPM and beam
         self.profile *= self.dx/beam.dx * self.dx/beam.dy
 

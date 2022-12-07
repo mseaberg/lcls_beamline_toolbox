@@ -4289,16 +4289,26 @@ class PPM:
         x_map = (self.xx - xp.amin(x))/(xp.amax(x)-xp.amin(x)) * beam.M
         y_map = (self.yy - xp.amin(y))/(xp.amax(y)-xp.amin(y)) * beam.N
 
-        coords = xp.zeros((2,self.N**2))
-        coords[0,:] = y_map.flatten()
-        coords[1,:] = x_map.flatten()
+        # coords = xp.zeros((2,self.N**2))
+        # coords[0,:] = y_map.flatten()
+        # coords[1,:] = x_map.flatten()
 
-        self.profile = xp.reshape(ndimage.map_coordinates(profile,coords),(self.N,self.N))
+        # coords = xp.zeros((2, self.N, self.N))
+        # coords[0,:,:] = y_map
+        # coords[1,:,:] = x_map
+
+        coords = xp.vstack((y_map.flatten(),x_map.flatten()))
+
+        # plt.figure()
+        # plt.imshow(x_map)
+        #
+        # plt.figure()
+        # plt.imshow(y_map)
+        # self.profile = ndimage.map_coordinates(profile, coords, mode='nearest')
+
+        self.profile = xp.reshape(ndimage.map_coordinates(profile,coords, mode='nearest'),(self.N,self.N))
 
         # self.profile = ndimage.zoom(profile, (scaling_x,scaling_y))
-        # account for coordinate scaling between PPM and beam
-        self.profile *= self.dx / beam.dx * self.dx / beam.dy
-
         # account for coordinate scaling between PPM and beam
         self.profile *= self.dx / beam.dx * self.dx / beam.dy
 
@@ -4351,9 +4361,9 @@ class PPM:
 
         # find peak
         i1 = xp.argmax(self.y_projection)
-        self.x_lineout = self.profile[i1, :]
+        self.x_lineout = xp.copy(self.profile[i1, :])
         i1 = xp.argmax(self.x_projection)
-        self.y_lineout = self.profile[:, i1]
+        self.y_lineout = xp.copy(self.profile[:, i1])
 
         # get beam wavelength
         self.lambda0 = beam.lambda0
@@ -4643,6 +4653,15 @@ class PPM:
 
         gaussian_fit = xp.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
 
+        if use_gpu:
+            x_plot = xp.asnumpy(self.x)
+            lineout_plot = xp.asnumpy(self.x_lineout)
+            gauss_plot = xp.asnumpy(gaussian_fit)
+        else:
+            x_plot = xp.copy(self.x)
+            lineout_plot = xp.copy(self.x_lineout)
+            gauss_plot = xp.copy(gaussian_fit)
+
         if ax is None:
             # generate the figure
             plt.figure()
@@ -4650,25 +4669,25 @@ class PPM:
         if normalized:
             # show the vertical lineout (distance in microns)
             if log:
-                ax.semilogy(self.x * 1e6, self.x_lineout / np.max(self.x_lineout), label=label)
+                ax.semilogy(x_plot * 1e6, lineout_plot / np.max(lineout_plot), label=label)
             else:
-                ax.plot(self.x * 1e6, self.x_lineout / np.max(self.x_lineout), label=label)
+                ax.plot(x_plot * 1e6, lineout_plot / np.max(lineout_plot), label=label)
                 ax.set_ylim(0, 1.05)
             ax.set_ylabel('Intensity (normalized)')
         else:
             # show the vertical lineout (distance in microns)
             if log:
-                ax.semilogy(self.x * 1e6, self.x_lineout, label=label)
+                ax.semilogy(x_plot * 1e6, lineout_plot, label=label)
             else:
-                ax.plot(self.x * 1e6, self.x_lineout, label=label)
-            gaussian_fit *= np.max(self.x_lineout)
+                ax.plot(x_plot * 1e6, lineout_plot, label=label)
+            gauss_plot *= np.max(lineout_plot)
             ax.set_ylabel('Intensity (arbitrary units)')
         # also plot the Gaussian fit
         if show_fit:
             if log:
-                ax.semilogy(self.x*1e6, gaussian_fit, label='fit')
+                ax.semilogy(x_plot, gauss_plot, label='fit')
             else:
-                ax.plot(self.x * 1e6, gaussian_fit, label='fit')
+                ax.plot(x_plot * 1e6, gauss_plot, label='fit')
         if legend:
             ax.legend()
         ax.set_xlabel('X Coordinates (\u03BCm)')
