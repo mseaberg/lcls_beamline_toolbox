@@ -93,6 +93,26 @@ class Metrology:
         return error
 
     @staticmethod
+    def shape_error(filename, p, q, alpha, flip=False, skip_header=0, delimiter=','):
+
+        data = np.genfromtxt(filename, skip_header=skip_header, delimiter=delimiter)
+
+        xdata = data[:,0]
+        ydata = data[:,1]
+
+        if flip:
+            ydata = np.flipud(ydata)
+
+        mask = np.logical_and(np.logical_not(np.isnan(xdata)), np.logical_not(np.isnan(ydata)))
+        xdata = xdata[mask]
+        ydata = ydata[mask]
+        ideal_x, ideal_y = Metrology.define_ellipse(xdata,p,q,alpha)
+
+        error = ydata - ideal_y
+
+        return xdata, error
+
+    @staticmethod
     def find_closest_ellipse(xdata, ydata):
 
         res = optimize.minimize(Metrology.ellipse_error, np.array([2.4, 0.0]), args=(xdata, ydata))

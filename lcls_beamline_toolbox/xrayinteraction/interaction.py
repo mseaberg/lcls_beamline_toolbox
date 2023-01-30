@@ -47,7 +47,8 @@ class Device:
             'Rh': 24.98,
             'SiC': 26.74,
             'W': 24.31,
-            'YAG': 350
+            'YAG': 350,
+            'SiO2': 60
         }
         self.heat_capacity = cap_dict[self.material]
 
@@ -62,7 +63,8 @@ class Device:
             'Rh': 2237,
             'SiC': 3003,
             'W': 3695,
-            'YAG': 1900
+            'YAG': 1900,
+            'SiO2': 1983
         }
         self.melt_temp = temp_dict[self.material]
 
@@ -78,7 +80,8 @@ class Device:
             'Rh': 102.9,
             'SiC': 40.1/2.,
             'W': 183.8,
-            'YAG': (88.91*3 + 26.98*5 + 15.999*12)/20.
+            'YAG': (88.91*3 + 26.98*5 + 15.999*12)/20.,
+            'SiO2': (28+2*16)/3
         }
         self.mass = mass_dict[self.material]
 
@@ -93,7 +96,8 @@ class Device:
             'Rh': 1,
             'SiC': 2,
             'W': 1,
-            'YAG': 20
+            'YAG': 20,
+            'SiO2': 3
         }
         self.atoms = atoms_dict[self.material]
 
@@ -108,7 +112,8 @@ class Device:
             'Rh': 45,
             'SiC': (14+6)/2,
             'W': 74,
-            'YAG': (39*3 + 13*5 + 8*12)/20
+            'YAG': (39*3 + 13*5 + 8*12)/20,
+            'SiO2': (14 + 8*2)/3
         }
         self.Z = Z_dict[self.material]
 
@@ -123,7 +128,8 @@ class Device:
             'Rh': [81.4,307,3004,3146,3412,23220],
             'SiC': [149.7,284,1839],
             'W': [33.6,1809,1872,2281,2575,2820,10207,11544,12100],
-            'YAG': [73, 543, 1559.6, 2080, 2156, 2373, 17038]
+            'YAG': [73, 543, 1559.6, 2080, 2156, 2373, 17038],
+            'SiO2': [41.6, 149.7, 543.1, 1839]
         }
         self.absorption_edges = np.array(edge_dict[self.material])
 
