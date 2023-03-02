@@ -1504,7 +1504,7 @@ class Crystal(Mirror):
 
             # take into account mirror reflection causing beam to invert
             beam.y *= -1
-            beam.wavey = np.flipud(beam.wavey)
+            # beam.wavey = np.flipud(beam.wavey)
 
             # adjust beam direction relative to properly aligned axis
             beam.rotate_nominal(delta_elevation=self.alpha + self.beta0)
@@ -3695,9 +3695,10 @@ class CRL:
         self.shapeError = None
         self.azimuth = 0
         self.elevation = 0
+        self.web_thickness = 0
 
         # set allowed kwargs
-        allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError']
+        allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError', 'web_thickness']
 
         # update attributes based on kwargs
         for key, value in kwargs.items():
@@ -3807,7 +3808,7 @@ class CRL:
         p1_y = p2 * 2 * (beam.cy - self.dy)
 
         # lens transmission based on beta and thickness profile
-        transmission = xp.exp(-beam.k0 * beta * thickness) * xp.exp(1j * phase) * mask
+        transmission = xp.exp(-beam.k0 * beta * (thickness+self.web_thickness)) * xp.exp(1j * phase) * mask
 
         # adjust beam properties
         new_zx = 1 / (1 / beam.zx + p2 * beam.lambda0 / np.pi)
@@ -4644,7 +4645,8 @@ class PPM:
         # calculate centroids and beam widths
         self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
 
-    def view_horizontal(self, ax=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
+    def view_horizontal(self, ax=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout',
+                        projection=False):
         """
         Method to view
         :param normalized: whether to normalize the lineout
@@ -4655,11 +4657,17 @@ class PPM:
 
         if use_gpu:
             x_plot = xp.asnumpy(self.x)
-            lineout_plot = xp.asnumpy(self.x_lineout)
+            if projection:
+                lineout_plot = xp.asnumpy(self.x_projection)
+            else:
+                lineout_plot = xp.asnumpy(self.x_lineout)
             gauss_plot = xp.asnumpy(gaussian_fit)
         else:
             x_plot = xp.copy(self.x)
-            lineout_plot = xp.copy(self.x_lineout)
+            if projection:
+                lineout_plot = xp.copy(self.x_projection)
+            else:
+                lineout_plot = xp.copy(self.x_lineout)
             gauss_plot = xp.copy(gaussian_fit)
 
         if ax is None:

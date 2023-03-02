@@ -22,9 +22,10 @@ import scipy.ndimage as ndimage
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
 import scipy.integrate as integration
+import pickle
 import os
 from lcls_beamline_toolbox.utility.util import Util, LegendreUtil
-from lcls_beamline_toolbox.utility.pitch import TalbotLineout
+from lcls_beamline_toolbox.utility.pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
 import xraydb
@@ -5044,6 +5045,94 @@ class PPM:
             Width of square field of view
         """
         return self.FOV
+
+    def retrieve_wavefront2D(self, basis_file, wfs, threshold=0.01, method='projection'):
+        """
+        Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
+        :param basis_file: string
+            Path to file containing pickled Legendre basis object.
+        :param wfs: WFS object
+            Grating structure that generates Talbot interferometry patterns. Passed to this method to gain access
+            to its attributes.
+        :param threshold: float
+            Optional, controls how much to threshold the intensity when recovering the wavefront
+        :return wfs_data: dict
+            Includes the following entries
+            x_prime: (M,) ndarray
+                Horizontal coordinates for retrieved high-order phase
+            y_prime: (N,) ndarray
+                Vertical coordinates for retrieved high-order phase
+            x_res: (M,) ndarray
+                Horizontal residual phase (>2nd order) at points in x_prime
+            y_res: (N,) ndarray
+                Vertical residual phase (>2nd order) at points in y_prime
+            coeff_x: (k,) ndarray
+                Legendre coefficients for horizontal phase lineout
+            coeff_y: (k,) ndarray
+                Legendre coefficients for vertical phase lineout
+            z2x: float
+                Distance to horizontal focus
+            z2y: float
+                Distance to vertical focus
+        """
+
+        print('retrieving wavefront')
+
+        # go ahead and retrieve 1D wavefront first
+        wfs_data, wfs_param = self.retrieve_wavefront(wfs)
+
+        # get Talbot fraction that we're using (fractional Talbot effect)
+        fraction = wfs.fraction
+
+        # Talbot image processing
+        # load basis
+        with open(basis_file, 'rb') as f:
+            fit_object = pickle.load(f)
+
+        # initialize Talbot image processing
+        image_calc = TalbotImage(self.profile, wfs_param['fc'], fraction)
+
+        # add parameters for calculating Legendre coefficients
+        wfs_param['downsample'] = 3
+        wfs_param['zf'] = wfs.f0
+        wfs_param['dg'] = wfs.x_pitch_sim
+
+        # calculate 2D legendre coefficients
+        print('getting 2D Legendre coefficients')
+        recovered_beam, fit_params = image_calc.get_legendre(fit_object, wfs_param, threshold=threshold, method=method)
+
+        # get complete wavefront with defocus
+        x = fit_params['x']
+        y = fit_params['y']
+        px = fit_params['px']
+        py = fit_params['py']
+        coeff = fit_params['coeff']
+
+        # add defocus to wavefront fit
+        if method == 'CG':
+            full_wave = fit_params['wave'] + (px * x ** 2 + py * y ** 2)
+        else:
+            full_wave = fit_object.wavefront_fit(coeff)
+
+            full_wave += (px * x ** 2 + py * y ** 2)
+        # if use_gpu:
+        #     full_wave = fit_object.wavefront_fit(coeff) + xp.asnumpy(px * x**2 + py * y**2)
+        # else:
+        #     full_wave = fit_object.wavefront_fit(coeff) + (px * x ** 2 + py * y ** 2)
+
+
+        # output. See method docstring for descriptions.
+        wfs_data2D = {
+                'recovered': recovered_beam,
+                'wave': full_wave
+                }
+
+        wfs_data.update(fit_params)
+
+        wfs_data.update(wfs_data2D)
+
+        return wfs_data
+
 
     def retrieve_wavefront2(self, wfs, focusFOV=10, focus_z=0):
         """

@@ -12,6 +12,25 @@ class Metrology:
     """
 
     @staticmethod
+    def strehl(energy, x, shapeError, alpha, fwhm, weighted=False):
+
+        # convert fwhm to sigma, and account for projection onto mirror
+        sigma = fwhm/2.355/alpha
+
+        if weighted:
+            intensity = Util.fit_gaussian(x,0,sigma)
+        else:
+            intensity = np.abs(x)<4*sigma
+        lambda0 = 1240/energy
+        average = np.average(shapeError, weights=intensity)
+        variance = np.average((shapeError - average) ** 2, weights=intensity)
+
+        N = np.size(shapeError)
+
+        s_out = np.exp(-variance*(4*np.pi*np.sin(alpha)/lambda0)**2)
+        return s_out
+
+    @staticmethod
     def fit_ellipse(x, A, B, C, D, E, F):
 
         # general ellipse equation
@@ -103,9 +122,14 @@ class Metrology:
         if flip:
             ydata = np.flipud(ydata)
 
+        # ydata -= np.min(ydata)
+
         mask = np.logical_and(np.logical_not(np.isnan(xdata)), np.logical_not(np.isnan(ydata)))
         xdata = xdata[mask]
         ydata = ydata[mask]
+
+        ydata -= np.min(ydata)
+
         ideal_x, ideal_y = Metrology.define_ellipse(xdata,p,q,alpha)
 
         error = ydata - ideal_y

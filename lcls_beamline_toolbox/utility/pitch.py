@@ -710,8 +710,8 @@ class TalbotImage:
         # find peak location for both horizontal and vertical
         # project along each dimension
         # thresholding of masked Fourier peaks to calculate peak location
-        h_mask = Util.threshold_array(h_mask, .2)
-        v_mask = Util.threshold_array(v_mask, .2)
+        h_thresh = Util.threshold_array(h_mask, .2)
+        v_thresh = Util.threshold_array(v_mask, .2)
 
         # 0.82 seconds to here. Is the problem dynamic memory allocation?
 
@@ -864,7 +864,8 @@ class TalbotImage:
         lambda0 = param['lambda0']
 
         # calculate gradients
-        h_grad, v_grad, grad_param = self.calc_gradients(param, fft_object=fft_object, ifft_object=ifft_object)
+        # h_grad, v_grad, grad_param = self.calc_gradients(param, fft_object=fft_object, ifft_object=ifft_object)
+        h_grad, v_grad, grad_param = self.calc_gradients(param)
 
         # 2D fourier transform
         F0 = grad_param['fourier']

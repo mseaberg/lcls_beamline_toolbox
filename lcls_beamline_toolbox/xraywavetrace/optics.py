@@ -6673,14 +6673,24 @@ class PPM:
         # calculate centroids and beam widths
         self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
 
-    def view_horizontal(self, ax=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
+    def view_horizontal(self, ax=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout', lineout=False):
         """
         Method to view
         :param normalized: whether to normalize the lineout
         :return:
         """
 
+        # calculated beam center in pixels
+        x_center = Util.coordinate_to_pixel(self.cx, self.dx, self.M)
+        y_center = Util.coordinate_to_pixel(self.cy, self.dx, self.N)
+
         gaussian_fit = np.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)
+
+        if lineout:
+            # get lineouts from 2d profile
+            lineout_x = Util.get_horizontal_lineout(self.profile, x_center=x_center, y_center=y_center, half_width=0)
+        else:
+            lineout_x = self.x_lineout
 
         if ax is None:
             # generate the figure
@@ -6689,18 +6699,18 @@ class PPM:
         if normalized:
             # show the vertical lineout (distance in microns)
             if log:
-                ax.semilogy(self.x * 1e6, self.x_lineout / np.max(self.x_lineout), label=label)
+                ax.semilogy(self.x * 1e6, lineout_x / np.max(lineout_x), label=label)
             else:
-                ax.plot(self.x * 1e6, self.x_lineout / np.max(self.x_lineout), label=label)
+                ax.plot(self.x * 1e6, lineout_x / np.max(lineout_x), label=label)
                 ax.set_ylim(0, 1.05)
             ax.set_ylabel('Intensity (normalized)')
         else:
             # show the vertical lineout (distance in microns)
             if log:
-                ax.semilogy(self.x * 1e6, self.x_lineout, label=label)
+                ax.semilogy(self.x * 1e6, lineout_x, label=label)
             else:
-                ax.plot(self.x * 1e6, self.x_lineout, label=label)
-            gaussian_fit *= np.max(self.x_lineout)
+                ax.plot(self.x * 1e6, lineout_x, label=label)
+            gaussian_fit *= np.max(lineout_x)
             ax.set_ylabel('Intensity (arbitrary units)')
         # also plot the Gaussian fit
         if show_fit:
