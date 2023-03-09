@@ -6728,7 +6728,7 @@ class PPM:
 
         return ax
 
-    def view_vertical(self, ax_y=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout', lineout=False):
+    def view_vertical(self, ax=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout', lineout=False):
         """
         Method to view
         :param normalized: whether to normalize the lineout
@@ -6751,41 +6751,41 @@ class PPM:
         else:
             lineout_y = self.y_lineout
 
-        if ax_y is None:
+        if ax is None:
             # generate the figure
             plt.figure()
-            ax_y = plt.subplot2grid((1,1), (0, 0))
+            ax = plt.subplot2grid((1,1), (0, 0))
         if normalized:
             # show the vertical lineout (distance in microns)
             if log:
-                ax_y.semilogy(self.y * 1e6, lineout_y / np.max(lineout_y), label=label)
+                ax.semilogy(self.y * 1e6, lineout_y / np.max(lineout_y), label=label)
             else:
-                ax_y.plot(self.y * 1e6, lineout_y / np.max(lineout_y), label=label)
-                ax_y.set_ylim(0, 1.05)
-            ax_y.set_ylabel('Intensity (normalized)')
+                ax.plot(self.y * 1e6, lineout_y / np.max(lineout_y), label=label)
+                ax.set_ylim(0, 1.05)
+            ax.set_ylabel('Intensity (normalized)')
         else:
             # show the vertical lineout (distance in microns)
             if log:
-                ax_y.semilogy(self.y * 1e6, lineout_y, label=label)
+                ax.semilogy(self.y * 1e6, lineout_y, label=label)
             else:
-                ax_y.plot(self.y * 1e6, lineout_y, label=label)
+                ax.plot(self.y * 1e6, lineout_y, label=label)
             gaussian_fit *= np.max(lineout_y)
-            ax_y.set_ylabel('Intensity (arbitrary units)')
+            ax.set_ylabel('Intensity (arbitrary units)')
         # also plot the Gaussian fit
         if show_fit:
             if log:
-                ax_y.semilogy(self.y*1e6, gaussian_fit, label='fit')
+                ax.semilogy(self.y*1e6, gaussian_fit, label='fit')
             else:
-                ax_y.plot(self.y * 1e6, gaussian_fit, label='fit')
+                ax.plot(self.y * 1e6, gaussian_fit, label='fit')
         if legend:
-            ax_y.legend()
-        ax_y.set_xlabel('Y Coordinates (\u03BCm)')
+            ax.legend()
+        ax.set_xlabel('Y Coordinates (\u03BCm)')
         # show a grid
-        ax_y.grid(True)
+        ax.grid(True)
         # set limits
 
 
-        return ax_y
+        return ax
 
     def view_beam(self):
         """

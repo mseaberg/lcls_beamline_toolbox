@@ -12,6 +12,14 @@ class Metrology:
     """
 
     @staticmethod
+    def subtract_sphere(x, shapeError, alpha, fwhm):
+
+        mask = np.abs(x)<fwhm/2.355*2/alpha
+        p = np.polyfit(x[mask],shapeError[mask],2)
+
+        return shapeError - np.polyval(p,x)
+
+    @staticmethod
     def strehl(energy, x, shapeError, alpha, fwhm, weighted=False):
 
         # convert fwhm to sigma, and account for projection onto mirror
@@ -20,7 +28,7 @@ class Metrology:
         if weighted:
             intensity = Util.fit_gaussian(x,0,sigma)
         else:
-            intensity = np.abs(x)<4*sigma
+            intensity = np.abs(x)<2*sigma
         lambda0 = 1240/energy
         average = np.average(shapeError, weights=intensity)
         variance = np.average((shapeError - average) ** 2, weights=intensity)
