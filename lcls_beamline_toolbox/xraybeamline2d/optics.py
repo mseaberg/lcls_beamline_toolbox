@@ -4307,7 +4307,7 @@ class PPM:
         # plt.imshow(y_map)
         # self.profile = ndimage.map_coordinates(profile, coords, mode='nearest')
 
-        self.profile = xp.reshape(ndimage.map_coordinates(profile,coords, order=0, mode='nearest'),(self.N,self.N))
+        self.profile = xp.reshape(ndimage.map_coordinates(profile,coords, order=1, mode='nearest'),(self.N,self.N))
 
         # self.profile = ndimage.zoom(profile, (scaling_x,scaling_y))
         # account for coordinate scaling between PPM and beam
