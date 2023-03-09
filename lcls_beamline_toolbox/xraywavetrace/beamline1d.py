@@ -12,6 +12,7 @@ Beamline: stores list of optics devices, and interfaces with Beam to propagate t
 from .optics1d import Drift, Mono, Mirror, Grating
 # import matplotlib.pyplot as plt
 import copy
+import json
 import numpy as np
 from lcls_beamline_toolbox.utility.util import Util
 import matplotlib.pyplot as plt
@@ -184,6 +185,69 @@ class Beamline:
             # keep everything in the same order, interleave drifts in between devices
             for num, drift in enumerate(drift_list):
                 self.full_list.insert(2*num+1, drift)
+
+    def write_json(self, filename):
+        file_dict = {}
+        for device in self.device_list:
+            if issubclass(type(device), Mirror):
+                xhat = device.normal
+                yhat = device.sagittal
+                zhat = device.transverse
+
+            else:
+                xhat = device.xhat
+                yhat = device.yhat
+                zhat = device.zhat
+            device_dict = {'Z': device.z,
+                           'X': device.global_x,
+                           'Y': device.global_y,
+                           'xhat': xhat.tolist(),
+                           'yhat': yhat.tolist(),
+                           'zhat': zhat.tolist()}
+            file_dict[device.name] = device_dict
+
+        json_object = json.dumps(file_dict, indent=4)
+        with open(filename,'w') as f:
+            f.write(json_object)
+
+    def write_beamline(self,filename):
+
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write('Device Name, Z, X, Y, Transformation matrix\n')
+            for device in self.device_list:
+                if issubclass(type(device), Mirror):
+                    xhat = device.normal
+                    yhat = device.sagittal
+                    zhat = device.transverse
+
+                else:
+                    xhat = device.xhat
+                    yhat = device.yhat
+                    zhat = device.zhat
+
+                f.write(
+                    '{}, {:.10e}, {:.10e}, {:.10e}'.format(device.name, device.z, device.global_x, device.global_y))
+                f.write(',{:.10e},{:.10e},{:.10e}\n'.format(xhat[0],xhat[1],xhat[2]))
+                f.write(',,,,{:.10e},{:.10e},{:.10e}\n'.format(yhat[0],yhat[1],yhat[2]))
+                f.write(',,,,{:.10e},{:.10e},{:.10e}\n'.format(zhat[0],zhat[1],zhat[2]))
+
+    def load_beamline(self,filename):
+        with open(filename,'r') as f:
+            device_info = json.load(f)
+
+        for device in self.device_list:
+            device_data = device_info[device.name]
+            device.z = float(device_data['Z'])
+            device.global_x = float(device_data['X'])
+            device.global_y = float(device_data['Y'])
+            if issubclass(type(device), Mirror):
+                device.normal = np.array(device_data['xhat'])
+                device.sagittal = np.array(device_data['yhat'])
+                device.transverse = np.array(device_data['zhat'])
+            else:
+                device.xhat = np.array(device_data['xhat'])
+                device.yhat = np.array(device_data['yhat'])
+                device.zhat = np.array(device_data['zhat'])
 
     def draw_beamline(self,figsize=None):
         if figsize is not None:

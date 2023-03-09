@@ -818,6 +818,8 @@ class Beam:
         self.rescale_x(factor)
         # rescale distance to focus
         self.zx *= factor**2
+        # rescale amplitude
+        self.wavex *= np.sqrt(factor)
 
     def rescale_y(self, factor):
         """
@@ -848,6 +850,8 @@ class Beam:
         self.rescale_y(factor)
         # rescale distance to focus
         self.zy *= factor**2
+
+        self.wavey *= np.sqrt(factor)
 
     def multiply_screen(self, screen):
         """
