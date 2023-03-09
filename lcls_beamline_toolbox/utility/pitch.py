@@ -627,7 +627,7 @@ class TalbotImage:
         self.x_vis = 0.
         self.vis2 = 0.
 
-    def calc_gradients(self, param, fft_object=None, ifft_object=None):
+    def calc_gradients(self, param):
         """This function performs Fourier fringe analysis of the Talbot image,
         and downsamples the gradient by selecting an ROI around the Fourier peak
         Arguments:
@@ -682,12 +682,7 @@ class TalbotImage:
 
         # 0.035 seconds to here
 
-        if fft_object is not None:
-            print('using pyfftw')
-            fourier_plane = Util.pyfft(self.image, fft_object)
-        # fourier transform
-        else:
-            fourier_plane = Util.nfft(self.image)
+        fourier_plane = Util.nfft(self.image)
 
         # 0.25 seconds up to here
 
@@ -739,10 +734,7 @@ class TalbotImage:
 
         if np.abs(tilt_angle) > 0.05:
             print('rotating')
-            if fft_object is not None:
-                fourier_plane = Util.pyfft(ndimage.rotate(self.image, tilt_angle, reshape=False), fft_object)
-            else:
-                fourier_plane = Util.nfft(ndimage.rotate(self.image,tilt_angle,reshape=False))
+            fourier_plane = Util.nfft(ndimage.rotate(self.image,tilt_angle,reshape=False))
 
         # 1.8 seconds to here: rotation costs almost 1 second
 
@@ -864,7 +856,6 @@ class TalbotImage:
         lambda0 = param['lambda0']
 
         # calculate gradients
-        # h_grad, v_grad, grad_param = self.calc_gradients(param, fft_object=fft_object, ifft_object=ifft_object)
         h_grad, v_grad, grad_param = self.calc_gradients(param)
 
         # 2D fourier transform
