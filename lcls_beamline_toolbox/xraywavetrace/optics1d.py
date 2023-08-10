@@ -752,7 +752,7 @@ class CurvedMirror(Mirror):
 
         # concave elliptical mirror
         if q>=0 and p>=0:
-
+            print('elliptical')
             # calculated ellipse values
             L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
             a2 = (p + q) ** 2 / 4  # a^2 for ellipse
@@ -780,72 +780,320 @@ class CurvedMirror(Mirror):
             return z1, x1, z0, x0, delta
 
         # convex hyperbolic mirror
-        elif q<0 and p>=0:
-            print('hyperbolic')
-            # calculated hyperbola values
-            L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
-            print('L %.2f' % L)
-            # a2 = (p-q)**2/4
-            a = -(np.abs(q) - np.abs(p))/2
-            a2 = a**2
-            c2 = (L/2)**2
-            b2 = c2-a2
-            print(b2)
-            # angle of incident beam
-            beta = np.arcsin(np.sin(2*alpha)*np.abs(q)/L)
-            print('beta %.2e' % beta)
+        elif p*q<0:
+            if p>=0 and np.abs(p)>=np.abs(q):
+                print('convex hyperbolic')
+                # calculated hyperbola values
+                L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
+                print('L %.2f' % L)
+                # a2 = (p-q)**2/4
+                a = -(np.abs(q) - np.abs(p))/2
+                a2 = a**2
+                c2 = (L/2)**2
+                b2 = c2-a2
+                print(b2)
+                # angle of incident beam
+                beta = np.arcsin(np.sin(2*alpha)*np.abs(q)/L)
+                print('beta %.2e' % beta)
 
-            # mirror angle
-            delta = alpha + beta
+                # mirror angle
+                delta = alpha + beta
 
-            # mirror offset from hyperbola center in x
-            x0 = -p*q/L*np.sin(2*alpha)
-            if np.abs(p) > np.abs(q):
-                z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
-            else:
-                z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
-
-            # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length /2 * np.cos(delta), N)
-
-            # hyperbola equation (using center of hyperbola as origin)
-            x1 = np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
-
-            return z1, x1, z0, x0, delta
-
-        # concave hyperbolic mirror
-        elif p<0 and q>=0:
-            print('hyperbolic')
-            # calculated hyperbola values
-            L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
-            print('L %.2f' % L)
-            # a2 = (p-q)**2/4
-            a = -(np.abs(q) - np.abs(p)) / 2
-            a2 = a ** 2
-            c2 = (L / 2) ** 2
-            b2 = c2 - a2
-            print(b2)
-            # angle of incident beam
-            beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
-            print('beta %.2e' % beta)
-
-            # mirror angle
-            delta = alpha + beta
-
-            # mirror offset from hyperbola center in x
-            x0 = p * q / L * np.sin(2 * alpha)
-            if np.abs(p) > np.abs(q):
-                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
-            else:
+                # mirror offset from hyperbola center in x
+                x0 = -p*q/L*np.sin(2*alpha)
+                # if np.abs(p) > np.abs(q):
+                #     z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+                # else:
+                #     z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
                 z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
 
-            # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
-            z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+                # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+                z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length /2 * np.cos(delta), N)
 
-            # hyperbola equation (using center of hyperbola as origin)
-            x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+                # hyperbola equation (using center of hyperbola as origin)
+                x1 = np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
 
-            return z1, x1, z0, x0, delta
+                return z1, x1, z0, x0, delta
+            elif p>=0 and np.abs(p)<np.abs(q):
+                print('concave hyperbolic')
+
+                # calculated hyperbola values
+                L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+                print('L %.2f' % L)
+                # a2 = (p-q)**2/4
+                a = -(np.abs(q) - np.abs(p)) / 2
+                a2 = a ** 2
+                c2 = (L / 2) ** 2
+                b2 = c2 - a2
+                print(b2)
+                # angle of incident beam
+                beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+                print('beta %.2e' % beta)
+
+                # mirror angle
+                delta = alpha - beta
+
+                # mirror offset from hyperbola center in x
+                x0 = p * q / L * np.sin(2 * alpha)
+                # if np.abs(p) > np.abs(q):
+                #     z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+                # else:
+                #     z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+                z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+
+                # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+                z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+
+                # hyperbola equation (using center of hyperbola as origin)
+                x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+
+                return z1, x1, z0, x0, delta
+            elif p<0 and np.abs(p)>=np.abs(q):
+                print('concave hyperbolic')
+                # calculated hyperbola values
+                L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+                print('L %.2f' % L)
+                # a2 = (p-q)**2/4
+                a = -(np.abs(q) - np.abs(p)) / 2
+                a2 = a ** 2
+                c2 = (L / 2) ** 2
+                b2 = c2 - a2
+                print(b2)
+                # angle of incident beam
+                beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+                print('beta %.2e' % beta)
+
+                # mirror angle
+                delta = alpha + beta
+
+                # mirror offset from hyperbola center in x
+                x0 = p * q / L * np.sin(2 * alpha)
+
+                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+                # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+                z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+
+                # hyperbola equation (using center of hyperbola as origin)
+                x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+
+
+                # # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+                # z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+                #
+                # # hyperbola equation (using center of hyperbola as origin)
+                # x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+
+                return z1, x1, z0, x0, delta
+            else: #p<0 and np.abs(p)<np.abs(q)
+                print('convex hyperbolic')
+                # calculated hyperbola values
+                L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+                print('L %.2f' % L)
+                # a2 = (p-q)**2/4
+                a = -(np.abs(q) - np.abs(p)) / 2
+                a2 = a ** 2
+                c2 = (L / 2) ** 2
+                b2 = c2 - a2
+                print(b2)
+                # angle of incident beam
+                beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+                print('beta %.2e' % beta)
+
+                # mirror angle
+                delta = alpha - beta
+
+                # mirror offset from hyperbola center in x
+                x0 = -p * q / L * np.sin(2 * alpha)
+
+                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+                # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+                z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+
+                # hyperbola equation (using center of hyperbola as origin)
+                x1 = np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+
+                # # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+                # z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+                #
+                # # hyperbola equation (using center of hyperbola as origin)
+                # x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+
+                return z1, x1, z0, x0, delta
+
+        # concave hyperbolic mirror
+        # elif p<0 and q>=0:
+        #     print('concave hyperbolic')
+        #     # calculated hyperbola values
+        #     L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+        #     print('L %.2f' % L)
+        #     # a2 = (p-q)**2/4
+        #     a = -(np.abs(q) - np.abs(p)) / 2
+        #     a2 = a ** 2
+        #     c2 = (L / 2) ** 2
+        #     b2 = c2 - a2
+        #     print(b2)
+        #     # angle of incident beam
+        #     beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+        #     print('beta %.2e' % beta)
+        #
+        #     # mirror angle
+        #     delta = alpha + beta
+        #
+        #     # mirror offset from hyperbola center in x
+        #     x0 = p * q / L * np.sin(2 * alpha)
+        #     if np.abs(p) > np.abs(q):
+        #         z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+        #         # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+        #         z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+        #
+        #         # hyperbola equation (using center of hyperbola as origin)
+        #         x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+        #     else:
+        #         z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+        #         # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+        #         z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+        #
+        #         # hyperbola equation (using center of hyperbola as origin)
+        #         x1 = np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+        #
+        #         delta = -delta
+        #
+        #     # # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+        #     # z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+        #     #
+        #     # # hyperbola equation (using center of hyperbola as origin)
+        #     # x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+        #
+        #     return z1, x1, z0, x0, delta
+
+        elif p<0 and q<0:
+            print('convex elliptical')
+            L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+            print('L %.2f' % L)
+
+            a2 = (p + q) ** 2 / 4  # a^2 for ellipse
+            b2 = a2 - (L / 2) ** 2  # b^2 for ellipse
+
+    # def calc_ellipse(self, p, q, alpha):
+    #     """
+    #     Method to calculate the shape of an ellipse based on mirror specifications. See Ellipse reference documentation.
+    #     :param p: float
+    #         Nominal distance to source (m)
+    #     :param q: float
+    #         Nominal distance to focus (m)
+    #     :param alpha: float
+    #         Nominal angle of incidence (radians)
+    #     :return z1: (N,) ndarray
+    #         ellipse z-axis coordinates
+    #     :return x1: (N,) ndarray
+    #         mirror surface as function of z1
+    #     :return z0: float
+    #         z position at center of mirror (relative to ellipse center)
+    #     :return x0: float
+    #         x position at center of mirror (relative to ellipse center)
+    #     :return delta: float
+    #         angle at center of mirror relative to ellipse z-axis (radians)
+    #     """
+    #
+    #     # arbitrarily chosen array size
+    #     N = 1024
+    #
+    #     # concave elliptical mirror
+    #     if q>=0 and p>=0:
+    #
+    #         # calculated ellipse values
+    #         L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
+    #         a2 = (p + q) ** 2 / 4  # a^2 for ellipse
+    #         b2 = a2 - (L / 2) ** 2  # b^2 for ellipse
+    #
+    #         # angle of incident beam
+    #         beta = np.arcsin(np.sin(2 * alpha) * q / L)
+    #
+    #         # mirror angle
+    #         delta = alpha - beta
+    #
+    #         # mirror offset from ellipse center in x
+    #         x0 = -p * q / L * np.sin(2 * alpha)
+    #         if p > q:
+    #             z0 = np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+    #         else:
+    #             z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+    #
+    #         # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+    #         z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+    #         # ellipse equation (using center of ellipse as origin)
+    #
+    #         x1 = -np.sqrt(b2) * np.sqrt(1 - z1 ** 2 / a2) * np.sign(alpha)
+    #
+    #         return z1, x1, z0, x0, delta
+    #
+    #     # convex hyperbolic mirror
+    #     elif q<0 and p>=0:
+    #         print('hyperbolic')
+    #         # calculated hyperbola values
+    #         L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
+    #         print('L %.2f' % L)
+    #         # a2 = (p-q)**2/4
+    #         a = -(np.abs(q) - np.abs(p))/2
+    #         a2 = a**2
+    #         c2 = (L/2)**2
+    #         b2 = c2-a2
+    #         print(b2)
+    #         # angle of incident beam
+    #         beta = np.arcsin(np.sin(2*alpha)*np.abs(q)/L)
+    #         print('beta %.2e' % beta)
+    #
+    #         # mirror angle
+    #         delta = alpha + beta
+    #
+    #         # mirror offset from hyperbola center in x
+    #         x0 = -p*q/L*np.sin(2*alpha)
+    #         if np.abs(p) > np.abs(q):
+    #             z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+    #         else:
+    #             z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+    #
+    #         # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+    #         z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length /2 * np.cos(delta), N)
+    #
+    #         # hyperbola equation (using center of hyperbola as origin)
+    #         x1 = np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
+    #
+    #         return z1, x1, z0, x0, delta
+    #
+    #     # concave hyperbolic mirror
+    #     elif p<0 and q>=0:
+    #         print('hyperbolic')
+    #         # calculated hyperbola values
+    #         L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+    #         print('L %.2f' % L)
+    #         # a2 = (p-q)**2/4
+    #         a = -(np.abs(q) - np.abs(p)) / 2
+    #         a2 = a ** 2
+    #         c2 = (L / 2) ** 2
+    #         b2 = c2 - a2
+    #         print(b2)
+    #         # angle of incident beam
+    #         beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+    #         print('beta %.2e' % beta)
+    #
+    #         # mirror angle
+    #         delta = alpha + beta
+    #
+    #         # mirror offset from hyperbola center in x
+    #         x0 = p * q / L * np.sin(2 * alpha)
+    #         if np.abs(p) > np.abs(q):
+    #             z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+    #         else:
+    #             z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+    #
+    #         # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+    #         z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+    #
+    #         # hyperbola equation (using center of hyperbola as origin)
+    #         x1 = np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+    #
+    #         return z1, x1, z0, x0, delta
 
     def ellipse_params(self, p, q, alpha):
         """
@@ -868,12 +1116,9 @@ class CurvedMirror(Mirror):
             angle at center of mirror relative to ellipse z-axis (radians)
         """
 
-        # arbitrarily chosen array size
-        N = 1024
-
         # concave elliptical mirror
-        if q>=0 and p>=0:
-
+        if q >= 0 and p >= 0:
+            print('elliptical')
             # calculated ellipse values
             L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
             a2 = (p + q) ** 2 / 4  # a^2 for ellipse
@@ -892,93 +1137,305 @@ class CurvedMirror(Mirror):
             else:
                 z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
 
-            params = {
-                'L': L,
-                'a': np.sqrt(a2),
-                'b': np.sqrt(b2),
-                'beta': beta,
-                'delta': delta,
-                'x0': x0,
-                'z0': z0
-            }
-
-            return params
-
         # convex hyperbolic mirror
-        elif q<0 and p>=0:
-            print('hyperbolic')
-            # calculated hyperbola values
-            L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
-            print('L %.2f' % L)
-            # a2 = (p-q)**2/4
-            a = -(np.abs(q) - np.abs(p))/2
-            a2 = a**2
-            c2 = (L/2)**2
-            b2 = c2-a2
-            print(b2)
-            # angle of incident beam
-            beta = np.arcsin(np.sin(2*alpha)*np.abs(q)/L)
-            print('beta %.2e' % beta)
+        elif p * q < 0:
+            if p >= 0 and np.abs(p) >= np.abs(q):
+                print('convex hyperbolic')
+                # calculated hyperbola values
+                L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+                print('L %.2f' % L)
+                # a2 = (p-q)**2/4
+                a = -(np.abs(q) - np.abs(p)) / 2
+                a2 = a ** 2
+                c2 = (L / 2) ** 2
+                b2 = c2 - a2
+                print(b2)
+                # angle of incident beam
+                beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+                print('beta %.2e' % beta)
 
-            # mirror angle
-            delta = alpha + beta
+                # mirror angle
+                delta = alpha + beta
 
-            # mirror offset from hyperbola center in x
-            x0 = -p*q/L*np.sin(2*alpha)
-            if np.abs(p) > np.abs(q):
-                z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
-            else:
-                z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
-
-            params = {
-                'L': L,
-                'a': np.sqrt(a2),
-                'b': np.sqrt(b2),
-                'beta': beta,
-                'delta': delta,
-                'x0': x0,
-                'z0': z0
-            }
-
-            return params
-
-        # concave hyperbolic mirror
-        elif p<0 and q>=0:
-            print('hyperbolic')
-            # calculated hyperbola values
-            L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
-            print('L %.2f' % L)
-            # a2 = (p-q)**2/4
-            a = -(np.abs(q) - np.abs(p)) / 2
-            a2 = a ** 2
-            c2 = (L / 2) ** 2
-            b2 = c2 - a2
-            print(b2)
-            # angle of incident beam
-            beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
-            print('beta %.2e' % beta)
-
-            # mirror angle
-            delta = alpha + beta
-
-            # mirror offset from hyperbola center in x
-            x0 = p * q / L * np.sin(2 * alpha)
-            if np.abs(p) > np.abs(q):
-                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
-            else:
+                # mirror offset from hyperbola center in x
+                x0 = -p * q / L * np.sin(2 * alpha)
+                # if np.abs(p) > np.abs(q):
+                #     z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+                # else:
+                #     z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
                 z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
 
-            params = {
-                'L': L,
-                'a': np.sqrt(a2),
-                'b': np.sqrt(b2),
-                'beta': beta,
-                'delta': delta,
-                'x0': x0,
-                'z0': z0
-            }
+            elif p >= 0 and np.abs(p) < np.abs(q):
+                print('concave hyperbolic')
 
-            return params
+                # calculated hyperbola values
+                L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+                print('L %.2f' % L)
+                # a2 = (p-q)**2/4
+                a = -(np.abs(q) - np.abs(p)) / 2
+                a2 = a ** 2
+                c2 = (L / 2) ** 2
+                b2 = c2 - a2
+                print(b2)
+                # angle of incident beam
+                beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+                print('beta %.2e' % beta)
+
+                # mirror angle
+                delta = alpha - beta
+
+                # mirror offset from hyperbola center in x
+                x0 = p * q / L * np.sin(2 * alpha)
+                # if np.abs(p) > np.abs(q):
+                #     z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+                # else:
+                #     z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+                z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+
+            elif p < 0 and np.abs(p) >= np.abs(q):
+                print('concave hyperbolic')
+                # calculated hyperbola values
+                L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+                print('L %.2f' % L)
+                # a2 = (p-q)**2/4
+                a = -(np.abs(q) - np.abs(p)) / 2
+                a2 = a ** 2
+                c2 = (L / 2) ** 2
+                b2 = c2 - a2
+                print(b2)
+                # angle of incident beam
+                beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+                print('beta %.2e' % beta)
+
+                # mirror angle
+                delta = alpha + beta
+
+                # mirror offset from hyperbola center in x
+                x0 = p * q / L * np.sin(2 * alpha)
+
+                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+
+            else:  # p<0 and np.abs(p)<np.abs(q)
+                print('convex hyperbolic')
+                # calculated hyperbola values
+                L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+                print('L %.2f' % L)
+                # a2 = (p-q)**2/4
+                a = -(np.abs(q) - np.abs(p)) / 2
+                a2 = a ** 2
+                c2 = (L / 2) ** 2
+                b2 = c2 - a2
+                print(b2)
+                # angle of incident beam
+                beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+                print('beta %.2e' % beta)
+
+                # mirror angle
+                delta = alpha - beta
+
+                # mirror offset from hyperbola center in x
+                x0 = -p * q / L * np.sin(2 * alpha)
+
+                z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+
+        # concave hyperbolic mirror
+        # elif p<0 and q>=0:
+        #     print('concave hyperbolic')
+        #     # calculated hyperbola values
+        #     L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+        #     print('L %.2f' % L)
+        #     # a2 = (p-q)**2/4
+        #     a = -(np.abs(q) - np.abs(p)) / 2
+        #     a2 = a ** 2
+        #     c2 = (L / 2) ** 2
+        #     b2 = c2 - a2
+        #     print(b2)
+        #     # angle of incident beam
+        #     beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+        #     print('beta %.2e' % beta)
+        #
+        #     # mirror angle
+        #     delta = alpha + beta
+        #
+        #     # mirror offset from hyperbola center in x
+        #     x0 = p * q / L * np.sin(2 * alpha)
+        #     if np.abs(p) > np.abs(q):
+        #         z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+        #         # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+        #         z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+        #
+        #         # hyperbola equation (using center of hyperbola as origin)
+        #         x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+        #     else:
+        #         z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+        #         # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+        #         z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+        #
+        #         # hyperbola equation (using center of hyperbola as origin)
+        #         x1 = np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+        #
+        #         delta = -delta
+        #
+        #     # # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
+        #     # z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length / 2 * np.cos(delta), N)
+        #     #
+        #     # # hyperbola equation (using center of hyperbola as origin)
+        #     # x1 = -np.sqrt(b2) * np.sqrt(z1 ** 2 / a2 - 1) * np.sign(alpha)
+        #
+        #     return z1, x1, z0, x0, delta
+
+        elif p < 0 and q < 0:
+            print('convex elliptical')
+            L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+            print('L %.2f' % L)
+
+            a2 = (p + q) ** 2 / 4  # a^2 for ellipse
+            b2 = a2 - (L / 2) ** 2  # b^2 for ellipse
+
+        params = {
+                    'L': L,
+                    'a': np.sqrt(a2),
+                    'b': np.sqrt(b2),
+                    'beta': beta,
+                    'delta': delta,
+                    'x0': x0,
+                    'z0': z0
+                }
+
+        return params
+
+    # def ellipse_params(self, p, q, alpha):
+    #     """
+    #     Method to calculate the shape of an ellipse based on mirror specifications. See Ellipse reference documentation.
+    #     :param p: float
+    #         Nominal distance to source (m)
+    #     :param q: float
+    #         Nominal distance to focus (m)
+    #     :param alpha: float
+    #         Nominal angle of incidence (radians)
+    #     :return z1: (N,) ndarray
+    #         ellipse z-axis coordinates
+    #     :return x1: (N,) ndarray
+    #         mirror surface as function of z1
+    #     :return z0: float
+    #         z position at center of mirror (relative to ellipse center)
+    #     :return x0: float
+    #         x position at center of mirror (relative to ellipse center)
+    #     :return delta: float
+    #         angle at center of mirror relative to ellipse z-axis (radians)
+    #     """
+    #
+    #     # arbitrarily chosen array size
+    #     N = 1024
+    #
+    #     # concave elliptical mirror
+    #     if q>=0 and p>=0:
+    #
+    #         # calculated ellipse values
+    #         L = np.sqrt(p ** 2 + q ** 2 + 2 * p * q * np.cos(2 * alpha))
+    #         a2 = (p + q) ** 2 / 4  # a^2 for ellipse
+    #         b2 = a2 - (L / 2) ** 2  # b^2 for ellipse
+    #
+    #         # angle of incident beam
+    #         beta = np.arcsin(np.sin(2 * alpha) * q / L)
+    #
+    #         # mirror angle
+    #         delta = alpha - beta
+    #
+    #         # mirror offset from ellipse center in x
+    #         x0 = -p * q / L * np.sin(2 * alpha)
+    #         if p > q:
+    #             z0 = np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+    #         else:
+    #             z0 = -np.sqrt(a2) * np.sqrt(1 - x0 ** 2 / b2)
+    #
+    #         params = {
+    #             'L': L,
+    #             'a': np.sqrt(a2),
+    #             'b': np.sqrt(b2),
+    #             'beta': beta,
+    #             'delta': delta,
+    #             'x0': x0,
+    #             'z0': z0
+    #         }
+    #
+    #         return params
+    #
+    #     # convex hyperbolic mirror
+    #     elif q<0 and p>=0:
+    #         print('hyperbolic')
+    #         # calculated hyperbola values
+    #         L = np.sqrt(p**2+q**2-2*np.abs(p)*np.abs(q)*np.cos(2*alpha))
+    #         print('L %.2f' % L)
+    #         # a2 = (p-q)**2/4
+    #         a = -(np.abs(q) - np.abs(p))/2
+    #         a2 = a**2
+    #         c2 = (L/2)**2
+    #         b2 = c2-a2
+    #         print(b2)
+    #         # angle of incident beam
+    #         beta = np.arcsin(np.sin(2*alpha)*np.abs(q)/L)
+    #         print('beta %.2e' % beta)
+    #
+    #         # mirror angle
+    #         delta = alpha + beta
+    #
+    #         # mirror offset from hyperbola center in x
+    #         x0 = -p*q/L*np.sin(2*alpha)
+    #         if np.abs(p) > np.abs(q):
+    #             z0 = np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+    #         else:
+    #             z0 = -np.sqrt(a2) * np.sqrt(1+x0**2/b2)
+    #
+    #         params = {
+    #             'L': L,
+    #             'a': np.sqrt(a2),
+    #             'b': np.sqrt(b2),
+    #             'beta': beta,
+    #             'delta': delta,
+    #             'x0': x0,
+    #             'z0': z0
+    #         }
+    #
+    #         return params
+    #
+    #     # concave hyperbolic mirror
+    #     elif p<0 and q>=0:
+    #         print('hyperbolic')
+    #         # calculated hyperbola values
+    #         L = np.sqrt(p ** 2 + q ** 2 - 2 * np.abs(p) * np.abs(q) * np.cos(2 * alpha))
+    #         print('L %.2f' % L)
+    #         # a2 = (p-q)**2/4
+    #         a = -(np.abs(q) - np.abs(p)) / 2
+    #         a2 = a ** 2
+    #         c2 = (L / 2) ** 2
+    #         b2 = c2 - a2
+    #         print(b2)
+    #         # angle of incident beam
+    #         beta = np.arcsin(np.sin(2 * alpha) * np.abs(q) / L)
+    #         print('beta %.2e' % beta)
+    #
+    #         # mirror angle
+    #         delta = alpha + beta
+    #
+    #         # mirror offset from hyperbola center in x
+    #         x0 = p * q / L * np.sin(2 * alpha)
+    #         if np.abs(p) > np.abs(q):
+    #             z0 = -np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+    #         else:
+    #             z0 = np.sqrt(a2) * np.sqrt(1 + x0 ** 2 / b2)
+    #
+    #         params = {
+    #             'L': L,
+    #             'a': np.sqrt(a2),
+    #             'b': np.sqrt(b2),
+    #             'beta': beta,
+    #             'delta': delta,
+    #             'x0': x0,
+    #             'z0': z0
+    #         }
+    #
+    #         return params
 
     def calc_misalignment(self, beam, cz):
         """
@@ -1114,8 +1571,10 @@ class CurvedMirror(Mirror):
 
         a = params['a']
         b = params['b']
+        print('a {}'.format(a))
+        print('b {}'.format(b))
 
-        if self.q>=0:
+        if self.q>=0 and self.p>=0:
             aq = b ** 2 / a ** 2 + (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2
             bq = (-2 * coords_ellipse[2, :] * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 +
                   2 * coords_ellipse[0, :] * rays_ellipse[0, :] / rays_ellipse[2, :])
@@ -1126,15 +1585,18 @@ class CurvedMirror(Mirror):
             aq = -b ** 2 / a **2 + (rays_ellipse[0,:] / rays_ellipse[2,:]) ** 2
             bq = (-2 * coords_ellipse[2,:] * (rays_ellipse[0,:]/rays_ellipse[2,:]) ** 2 +
                   2 * coords_ellipse[0,:] * rays_ellipse[0,:]/rays_ellipse[2,:])
-            cq = ((coords_ellipse[2,:] * rays_ellipse[0,:]/rays_ellipse[2,:])**2 -
-                  2 * coords_ellipse[0,:] * coords_ellipse[2,:] * rays_ellipse[0,:]/rays_ellipse[2,:] +
-                  coords_ellipse[0,:]**2 + b ** 2)
+            cq = ((coords_ellipse[2,:] * rays_ellipse[0,:]/rays_ellipse[2,:])**2
+                  - 2 * coords_ellipse[0,:] * coords_ellipse[2,:] * rays_ellipse[0,:]/rays_ellipse[2,:]
+                  + coords_ellipse[0,:]**2 + b ** 2)
 
         z_intersect = (-bq + np.sqrt(bq ** 2 - 4 * aq * cq)) / 2 / aq
-        if self.q>=0:
+        # if self.p<0:
+        #     z_intersect = (-bq - np.sqrt(bq ** 2 - 4 * aq * cq)) / 2 / aq
+
+        if self.q>=0 and self.p>=0:
             x_intersect = -b * np.sqrt(np.ones_like(z_intersect) - z_intersect ** 2 / a ** 2)
         else:
-            x_intersect = b * np.sqrt(z_intersect**2/a**2 - np.ones_like(z_intersect))
+            x_intersect = -b * np.sqrt(z_intersect**2/a**2 - np.ones_like(z_intersect))
         y_intersect = rays_ellipse[1, :] / rays_ellipse[2, :] * (z_intersect - coords_ellipse[2, :]) + coords_ellipse[1,:]
 
         intersect_point = np.reshape(np.array([x_intersect,y_intersect,z_intersect]), (3,1))
@@ -1255,6 +1717,8 @@ class CurvedMirror(Mirror):
                                         np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
         coords_ellipse = np.tensordot(transform_matrix, coords, axes=(1, 0))
 
+        mirror_z_ellipse = np.tensordot(transform_matrix, np.reshape(self.transverse, (3, 1, 1)), axes=(1, 0))
+
         # calculate z component of rays (enforcing unit vector)
         rays_z = np.sqrt(np.ones_like(rays_x) - rays_x ** 2)
         # ray vectors at each point in the beam
@@ -1281,18 +1745,32 @@ class CurvedMirror(Mirror):
         # solve quadratic eqn for ellipse/line intersection
         a = params['a']
         b = params['b']
-        aq = b**2/a**2 + (rays_ellipse[0,:]/rays_ellipse[2,:])**2
-        bq = (-2*coords_ellipse[2,:]*(rays_ellipse[0,:]/rays_ellipse[2,:])**2 +
-              2*coords_ellipse[0,:]*rays_ellipse[0,:]/rays_ellipse[2,:])
-        cq = (coords_ellipse[2,:]**2*(rays_ellipse[0,:]/rays_ellipse[2,:])**2-
-              2*coords_ellipse[0,:]*coords_ellipse[2,:]*rays_ellipse[0,:]/rays_ellipse[2,:]+
-              coords_ellipse[0,:]**2-b**2)
+        if self.q>=0 and self.p>=0:
+            aq = b**2/a**2 + (rays_ellipse[0,:]/rays_ellipse[2,:])**2
+            bq = (-2*coords_ellipse[2,:]*(rays_ellipse[0,:]/rays_ellipse[2,:])**2 +
+                  2*coords_ellipse[0,:]*rays_ellipse[0,:]/rays_ellipse[2,:])
+            cq = (coords_ellipse[2,:]**2*(rays_ellipse[0,:]/rays_ellipse[2,:])**2-
+                  2*coords_ellipse[0,:]*coords_ellipse[2,:]*rays_ellipse[0,:]/rays_ellipse[2,:]+
+                  coords_ellipse[0,:]**2-b**2)
+        else:
+            aq = -b ** 2 / a ** 2 + (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2
+            bq = (-2 * coords_ellipse[2, :] * (rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2 +
+                  2 * coords_ellipse[0, :] * rays_ellipse[0, :] / rays_ellipse[2, :])
+            cq = ((coords_ellipse[2, :] * rays_ellipse[0, :] / rays_ellipse[2, :]) ** 2
+                  - 2 * coords_ellipse[0, :] * coords_ellipse[2, :] * rays_ellipse[0, :] / rays_ellipse[2, :]
+                  + coords_ellipse[0, :] ** 2 + b ** 2)
 
         # quadratic equation
         z_intersect = (-bq+np.sqrt(bq**2-4*aq*cq))/2/aq
 
+        # if self.p<=0:
+        #     z_intersect = (-bq + np.sqrt(bq ** 2 - 4 * aq * cq)) / 2 / aq
+
         # find x and y based on z
-        x_intersect = -b*np.sqrt(np.ones_like(z_intersect)-z_intersect**2/a**2)
+        if self.p>=0:
+            x_intersect = -b*np.sqrt(np.ones_like(z_intersect)-z_intersect**2/a**2)
+        else:
+            x_intersect = -b*np.sqrt(z_intersect**2/a**2 - np.ones_like(z_intersect))
         y_intersect = rays_ellipse[1,:]/rays_ellipse[2,:]*(z_intersect-coords_ellipse[2,:]) + coords_ellipse[1,:]
 
         intersect_coords = np.zeros((3,np.size(z_intersect)))
@@ -1308,7 +1786,10 @@ class CurvedMirror(Mirror):
 
         # define ellipse normals along mirror surface
         ellipse_normal = np.zeros_like(rays)
-        ellipse_normal[2,:] = -b/a**2*z_intersect*(1-z_intersect**2/a**2)**(-.5)
+        if self.p>=0:
+            ellipse_normal[2,:] = -b/a**2*z_intersect*(1-z_intersect**2/a**2)**(-.5)
+        else:
+            ellipse_normal[2,:] = b/a**2*z_intersect*(z_intersect**2/a**2-1)**(-.5)
         ellipse_normal[0,:] = np.ones_like(z_intersect)
 
         # normalize
@@ -1352,12 +1833,14 @@ class CurvedMirror(Mirror):
 
         if figon:
             plt.figure()
-            plt.plot(coords_ellipse[2, :], coords_ellipse[0, :])
-            plt.plot(z1, x1)
-            plt.plot(z_intersect, x_intersect)
-            plt.plot(plane_intersect[2,:],plane_intersect[0,:])
+            plt.plot(coords_ellipse[2, :], coords_ellipse[0, :],label='entrance')
+            # plt.plot(z1, x1)
+            plt.plot(z_intersect, x_intersect,'.',label='intersection')
+            plt.plot(plane_intersect[2,:],plane_intersect[0,:],'.',label='exit')
+            plt.plot(z1,x1,label='mirror surface')
             # plt.ylim(-.5, .5)
             plt.grid()
+            plt.legend()
             plt.title('entrance/exit planes, mirror intersection')
 
         # total distance for each beam ray
@@ -1390,18 +1873,54 @@ class CurvedMirror(Mirror):
             dx = beam.dy * (beam.zy + self.length / 2 * 1.1) / beam.zy * (self.q - self.length / 2 * 1.1) / self.q
             x_out = np.linspace(-beam.N / 2 * dx, (beam.N / 2 - 1) * dx, beam.N)
         # mask defining mirror acceptance
-        if self.q>=0:
-            mask = np.logical_and(coords_ellipse[0,:]>intersect_coords[0,:], plane_intersect[0,:]>intersect_coords[0,:])
-        else:
-            mask = np.logical_and(coords_ellipse[0, :] < intersect_coords[0, :],
-                                  plane_intersect[0, :] > intersect_coords[0, :])
+        # if self.q>=0 and self.p>=0:
+        #     mask = np.logical_and(coords_ellipse[0,:]>intersect_coords[0,:], plane_intersect[0,:]>intersect_coords[0,:])
+        # else:
+        #     mask = np.logical_and(coords_ellipse[0, :] < intersect_coords[0, :],
+        #                           plane_intersect[0, :] > intersect_coords[0, :])
 
-        # second order fit to ray distance
-        if self.q>=0:
-            mask = np.logical_and(mask, coords_ellipse[0,:]<0)
+        mirror_center_ellipse = np.reshape(np.array([x0, 0, z0]), (3, 1))
+        d_length = np.sum((intersect_coords - mirror_center_ellipse) * np.reshape(mirror_z_ellipse, (3, 1)), axis=0)
+
+        print(np.shape(d_length))
+
+        # plt.figure()
+        # plt.plot(d_length[0,:])
+        # plt.plot(d_length[1,:])
+        # plt.plot(d_length[2,:])
+
+
+
+        # check that the beam is "above" the ellipse/hyperbolic shape
+        if self.q >= 0 and self.p >= 0:
+            # ellipse shape at this z position
+            shape_at_input = -b*np.sqrt(1-(coords_ellipse[2,:]/a)**2)
         else:
-            mask = np.logical_and(mask, coords_ellipse[0, :] > 0)
-        mask = np.logical_and(mask, np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta']))
+            shape_at_input = -b*np.sqrt((coords_ellipse[2,:]/a)**2-1)
+
+        # check that the beam is "above" the ellipse/hyperbolic shape
+        if self.q >= 0 and self.p >= 0:
+            # ellipse shape at this z position
+            shape_at_output = -b * np.sqrt(1 - (plane_intersect[2, :] / a) ** 2)
+        else:
+            shape_at_output = -b * np.sqrt((plane_intersect[2, :] / a) ** 2 - 1)
+
+        mask = np.logical_and(plane_intersect[0, :] > shape_at_output,
+                              np.abs(d_length) < self.length / 2)
+
+        mask = np.logical_and(mask, coords_ellipse[0,:]>shape_at_input)
+
+        # if self.q>=0 and self.p>=0:
+        #     mask = plane_intersect[0,:]>intersect_coords[0,:]
+        # else:
+        #     mask = plane_intersect[0, :] > intersect_coords[0, :]
+        #
+        # # second order fit to ray distance
+        # if self.q>=0:
+        #     mask = np.logical_and(mask, coords_ellipse[0,:]<0)
+        # else:
+        #     mask = np.logical_and(mask, coords_ellipse[0, :] > 0)
+        # mask = np.logical_and(mask, np.abs(intersect_coords[2, :] - z0) < self.length / 2 * np.cos(params['delta']))
 
         p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
         linear = p_coeff[-2]
@@ -1436,6 +1955,20 @@ class CurvedMirror(Mirror):
         print('zout: %.6f' % z_out)
 
         abs_out = Util.interp_flip(x_out, x_eff[mask], np.abs(wave[mask]))
+
+        print('acceptance: {}'.format(np.sum(abs_out**2)/np.sum(np.abs(wave)**2)))
+
+        dx1 = np.gradient(x_out)
+        dx2 = np.gradient(x_eff[mask])
+        dx2_interp = Util.interp_flip(x_out,x_eff[mask], dx2)
+        dx2_interp[dx2_interp==0] = 1
+        dx1[dx1==0] = 1
+        ratio = dx1/dx2_interp
+
+        ratio[np.isnan(ratio)] = 0
+
+        abs_out *= np.sqrt(np.abs(ratio))
+
         angle_out = Util.interp_flip(x_out, x_eff[mask], np.unwrap(np.angle(wave[mask])))
 
         angle_in = np.unwrap(np.angle(wave))
@@ -1508,17 +2041,22 @@ class CurvedMirror(Mirror):
 
         # total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
 
-        reflectivity_interp = Util.interp_flip(x_out, x_eff, reflectivity)
+        reflectivity_interp = Util.interp_flip(x_out, x_eff[mask], reflectivity[mask])
 
-        wave = abs_out * np.exp(1j * phase_interp)
+        wave2 = abs_out * np.exp(1j * phase_interp)
         if self.use_reflectivity:
-            wave *= np.sqrt(reflectivity_interp)
-        wave *= mask2
+            wave2 *= np.sqrt(reflectivity_interp)
+        wave2 *= mask2
+        wave3 = np.copy(wave2)
+
+        print('new ratio: {}'.format(np.sum(np.abs(wave2)**2)/np.sum(np.abs(wave)**2)))
 
         if figon:
             plt.figure()
-            plt.plot(np.abs(wave))
-            plt.plot(np.abs(beam.wavex))
+            plt.plot(x_out,np.abs(wave2))
+            plt.plot(x_out,np.abs(beam.wavex))
+            plt.plot(x_out,reflectivity_interp)
+            plt.plot(x_eff, reflectivity)
 
         # beam.x = -x_out
 
@@ -1565,7 +2103,7 @@ class CurvedMirror(Mirror):
             print(k_f)
             print(k_f_global)
 
-            beam.wavex = wave
+            beam.wavex = wave2
             # print(np.arccos(np.dot(beam.zhat,np.matmul(np.linalg.inv(transform_matrix),np.reshape(k_f,(3,1))))))
         else:
             k_i = rays_ellipse[:, int(beam.N / 2)]
@@ -1610,7 +2148,9 @@ class CurvedMirror(Mirror):
             print(k_f)
             print(k_f_global)
 
-            beam.wavey = wave
+            beam.wavey = wave2
+
+        print('new ratio: {}'.format(np.sum(np.abs(beam.wavex)) / np.sum(np.abs(wave3))))
 
         # now figure out global coordinates
         # get back into global coordinates using inverse of transformation matrix, just looking at central ray
@@ -1669,7 +2209,7 @@ class CurvedMirror(Mirror):
             # beam.cx += beam.ax * 2 * delta_z
             # beam.x += beam.cx
             beam.zx += 2*delta_z
-
+        print('new ratio: {}'.format(np.sum(np.abs(beam.wavex)) / np.sum(np.abs(wave3))))
         if self.orientation==0 or self.orientation==2:
             # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
             beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
@@ -1682,6 +2222,7 @@ class CurvedMirror(Mirror):
         print('global_x: %.2f' % beam.global_x)
         print('global_y: %.2f' % beam.global_y)
         print('global_z: %.2f' % beam.global_z)
+        print('new ratio: {}'.format(np.sum(np.abs(beam.wavex)) / np.sum(np.abs(wave3))))
 
     def reflect(self, beam):
         """
@@ -4772,6 +5313,9 @@ class PPM:
         # interpolating function from np.interp (allowing for flipped coordinates)
         profilex_interp = Util.interp_flip(self.x, x * scaling_x, profilex)
         profiley_interp = Util.interp_flip(self.y, y * scaling_y, profiley)
+
+        profilex_interp *= self.dx / beam.dx
+        profiley_interp *= self.dx / beam.dy
 
         # beam phase
         x_phase = np.unwrap(np.angle(beam.wavex))

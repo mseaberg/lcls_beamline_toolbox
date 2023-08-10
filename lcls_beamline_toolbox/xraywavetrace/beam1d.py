@@ -594,7 +594,7 @@ class Beam:
                 if self.x[0] > self.x[1]:
                     new_x = -new_x
                 # new_x += self.cx
-                amp_interp = Util.interp_flip(new_x, self.x, np.abs(self.wavex))
+                amp_interp = Util.interp_flip(new_x, self.x, np.abs(self.wavex)) / np.sqrt(size_ratio)
                 phase_interp = Util.interp_flip(new_x, self.x, np.unwrap(np.angle(self.wavex)))
                 self.wavex = amp_interp * np.exp(1j * phase_interp)
                 self.x = new_x
@@ -622,7 +622,7 @@ class Beam:
                 if self.y[0] > self.y[1]:
                     new_y = -new_y
                 # new_y += self.cy
-                amp_interp = Util.interp_flip(new_y, self.y, np.abs(self.wavey))
+                amp_interp = Util.interp_flip(new_y, self.y, np.abs(self.wavey)) / np.sqrt(size_ratio)
                 phase_interp = Util.interp_flip(new_y, self.y, np.unwrap(np.angle(self.wavey)))
                 self.wavey = amp_interp * np.exp(1j * phase_interp)
                 self.y = new_y
