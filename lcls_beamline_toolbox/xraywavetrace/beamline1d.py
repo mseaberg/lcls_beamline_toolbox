@@ -309,7 +309,7 @@ class Beamline:
                           tuple(point-t*device.length/2-s*device.width/2),
                           tuple(point-t*device.length/2+s*device.width/2)])
 
-        col = Poly3DCollection(verts,facecolors=['r'])
+        col = Poly3DCollection(verts,facecolors=['r'],edgecolors=((0,0,0,1)))
 
         # ax.set_ylim(np.min(ys),np.max(ys))
         # ax.set_zlim(np.min(zs),np.max(zs))

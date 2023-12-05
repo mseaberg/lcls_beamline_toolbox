@@ -2017,7 +2017,9 @@ class CurvedMirror(Mirror):
             # beam.focused_x = True
         try:
             # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
-            p_coeff = np.polyfit(x_eff[mask], total_phase[mask], 2)
+            mask2 = abs_out > .01
+            mask3 = np.logical_and(mask, mask2)
+            p_coeff = np.polyfit(x_eff[mask3], total_phase[mask3], 2)
         except:
             print('problem with mask')
             p_coeff = np.zeros(3)
@@ -2036,6 +2038,13 @@ class CurvedMirror(Mirror):
         else:
             if not beam.focused_y:
                 total_phase -= np.polyval([p_coeff[-3], 0, 0], x_eff)
+
+        # plt.figure()
+        # plt.plot(x_eff[mask], total_distance[mask])
+        #
+        # plt.figure()
+        # plt.plot(x_eff[mask], total_phase[mask])
+        # plt.title('total phase')
 
         phase_interp = Util.interp_flip(x_out, x_eff, total_phase)
 
@@ -3922,7 +3931,9 @@ class Crystal(Mirror):
             # beam.focused_x = True
         try:
             # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
-            p_coeff = np.polyfit(x_eff[mask], total_phase[mask], 2)
+            mask2 = abs_out>.01
+            mask3 = np.logical_and(mask,mask2)
+            p_coeff = np.polyfit(x_eff[mask3], total_phase[mask3], 2)
         except:
             print('problem with mask')
             p_coeff = np.zeros(3)
