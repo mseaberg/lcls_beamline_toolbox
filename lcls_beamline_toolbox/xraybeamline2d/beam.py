@@ -237,8 +237,8 @@ class Beam:
             self.z = self.global_z
 
         # initialize global angles
-        self.global_azimuth = np.copy(self.ax)
-        self.global_elevation = np.copy(self.ay)
+        self.global_azimuth = 0.0
+        self.global_elevation = 0.0
 
         # initialize group delay
         self.group_delay = 0.0
@@ -286,6 +286,17 @@ class Beam:
         # set beam parameters as attribute
         self.beam_params = beam_params
 
+        self.xhat = np.array([1, 0, 0])
+        self.yhat = np.array([0, 1, 0])
+        self.zhat = np.array([0, 0, 1])
+
+        self.rotate_nominal(delta_elevation=self.ay, delta_azimuth=self.ax)
+
+        # define LCLS unit vectors
+        self.x_nom = np.copy(self.xhat)
+        self.y_nom = np.copy(self.yhat)
+        self.z_nom = np.copy(self.zhat)
+
     def reinitialize(self, dz):
         self.beam_params['z0x'] = dz
         self.beam_params['z0y'] = dz
@@ -324,6 +335,21 @@ class Beam:
         self.global_y += y_offset
 
     def rotate_nominal(self, delta_elevation=0, delta_azimuth=0):
+
+        # an "elevation" rotation corresponds to a rotation about the xhat unit vector
+        r1 = transform.Rotation.from_rotvec(-self.xhat * delta_elevation)
+        Rx = r1.as_matrix()
+        self.xhat = np.matmul(Rx, self.xhat)
+        self.yhat = np.matmul(Rx, self.yhat)
+        self.zhat = np.matmul(Rx, self.zhat)
+
+        # an azimuth rotation corresponds to a rotation about the yhat unit vector
+        r2 = transform.Rotation.from_rotvec(self.yhat * delta_azimuth)
+        Ry = r2.as_matrix()
+        self.xhat = np.matmul(Ry, self.xhat)
+        self.yhat = np.matmul(Ry, self.yhat)
+        self.zhat = np.matmul(Ry, self.zhat)
+
         self.global_elevation += delta_elevation
         self.global_azimuth += delta_azimuth
 
@@ -332,28 +358,28 @@ class Beam:
         self.ax += delta_ax
         self.ay += delta_ay
 
-        self.global_elevation += delta_ay
-        self.global_azimuth += delta_ax
+        self.rotate_nominal(delta_elevation=delta_ay, delta_azimuth=delta_ax)
 
     def get_k(self):
-        x = np.array([1, 0, 0], dtype=float)
-        y = np.array([0, 1, 0], dtype=float)
-        z = np.array([0, 0, 1], dtype=float)
-
-        r1 = transform.Rotation.from_rotvec(-x * self.global_elevation)
-        Rx = r1.as_matrix()
-        x = np.matmul(Rx, x)
-        y = np.matmul(Rx, y)
-        z = np.matmul(Rx, z)
-
-        r2 = transform.Rotation.from_rotvec(y * self.global_azimuth)
-        Ry = r2.as_matrix()
-        x = np.matmul(Ry, x)
-        y = np.matmul(Ry, y)
-        z = np.matmul(Ry, z)
+        # x = np.array([1, 0, 0], dtype=float)
+        # y = np.array([0, 1, 0], dtype=float)
+        # z = np.array([0, 0, 1], dtype=float)
+        #
+        # r1 = transform.Rotation.from_rotvec(-x * self.global_elevation)
+        # Rx = r1.as_matrix()
+        # x = np.matmul(Rx, x)
+        # y = np.matmul(Rx, y)
+        # z = np.matmul(Rx, z)
+        #
+        # r2 = transform.Rotation.from_rotvec(y * self.global_azimuth)
+        # Ry = r2.as_matrix()
+        # x = np.matmul(Ry, x)
+        # y = np.matmul(Ry, y)
+        # z = np.matmul(Ry, z)
 
         # beam points in z direction
-        k = z
+        # k = z
+        k = np.copy(self.zhat)
         return k
 
     def rescale_x_noshift(self, factor):
@@ -648,10 +674,13 @@ class Beam:
                         y_prop_limit = dz_remaining
 
                 # distance to propagate during this step. Pick the more restrictive case.
-                if np.abs(x_prop_limit)>np.abs(y_prop_limit):
-                    prop_step = y_prop_limit
-                else:
-                    prop_step = x_prop_limit
+                # if np.abs(x_prop_limit)>np.abs(y_prop_limit):
+                #     prop_step = y_prop_limit
+                # else:
+                #     prop_step = x_prop_limit
+                prop_cases = [x_prop_limit, y_prop_limit]
+                prop_choice = np.argmin(np.abs(prop_cases))
+                prop_step = prop_cases[prop_choice]
                 # prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
 
                 # print the current step size
@@ -799,6 +828,7 @@ class Beam:
         self.rescale_x(factor)
         # rescale distance to focus
         self.zx *= factor ** 2
+        self.wave *= np.sqrt(factor)
 
     def rescale_y(self, factor):
         """
@@ -829,6 +859,7 @@ class Beam:
         self.rescale_y(factor)
         # rescale distance to focus
         self.zy *= factor ** 2
+        self.wave *= np.sqrt(factor)
 
     def multiply_screen(self, screen):
         """
