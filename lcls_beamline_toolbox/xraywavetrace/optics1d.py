@@ -1872,6 +1872,7 @@ class CurvedMirror(Mirror):
         else:
             dx = beam.dy * (beam.zy + self.length / 2 * 1.1) / beam.zy * (self.q - self.length / 2 * 1.1) / self.q
             x_out = np.linspace(-beam.N / 2 * dx, (beam.N / 2 - 1) * dx, beam.N)
+
         # mask defining mirror acceptance
         # if self.q>=0 and self.p>=0:
         #     mask = np.logical_and(coords_ellipse[0,:]>intersect_coords[0,:], plane_intersect[0,:]>intersect_coords[0,:])
@@ -2101,7 +2102,10 @@ class CurvedMirror(Mirror):
             print(delta_cx)
             # beam.cx = -beam.cx + delta_cx
             # print(beam.cx)
-            beam.x = x_out
+            if self.orientation==0:
+                beam.x = x_out
+            else:
+                beam.x = -x_out
 
             beam.new_fx()
 
@@ -2146,7 +2150,10 @@ class CurvedMirror(Mirror):
             print(delta_cy)
             # beam.cy = -beam.cy + delta_cy
             print(beam.cy)
-            beam.y = x_out
+            if self.orientation==1:
+                beam.y = x_out
+            else:
+                beam.y = -x_out
 
             beam.new_fx()
 
