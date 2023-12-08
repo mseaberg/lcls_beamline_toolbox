@@ -3769,13 +3769,14 @@ class Crystal(Mirror):
 
         c_parallel = np.sum(crystal_normal* uz, axis=0) * uz * self.lambda0/self.d
 
-        plt.figure()
-        plt.plot(c_parallel[2,:])
-        plt.title('parallel component')
-        print(np.shape(c_parallel))
+        if figon:
+            plt.figure()
+            plt.plot(c_parallel[2,:])
+            plt.title('parallel component')
+            print(np.shape(c_parallel))
 
-        print(np.shape(uy))
-        print(np.shape(rays_crystal))
+            print(np.shape(uy))
+            print(np.shape(rays_crystal))
 
         rays_y = np.sum(rays_crystal * uy, axis=0) * uy
         print(np.shape(rays_y))
@@ -3784,13 +3785,28 @@ class Crystal(Mirror):
         rays_x = np.sqrt(np.ones_like(z_intersect) - np.sum(rays_y*rays_y,axis=0)-
                          np.sum(rays_z*rays_z,axis=0)) * ux
 
-        plt.figure()
-        plt.plot(rays_z[0, :])
-        plt.plot(rays_z[1, :])
-        plt.plot(rays_z[2, :])
-        plt.plot(rays_crystal[2, :])
+        if figon:
+            plt.figure()
+            plt.plot(rays_z[0, :])
+            plt.plot(rays_z[1, :])
+            plt.plot(rays_z[2, :])
+            plt.plot(rays_crystal[2, :])
 
         rays_out = rays_x + rays_y + rays_z
+
+        beamInDotNormal = np.sum(rays_crystal * ux, axis=0)
+        beamOutDotNormal = np.sum(rays_out * ux, axis=0)
+        beamInDotHNormal = np.sum(rays_crystal * crystal_normal, axis=0)
+
+        C1, C2 = np.array(self.crystal.get_amplitude(beam.photonEnergy,
+                                                     beamInDotNormal,
+                                                     beamOutDotNormal,
+                                                     beamInDotHNormal))
+
+        if self.pol == 's':
+            C = C1
+        else:
+            C = C2
 
         # normalize
         # crystal_normal = crystal_normal/np.sqrt(np.sum(crystal_normal*crystal_normal,axis=0))
@@ -3888,6 +3904,9 @@ class Crystal(Mirror):
         z_out = 1/2/p_coeff[-3]
         print('zout: %.6f' % z_out)
 
+        # multiply by complex crystal reflectivity
+        wave *= C
+
         abs_out = Util.interp_flip(x_out, x_eff[mask], np.abs(wave[mask]))
         angle_out = Util.interp_flip(x_out, x_eff[mask], np.unwrap(np.angle(wave[mask])))
 
@@ -3946,8 +3965,9 @@ class Crystal(Mirror):
             p_coeff = np.zeros(3)
         z_2 = np.pi / beam.lambda0 / p_coeff[-3]
 
-        plt.figure()
-        plt.plot(total_phase[mask])
+        if figon:
+            plt.figure()
+            plt.plot(total_phase[mask])
 
         z_total = 1 / (1 / z_out + 1 / z_2)
         print('new z: %.6f' % z_total)
@@ -4002,7 +4022,10 @@ class Crystal(Mirror):
                 beam.rotate_nominal(delta_azimuth=-self.alpha-self.beta0)
                 beam.rotate_beam(delta_ax=-delta_ax)
 
-            beam.x = -x_out
+            if self.orientation==0:
+                beam.x = x_out
+            else:
+                beam.x = -x_out
 
             beam.new_fx()
 
@@ -4036,7 +4059,10 @@ class Crystal(Mirror):
             # cy1 = beam.cy + ay0 * delta_z
             # cy2 = -cy1 + beam.ay * delta_z
 
-            beam.y = -x_out
+            if self.orientation==1:
+                beam.y = x_out
+            else:
+                beam.y = -x_out
 
             beam.new_fx()
 

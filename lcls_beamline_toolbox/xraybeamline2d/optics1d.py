@@ -2925,7 +2925,7 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavex *= z_mask * np.exp(1j * high_order) * C
-            beam.wavey *= np.exp(1j * high_order_y)
+            beam.wavey *= y_mask*np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
@@ -2965,7 +2965,7 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavey *= z_mask * np.exp(1j * high_order) * C
-            beam.wavex *= np.exp(1j * high_order_y)
+            beam.wavex *= y_mask*np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
@@ -3004,7 +3004,7 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavex *= z_mask * np.exp(1j * high_order) * C
-            beam.wavey *= np.exp(1j * high_order_y)
+            beam.wavey *= y_mask*np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.x -= beam.cx
@@ -3048,7 +3048,7 @@ class Crystal(Mirror):
 
             # modify beam's wave attribute by mirror aperture and phase error
             beam.wavey *= z_mask * np.exp(1j * high_order) * C
-            beam.wavex *= np.exp(1j * high_order_y)
+            beam.wavex *= y_mask*np.exp(1j * high_order_y)
 
             # take into account coordinate rescaling
             beam.y -= beam.cy
