@@ -2018,7 +2018,7 @@ class CurvedMirror(Mirror):
             # beam.focused_x = True
         try:
             # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
-            mask2 = abs_out > .01
+            mask2 = abs_out > .01*np.max(abs_out)
             mask3 = np.logical_and(mask, mask2)
             p_coeff = np.polyfit(x_eff[mask3], total_phase[mask3], 2)
         except:
@@ -3873,6 +3873,10 @@ class Crystal(Mirror):
             dx = beam.dy * np.abs(np.sin(self.beta0) / np.sin(self.alpha))
             x_out = np.linspace(-beam.N / 2 * dx, (beam.N / 2 - 1) * dx, beam.N)
         # mask defining mirror acceptance
+
+        # if self.orientation==2 or self.orientation==3:
+        #     x_out = -x_out
+
         mask = coords_crystal[0,:]>intersect_coords[0,:]
 
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :]) < self.length / 2)
@@ -3957,7 +3961,7 @@ class Crystal(Mirror):
             # beam.focused_x = True
         try:
             # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
-            mask2 = abs_out>.01
+            mask2 = abs_out>.01*np.max(abs_out)
             mask3 = np.logical_and(mask,mask2)
             p_coeff = np.polyfit(x_eff[mask3], total_phase[mask3], 2)
         except:
@@ -3994,7 +3998,7 @@ class Crystal(Mirror):
 
         if figon:
             plt.figure()
-            plt.plot(np.abs(wave),label='new amplitude')
+            plt.plot(x_out,np.abs(wave),label='new amplitude')
             plt.plot(np.abs(beam.wavex),label='old amplitude')
             plt.legend()
 
