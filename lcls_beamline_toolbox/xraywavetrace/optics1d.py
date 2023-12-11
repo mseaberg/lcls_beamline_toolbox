@@ -1666,6 +1666,8 @@ class CurvedMirror(Mirror):
             wave = beam.wavex
 
             beamx = beam.x
+            beamN = beam.M
+
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
@@ -1677,6 +1679,8 @@ class CurvedMirror(Mirror):
             # relevant wavefront
             wave = beam.wavey
             beamx = beam.y
+            beamN = beam.N
+
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
@@ -1688,6 +1692,8 @@ class CurvedMirror(Mirror):
             # relevant wavefront
             wave = beam.wavex
             beamx = beam.x
+            beamN = beam.M
+
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
@@ -1699,6 +1705,8 @@ class CurvedMirror(Mirror):
             # relevant wavefront
             wave = beam.wavey
             beamx = beam.y
+            beamN = beam.N
+
         # reference to global origin by adding beam global center
         coords += np.reshape(beam_center, (3, 1))
         # now subtract mirror center so that beam coordinates are in global coordinates,
@@ -1864,11 +1872,59 @@ class CurvedMirror(Mirror):
         # xraywavetrace/optics.py. Then, probably remove sign flip for x_out
         # further down.
 
+        # get final k-vector for central ray
+        k_f = rays_out[:, int(beamN / 2)]
+
+        # convert to global coordinates
+        k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
+        k_f_global = k_f_global / np.sqrt(np.sum(np.abs(k_f_global ** 2)))
+        k_f_global = k_f_global[:, 0]
+
+        # first rotate by the "nominal" amount
+        if self.orientation == 0:
+            beam.rotate_nominal(delta_azimuth=2 * self.alpha)
+        elif self.orientation == 1:
+            beam.rotate_nominal(delta_elevation=2 * self.alpha)
+        elif self.orientation == 2:
+            beam.rotate_nominal(delta_azimuth=-2 * self.alpha)
+        elif self.orientation == 3:
+            beam.rotate_nominal(delta_elevation=-2 * self.alpha)
+
+        # get initial k-vector for central ray in global coordinates
+        k_i = np.copy(beam.zhat)
+
+        # find the change in the k-vector in global coordinates
+        delta_k = k_f_global - k_i
+
+        print('xhat: {}'.format(beam.xhat))
+        print('yhat: {}'.format(beam.yhat))
+        print('zhat: {}'.format(beam.zhat))
+        print('dk: {}'.format(delta_k))
+
+        # now make minor adjustment to k-vector based on central ray at exit plane
+        # might want to do one axis at a time or change the order. Or could change the rotation
+        # to rotate about the "unrotated" axes.
+        delta_ax = np.arcsin(delta_k[0])
+        x_sign = np.sign(np.dot(np.cross(k_i, k_f_global), beam.yhat))
+        delta_ay = -np.arcsin(delta_k[1])
+        y_sign = np.sign(-np.dot(np.cross(k_i, k_f_global), beam.xhat))
+        beam.rotate_beam(delta_ax=x_sign * np.abs(delta_ax), delta_ay=y_sign * np.abs(delta_ay))
+
+        # now write new beam coordinates in local beam coordinate system
+        # (transforming from ellipse coordinates to local beam coordinates)
+        transform_matrix2 = np.tensordot(np.reshape([beam.xhat, beam.yhat, beam.zhat], (3, 3)),
+                                         np.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)), axes=(1, 1))
+        shifted_plane2 = np.tensordot(transform_matrix2, shifted_plane, axes=(1, 0))
+
         # angle that exit plane makes with ellipse x-axis
-        alpha = np.arctan(shifted_plane[2,0]/shifted_plane[0,0])
+        # alpha = np.arctan(shifted_plane[2,0]/shifted_plane[0,0])
 
         # effective beam coordinates at exit plane (not uniformly spaced)
-        x_eff = shifted_plane[0,:]/np.cos(alpha)
+        # x_eff = shifted_plane[0,:]/np.cos(alpha)
+        if self.orientation==0 or self.orientation==2:
+            x_eff = shifted_plane2[0,:]
+        else:
+            x_eff = shifted_plane2[1,:]
 
         # calculate desired pixel size due to expected change in beam size
         if self.orientation==0 or self.orientation==2:
@@ -2089,13 +2145,14 @@ class CurvedMirror(Mirror):
             nominal_incidence = params['beta'] - ellipse_normal[2,int(beam.M/2)]
             delta_ax = delta_theta - 2 * nominal_incidence + linear
             delta_ax = delta_theta - 2*self.alpha - linear
+            delta_ax = linear
             print(beam.ax)
             print(delta_ax)
             if self.orientation==0:
-                beam.rotate_nominal(delta_azimuth=2*self.alpha)
+                # beam.rotate_nominal(delta_azimuth=2*self.alpha)
                 beam.rotate_beam(delta_ax=delta_ax)
             else:
-                beam.rotate_nominal(delta_azimuth=-2*self.alpha)
+                # beam.rotate_nominal(delta_azimuth=-2*self.alpha)
                 beam.rotate_beam(delta_ax=-delta_ax)
 
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
@@ -2107,10 +2164,11 @@ class CurvedMirror(Mirror):
             print(delta_cx)
             # beam.cx = -beam.cx + delta_cx
             # print(beam.cx)
-            if self.orientation==0:
-                beam.x = x_out
-            else:
-                beam.x = -x_out
+            # if self.orientation==0:
+            #     beam.x = x_out
+            # else:
+            #     beam.x = -x_out
+            beam.x = x_out
 
             beam.new_fx()
 
@@ -2131,16 +2189,17 @@ class CurvedMirror(Mirror):
             delta_theta = np.arccos(np.dot(k_i, k_f))
             nominal_incidence = params['beta'] - ellipse_normal[2, int(beam.N / 2)]
             delta_ay = delta_theta - 2 * nominal_incidence + linear
-            delta_ay = delta_theta - 2 * self.alpha - linear
+            # delta_ay = delta_theta - 2 * self.alpha - linear
+            delta_ay = linear
             print(beam.ay)
             # print(beam.cy)
             print(delta_ay)
 
             if self.orientation == 1:
-                beam.rotate_nominal(delta_elevation=2 * self.alpha)
+                # beam.rotate_nominal(delta_elevation=2 * self.alpha)
                 beam.rotate_beam(delta_ay=delta_ay)
             else:
-                beam.rotate_nominal(delta_elevation=-2 * self.alpha)
+                # beam.rotate_nominal(delta_elevation=-2 * self.alpha)
                 beam.rotate_beam(delta_ay=-delta_ay)
             print(beam.ay)
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
@@ -2155,10 +2214,11 @@ class CurvedMirror(Mirror):
             print(delta_cy)
             # beam.cy = -beam.cy + delta_cy
             print(beam.cy)
-            if self.orientation==1:
-                beam.y = x_out
-            else:
-                beam.y = -x_out
+            # if self.orientation==1:
+            #     beam.y = x_out
+            # else:
+            #     beam.y = -x_out
+            beam.y = x_out
 
             beam.new_fx()
 
