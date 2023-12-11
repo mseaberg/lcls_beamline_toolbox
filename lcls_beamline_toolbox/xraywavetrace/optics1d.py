@@ -2153,7 +2153,7 @@ class CurvedMirror(Mirror):
                 beam.rotate_beam(delta_ax=delta_ax)
             else:
                 # beam.rotate_nominal(delta_azimuth=-2*self.alpha)
-                beam.rotate_beam(delta_ax=-delta_ax)
+                beam.rotate_beam(delta_ax=delta_ax)
 
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             print(beam.ax)
@@ -2200,7 +2200,7 @@ class CurvedMirror(Mirror):
                 beam.rotate_beam(delta_ay=delta_ay)
             else:
                 # beam.rotate_nominal(delta_elevation=-2 * self.alpha)
-                beam.rotate_beam(delta_ay=-delta_ay)
+                beam.rotate_beam(delta_ay=delta_ay)
             print(beam.ay)
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             # cy1 = beam.cy + ay0 * delta_z
