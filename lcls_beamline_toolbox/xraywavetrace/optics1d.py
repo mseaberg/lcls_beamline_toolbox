@@ -1859,6 +1859,11 @@ class CurvedMirror(Mirror):
         # put beam center at origin
         shifted_plane = plane_intersect-origin
 
+        ####!!! Implement the method from 2D version to evaluate x_eff, by
+        # actually rotating into the proper coordinate system. See line 3904 in
+        # xraywavetrace/optics.py. Then, probably remove sign flip for x_out
+        # further down.
+
         # angle that exit plane makes with ellipse x-axis
         alpha = np.arctan(shifted_plane[2,0]/shifted_plane[0,0])
 
