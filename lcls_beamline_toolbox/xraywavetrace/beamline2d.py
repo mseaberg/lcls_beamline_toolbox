@@ -134,11 +134,11 @@ class Beamline:
                     device.normal = normal
                     device.transverse = transverse
 
-                    device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(device.normal,
-                                                                                       device.sagittal,
-                                                                                       device.transverse,
-                                                                                       delta=device.roll,
-                                                                                       dir='roll')
+                    # device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(device.normal,
+                    #                                                                    device.sagittal,
+                    #                                                                    device.transverse,
+                    #                                                                    delta=device.roll,
+                    #                                                                    dir='roll')
 
                     xhat,yhat,zhat = Util.rotate_3d_trace(xhat,yhat,zhat,delta=-device.alpha-device.beta0,dir='elevation')
                     # device.global_alpha = device.alpha + elevation
