@@ -4148,7 +4148,7 @@ class Crystal(Mirror):
                 beam.rotate_beam(delta_ax=delta_ax)
             else:
                 # beam.rotate_nominal(delta_azimuth=-self.alpha-self.beta0)
-                beam.rotate_beam(delta_ax=-delta_ax)
+                beam.rotate_beam(delta_ax=delta_ax)
 
             # if self.orientation==0:
             #     beam.x = x_out
@@ -4183,7 +4183,7 @@ class Crystal(Mirror):
                 beam.rotate_beam(delta_ay=delta_ay)
             else:
                 # beam.rotate_nominal(delta_elevation=-self.alpha-self.beta0)
-                beam.rotate_beam(delta_ay=-delta_ay)
+                beam.rotate_beam(delta_ay=delta_ay)
             print(beam.ay)
             # delta_cx = (beam.ax - (-ax0))*self.length/2*1.1
             # cy1 = beam.cy + ay0 * delta_z
