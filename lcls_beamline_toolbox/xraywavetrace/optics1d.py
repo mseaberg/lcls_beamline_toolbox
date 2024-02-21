@@ -31,7 +31,6 @@ import xrt.backends.raycing.materials as materials
 import xraydb
 from lcls_beamline_toolbox.xrayinteraction import interaction
 
-
 class Mirror:
     """
     Class for a glancing incidence X-ray mirror
@@ -3663,6 +3662,7 @@ class Crystal(Mirror):
         #     self.diffract(beam)
         self.trace_surface(beam)
         beam.beam_prop(-self.length / 2 * 1.1)
+        beam.group_delay += self.length * 1.1/3e8
 
     def calc_kf(self, z_s, k_iy, alpha_in, slope_error, lambda0):
         # calculate diffraction angle at every point on the grating
@@ -3774,6 +3774,7 @@ class Crystal(Mirror):
             wave = beam.wavey
             beamx = beam.y
             beamN = beam.N
+
         # reference to global origin by adding beam global center
         coords += np.reshape(beam_center, (3, 1))
         # now subtract mirror center so that beam coordinates are in global coordinates,
@@ -3785,6 +3786,19 @@ class Crystal(Mirror):
                                         np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
         coords_crystal = np.tensordot(transform_matrix, coords, axes=(1, 0))
 
+        # calculate contribution to rays from wavefront
+        beam_slope_error = np.gradient(np.unwrap(np.angle(wave)),
+                                       beamx) * beam.lambda0 / 2 / np.pi
+        # rays_x_full = rays_x - beam_slope_error
+        rays_x_full = np.copy(rays_x) + beam_slope_error
+        rays_z_full = np.sqrt(np.ones_like(rays_x_full) - rays_x_full ** 2)
+
+        rays_full = (np.multiply.outer(t_hat, rays_x_full) +
+                     np.multiply.outer(beam.zhat, rays_z_full))
+
+        # normalize rays (should be redundant)
+        rays_full = rays_full / np.sqrt(np.sum(rays_full * rays_full, axis=0))
+
         # calculate z component of rays (enforcing unit vector)
         rays_z = np.sqrt(np.ones_like(rays_x) - rays_x ** 2)
         # ray vectors at each point in the beam
@@ -3795,6 +3809,8 @@ class Crystal(Mirror):
 
         # now write rays in ellipse coordinates
         rays_crystal = np.tensordot(transform_matrix, rays, axes=(1,0))
+
+        rays_full_crystal = np.tensordot(transform_matrix, rays_full, axes=(1,0))
 
         if figon:
             plt.figure()
@@ -3854,6 +3870,17 @@ class Crystal(Mirror):
         rays_x = np.sqrt(np.ones_like(z_intersect) - np.sum(rays_y*rays_y,axis=0)-
                          np.sum(rays_z*rays_z,axis=0)) * ux
 
+        # now calculate slight perturbation to rays to account for higher order
+        # wavefront
+        rays_y_full = np.sum(rays_full_crystal * uy, axis=0) * uy
+        rays_z_full = np.sum(rays_full_crystal * uz, axis=0) * uz + c_parallel
+        rays_x_full = np.sqrt(np.ones_like(z_intersect) -
+                              np.sum(rays_y_full*rays_y_full,axis=0) -
+                              np.sum(rays_z_full*rays_z_full,axis=0)) * ux
+
+        rays_full_out = rays_x_full + rays_y_full + rays_z_full
+
+
         if figon:
             plt.figure()
             plt.plot(rays_z[0, :])
@@ -3863,9 +3890,9 @@ class Crystal(Mirror):
 
         rays_out = rays_x + rays_y + rays_z
 
-        beamInDotNormal = np.sum(rays_crystal * ux, axis=0)
-        beamOutDotNormal = np.sum(rays_out * ux, axis=0)
-        beamInDotHNormal = np.sum(rays_crystal * crystal_normal, axis=0)
+        beamInDotNormal = np.sum(rays_full_crystal * ux, axis=0)
+        beamOutDotNormal = np.sum(rays_full_out * ux, axis=0)
+        beamInDotHNormal = np.sum(rays_full_crystal * crystal_normal, axis=0)
 
         C1, C2 = np.array(self.crystal.get_amplitude(beam.photonEnergy,
                                                      beamInDotNormal,
@@ -3929,8 +3956,12 @@ class Crystal(Mirror):
         # get final k-vector for central ray
         k_f = rays_out[:, int(beamN / 2)]
 
+        inv_transform = np.tensordot(np.reshape([ux, uy, uz], (3, 3)),
+                                        np.reshape([crystal_x, crystal_y, crystal_z], (3, 3)), axes=(1, 1))
+
         # convert to global coordinates
-        k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
+        # k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1)), axes=(1, 0))
+        k_f_global = np.tensordot(inv_transform, np.reshape(k_f, (3,1)), axes=(1,0))
         k_f_global = k_f_global / np.sqrt(np.sum(np.abs(k_f_global ** 2)))
         k_f_global = k_f_global[:, 0]
 
@@ -3955,14 +3986,51 @@ class Crystal(Mirror):
         print('zhat: {}'.format(beam.zhat))
         print('dk: {}'.format(delta_k))
 
+        # project onto xz plane
+        k_i_xz = k_i-np.dot(k_i,uy)*np.transpose(uy)
+        k_f_xz = k_f_global-np.dot(k_f_global,uy)*np.transpose(uy)
+
+        k_i_yz = k_i-np.dot(k_i,ux)*np.transpose(ux)
+        k_f_yz = k_f_global-np.dot(k_f_global,ux)*np.transpose(ux)
+
+        print(k_i)
+        print(uy)
+        print(k_i_xz)
+        print(k_f_xz)
+
+        # try:
+        # cos_ax = (np.dot(k_i_xz,k_f_xz)/
+        #           np.sqrt(np.dot(k_i_xz,k_i_xz))/
+        #           np.sqrt(np.dot(k_f_xz,k_f_xz)))
+        # delta_ax = np.arccos(cos_ax)
+        # # except:
+        # #     print('exception')
+        # #     delta_ax = 0
+        #
+        # try:
+        #     cos_ay = (np.dot(k_i_yz, k_f_yz) /
+        #               np.sqrt(np.dot(k_i_yz, k_i_yz)) /
+        #               np.sqrt(np.dot(k_f_yz, k_f_yz)))
+        #     delta_ax = np.arccos(cos_ax)
+        # except:
+        #     delta_ay = 0
+
+
+        # test = (np.dot(k_i,k_f_global)/
+        #         np.sqrt(np.dot(k_i,k_i))/
+        #         np.sqrt(np.dot(k_f_global,k_f_global)))
+        # print(test)
+
         # now make minor adjustment to k-vector based on central ray at exit plane
         # might want to do one axis at a time or change the order. Or could change the rotation
         # to rotate about the "unrotated" axes.
-        delta_ax = np.arcsin(delta_k[0])
+        delta_ax = np.arcsin(np.sqrt(delta_k[0]**2+delta_k[2]**2))
         x_sign = np.sign(np.dot(np.cross(k_i, k_f_global), beam.yhat))
-        delta_ay = -np.arcsin(delta_k[1])
+        delta_ay = -np.arcsin(np.sqrt(delta_k[1]**2+delta_k[2]**2))
         y_sign = np.sign(-np.dot(np.cross(k_i, k_f_global), beam.xhat))
         beam.rotate_beam(delta_ax=x_sign * np.abs(delta_ax), delta_ay=y_sign * np.abs(delta_ay))
+
+        print('additional rotation: {}'.format(x_sign * np.abs(delta_ax)))
 
         # now write new beam coordinates in local beam coordinate system
         # (transforming from ellipse coordinates to local beam coordinates)
@@ -4079,12 +4147,12 @@ class Crystal(Mirror):
                     plt.title('quadratic phase and other phase')
                 angle_in += quadratic
 
-        total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
+        total_phase = angle_in# + 2 * np.pi / beam.lambda0 * total_distance
         # total_phase = angle_in
             # beam.focused_x = True
         try:
             # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
-            mask2 = abs_out>.01*np.max(abs_out)
+            mask2 = abs_out>.3*np.max(abs_out)
             mask3 = np.logical_and(mask,mask2)
             p_coeff = np.polyfit(x_eff[mask3], total_phase[mask3], 2)
         except:
@@ -4122,7 +4190,7 @@ class Crystal(Mirror):
         if figon:
             plt.figure()
             plt.plot(x_out,np.abs(wave),label='new amplitude')
-            plt.plot(np.abs(beam.wavex),label='old amplitude')
+            plt.plot(x_out,np.abs(beam.wavex),label='old amplitude')
             plt.legend()
 
         # beam.x = -x_out
@@ -6254,6 +6322,9 @@ class CRL:
         self.xhat = None
         self.yhat = None
         self.zhat = None
+        self.x_intersect = 0.0
+        self.y_intersect = 0.0
+        self.z_intersect = 0.0
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -6285,14 +6356,20 @@ class CRL:
         :return: None
         """
 
+        beam_shift = np.array([self.x_intersect - self.global_x,
+                               self.y_intersect - self.global_y,
+                               self.z_intersect - self.z])
+        x_shift = np.dot(beam_shift, self.xhat)
+        y_shift = np.dot(beam_shift, self.yhat)
+
         if self.orientation == 0:
             beamx = beam.x
             beamz = beam.zx
-            beamc = beam.cx
+            shift = x_shift
         else:
             beamx = beam.y
             beamz = beam.zy
-            beamc = beam.cy
+            shift = y_shift
 
         # interpolate to find index of refraction at beam's energy
         delta = np.interp(beam.photonEnergy, self.energy, self.delta)
@@ -6300,10 +6377,10 @@ class CRL:
 
         # CRL thickness (for now assuming perfect lenses but might add aberrations later)
         # thickness = 2 * self.roc * (1 / 2 * ((beam.x - self.dx) ** 2 + (beam.y - self.dy) ** 2) / self.roc ** 2)
-        thickness = 2 * self.roc * (1 / 2 * ((beamx - self.dx) ** 2) / self.roc ** 2)
+        thickness = 2 * self.roc * (1 / 2 * ((beamx + shift) ** 2) / self.roc ** 2)
 
         # lens aperture
-        mask = (((beamx - self.dx) ** 2) < (self.diameter / 2) ** 2).astype(float)
+        mask = (((beamx + shift) ** 2) < (self.diameter / 2) ** 2).astype(float)
 
         # subtract 2nd order and linear terms
         phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((beamx - self.dx) ** 2))
@@ -6311,11 +6388,11 @@ class CRL:
         # 2nd order
         p2 = -beam.k0 * delta * 2 / 2 / self.roc
         # 1st order
-        p1_x = p2 * 2 * (beamc - self.dx)
+        p1_x = p2 * 2 * (shift)
 
         # lens transmission based on beta and thickness profile
         # phase shift at center of beam
-        phase_shift = np.interp(beamc, beamx, thickness)*delta*2*np.pi/beam.lambda0
+        phase_shift = np.interp(shift, beamx, thickness)*delta*2*np.pi/beam.lambda0
 
         transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask# * np.exp(1j*phase_shift)
 

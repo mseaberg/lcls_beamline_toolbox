@@ -249,12 +249,14 @@ class Beamline:
                 device.yhat = np.array(device_data['yhat'])
                 device.zhat = np.array(device_data['zhat'])
 
-    def draw_beamline(self,figsize=None):
-        if figsize is not None:
-            fig = plt.figure(figsize=figsize)
-        else:
-            fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+    def draw_beamline(self,figsize=None,ax=None):
+
+        if ax is None:
+            if figsize is not None:
+                fig = plt.figure(figsize=figsize)
+            else:
+                fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
 
         # collect vertices
         xs = np.zeros(len(self.device_list))
