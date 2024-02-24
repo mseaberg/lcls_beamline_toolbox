@@ -3091,6 +3091,14 @@ class PPM_Device(PPM):
         #     self.cam_name = sys.argv[1]
         #     self.epics_name = sys.argv[1] + 'IMAGE2:'
 
+
+        # try to set proper camera settings
+        if 'XTES' in self.imager_prefix or 'PPM' in self.imager_prefix:
+            PV(self.epics_name + 'ROI:Scale').put(1)
+            PV(self.epics_name + 'ROI:BinX').put(1)
+            PV(self.epics_name + 'ROI:BinY').put(1)
+            PV(self.imager_prefix + 'CAM:DataType').put('UInt16')
+            
         self.image_pv = PV(self.epics_name + 'ArrayData')
 
         # get ROI info
@@ -3484,7 +3492,7 @@ class PPM_Device(PPM):
     def get_dummy_image(self):
         return self.dummy_image
 
-    def get_image(self, angle=0):
+    def get_image(self, angle=0, demo=None):
         #try:
     # do averaging
         if hasattr(self, 'average'):
@@ -3577,6 +3585,13 @@ class PPM_Device(PPM):
 
         x_center = Util.coordinate_to_pixel(self.cx, self.dx*self.xbin, self.M)
         y_center = Util.coordinate_to_pixel(self.cy, self.dx*self.ybin, self.N)
+
+        if self.centroid_is_valid:
+            PV(self.imager_prefix + 'CAM:X_BM_CTR').put(self.cx)
+            PV(self.imager_prefix + 'CAM:Y_BM_CTR').put(self.cy)
+        else:
+            PV(self.imager_prefix + 'CAM:X_BM_CTR').put(np.nan)
+            PV(self.imager_prefix + 'CAM:Y_BM_CTR').put(np.nan)
 
         #print(self.cx)
         #print(self.cy)
