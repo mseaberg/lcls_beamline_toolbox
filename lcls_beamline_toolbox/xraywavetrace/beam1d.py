@@ -11,6 +11,7 @@ All distances/lengths are in meters, spatial frequencies in 1/meters, angles in 
 unless otherwise indicated.
 """
 import numpy as np
+import copy
 import matplotlib.pyplot as plt
 from lcls_beamline_toolbox.utility.util import Util
 from skimage.restoration import unwrap_phase
@@ -1027,7 +1028,7 @@ class Pulse:
             full width of time window in fs (related to energy sampling)
         """
         # set some attributes
-        self.beam_params = beam_params
+        self.beam_params = copy.deepcopy(beam_params)
         self.tau = tau
         self.time_window = time_window
         self.num_spikes = num_spikes
@@ -1129,7 +1130,8 @@ class Pulse:
         self.delay = {}
 
     def generate_SASE(self):
-        spike_centers = (.5-np.random.rand(self.num_spikes))*self.num_spikes*self.bandwidth*2
+        jitter = np.random.normal(0,self.bandwidth*self.num_spikes/2)
+        spike_centers = (.5-np.random.rand(self.num_spikes))*self.num_spikes*self.bandwidth*2 + jitter
         spike_intensity = np.random.rand(self.num_spikes)
         spike_linphase = (.5-np.random.rand(self.num_spikes))*2*self.tau
         spike_offsetphase = np.random.rand(self.num_spikes)*2*np.pi
