@@ -1814,8 +1814,10 @@ class CurvedMirror(Mirror):
             print('L %.2f' % L)
             # a2 = (p-q)**2/4
             a = -(np.abs(q) - np.abs(p))/2
+            # calculate a^2
             a2 = a**2
             c2 = (L/2)**2
+            # calculate b^2
             b2 = c2-a2
             print(b2)
             # angle of incident beam
@@ -6884,10 +6886,11 @@ class WFS:
         self.fraction = 1
         self.azimuth = 0
         self.elevation = 0
+        self.grating_phase = np.pi
 
         # set allowed kwargs
         allowed_arguments = ['pitch', 'duty_cycle', 'f0', 'z', 'phase', 'enabled',
-                             'fraction']
+                             'fraction', 'grating_phase']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -6950,9 +6953,11 @@ class WFS:
                 self.y_pitch += 1
         self.y_pitch_sim = self.y_pitch*beam.dy
         print('actual pitch: %.2f microns' % (self.x_pitch*beam.dx*1e6))
+        print('actual vertical pitch: %.2f microns' % (self.y_pitch*beam.dy*1e6))
 
         # print(self.pitch/beam.dx)
         # print(self.pitch/beam.dy)
+        print(beam.dx*1e6)
 
         # re-initialize 1D gratings
         self.grating = xp.zeros((N, M),dtype=complex)
@@ -6964,6 +6969,10 @@ class WFS:
         # width of feature based on duty cycle
         x_width = int(self.x_pitch/2*self.duty_cycle)
         y_width = int(self.y_pitch/2*self.duty_cycle)
+
+        self.x_pitch_sim = x_width*2/self.duty_cycle*beam.dx*1e6
+        self.y_pitch_sim = y_width*2/self.duty_cycle*beam.dy*1e6
+
 
         # loop through periods in the grating
         # for i in range(int(Mg)):
@@ -6991,9 +7000,10 @@ class WFS:
                     maxX = 2*x_width*(i+1)
                     temp[minY:maxY,minX:maxX] = (1 + (-1) ** (i + j) / 2)
 
-            grating_temp = xp.exp(1j*np.pi*xp.tile(temp, (int(Ng/2),int(Mg/2))))
+            grating_temp = xp.exp(1j*self.grating_phase*xp.tile(temp, (int(Ng*1.5),int(Mg*1.5))))
             Nt,Mt = xp.shape(grating_temp)
-            self.grating[0:Nt,0:Mt] = grating_temp
+            # self.grating[0:Nt,0:Mt] = grating_temp
+            self.grating = grating_temp[0:N,0:M]
 
             # loop through periods in the grating
             # for i in range(int(Mg)):

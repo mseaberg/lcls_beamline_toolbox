@@ -503,7 +503,8 @@ class Mirror:
             Beam object to be reflected. Beam object is modified.
         :return: None
         """
-        self.reflect(beam)
+        success = self.reflect(beam)
+        return success
 
     def adjust_motor(self, motor_name, adjustment):
         """
@@ -2878,6 +2879,8 @@ class Mono:
         # propagate beam through grating
         self.grating.diffract(beam)
 
+        return True
+
 
 class Grating(Mirror):
     """
@@ -3052,10 +3055,12 @@ class Grating(Mirror):
         """
         # if we're operating in zero order, just acts like a mirror
         if self.order == 0:
-            self.reflect(beam)
+            success = self.reflect(beam)
         # if we're in first order, calculate diffraction
         elif self.order == 1:
-            self.diffract(beam)
+            success = self.diffract(beam)
+
+        return success
 
     def diffract(self, beam):
         """
@@ -3420,7 +3425,7 @@ class Grating(Mirror):
             beam.cy = -beam.cy + delta_cy
             beam.y = beam.y + delta_cy
 
-        return
+        return True
 
 
 class Crystal(Mirror):
@@ -3660,9 +3665,11 @@ class Crystal(Mirror):
         # # if we're in first order, calculate diffraction
         # elif self.order == 1:
         #     self.diffract(beam)
-        self.trace_surface(beam)
+        success = self.trace_surface(beam)
         beam.beam_prop(-self.length / 2 * 1.1)
         beam.group_delay += self.length * 1.1/3e8
+
+        return success
 
     def calc_kf(self, z_s, k_iy, alpha_in, slope_error, lambda0):
         # calculate diffraction angle at every point on the grating
@@ -3938,7 +3945,7 @@ class Crystal(Mirror):
             plt.title('entrance/exit planes, mirror intersection')
 
         # total distance for each beam ray
-        total_distance = (distance_1+distance_2)
+        # total_distance = (distance_1+distance_2)
         #
         if figon:
             plt.figure()
@@ -4072,13 +4079,17 @@ class Crystal(Mirror):
 
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :]) < self.length / 2)
 
-        p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
+        if np.sum(mask)==0:
+            # beam does not intersect optic
+            return False
+
+        # p_coeff = np.polyfit(x_eff[mask], total_distance[mask], 2)
         # linear = p_coeff[-2]
         linear = 0
         # subtract best fit parabola
-        total_distance -= np.polyval(p_coeff,x_eff)
+        # total_distance -= np.polyval(p_coeff,x_eff)
         #
-        distance_interp = Util.interp_flip(x_out,x_eff[mask],total_distance[mask])
+        # distance_interp = Util.interp_flip(x_out,x_eff[mask],total_distance[mask])
 
         mask2 = Util.interp_flip(x_out,x_eff[mask],mask[mask])
         mask2[mask2<.9] = 0
@@ -4092,12 +4103,12 @@ class Crystal(Mirror):
             #
             plt.figure()
             # plt.plot(x_out[mask2],distance_interp[mask2])
-            plt.plot(x_eff[mask],total_distance[mask])
+            # plt.plot(x_eff[mask],total_distance[mask])
             plt.title('distance inside mirror footprint')
         # plt.plot(x_out,mask2)
 
-        z_out = 1/2/p_coeff[-3]
-        print('zout: %.6f' % z_out)
+        # z_out = 1/2/p_coeff[-3]
+        # print('zout: %.6f' % z_out)
 
         # multiply by complex crystal reflectivity
         wave *= C
@@ -4149,23 +4160,28 @@ class Crystal(Mirror):
 
         total_phase = angle_in# + 2 * np.pi / beam.lambda0 * total_distance
         # total_phase = angle_in
-            # beam.focused_x = True
-        try:
-            # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
-            mask2 = abs_out>.3*np.max(abs_out)
-            mask3 = np.logical_and(mask,mask2)
-            p_coeff = np.polyfit(x_eff[mask3], total_phase[mask3], 2)
-        except:
-            print('problem with mask')
-            p_coeff = np.zeros(3)
+        # beam.focused_x = True
+        # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
+        mask2 = abs_out>.3*np.max(abs_out)
+        print('mask sum: {}'.format(np.sum(mask2)))
+        print('abs sum: {}'.format(np.sum(abs_out)))
+        mask3 = np.logical_and(mask,mask2)
+        if np.sum(mask3)==0:
+            return False
+        print('mask3 sum: {}'.format(np.sum(mask3)))
+
+        p_coeff = np.polyfit(x_eff[mask3], total_phase[mask3], 2)
+        # except:
+        #     print('problem with mask')
+        #     p_coeff = np.zeros(3)
         z_2 = np.pi / beam.lambda0 / p_coeff[-3]
 
         if figon:
             plt.figure()
             plt.plot(total_phase[mask])
 
-        z_total = 1 / (1 / z_out + 1 / z_2)
-        print('new z: %.6f' % z_total)
+        # z_total = 1 / (1 / z_out + 1 / z_2)
+        # print('new z: %.6f' % z_total)
         print(z_2)
         z_total = z_2
 
@@ -4340,6 +4356,8 @@ class Crystal(Mirror):
         print('global_x: %.2f' % beam.global_x)
         print('global_y: %.2f' % beam.global_y)
         print('global_z: %.2f' % beam.global_z)
+
+        return True
 
     def diffract(self, beam):
         """
@@ -4971,6 +4989,7 @@ class Collimator:
         # # multiply beam by aperture
         # beam.wave *= aperture
         print('not implemented in 1D')
+        return False
 
     def propagate(self, beam):
         """
@@ -4979,7 +4998,8 @@ class Collimator:
             Beam object to propagate through the collimator. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        success = self.multiply(beam)
+        return success
 
 
 class Slit:
@@ -5047,6 +5067,8 @@ class Slit:
         beam.wavex *= aperture_x
         beam.wavey *= aperture_y
 
+        return True
+
     def propagate(self, beam):
         """
         Method to propagate beam through aperture. Calls multiply.
@@ -5054,7 +5076,8 @@ class Slit:
             Beam object to propagate through slits. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        success = self.multiply(beam)
+        return success
 
     def set_x_width(self, width):
         print('set width')
@@ -5249,6 +5272,7 @@ class Drift:
 
         beam.beam_prop(self.dz)
         # beam.beam_prop(old_z)
+        return True
 
 class PPM:
     """
@@ -5621,6 +5645,7 @@ class PPM:
             f = interpolate.RectBivariateSpline(self.x, self.y, self.profile)
             # evaluate interpolating function to get distorted profile.
             self.profile = np.reshape(f.ev(xx * (1 + K * rr), yy * (1 + K * rr)), (self.N, self.N), order='F')
+        return True
 
     def propagate(self, beam):
         """
@@ -5629,7 +5654,8 @@ class PPM:
             Beam object for viewing at PPM location. The Beam object is not modified by this method.
         :return: None
         """
-        self.calc_profile(beam)
+        success = self.calc_profile(beam)
+        return success
 
     def view_vertical(self, ax_y=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
         """
@@ -6416,6 +6442,8 @@ class CRL:
 
         print('focal length: %.2f' % (-1/(p2*beam.lambda0/np.pi)))
 
+        return True
+
     def propagate(self, beam):
         """
         Method to propagate beam through CRL. Calls multiply.
@@ -6423,7 +6451,8 @@ class CRL:
             Beam object to propagate through CRL. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        success = self.multiply(beam)
+        return success
 
 
 class Prism:
@@ -6550,6 +6579,7 @@ class Prism:
         beam.rotate_beam(delta_ax=p1_x, delta_ay=p1_y)
         # beam.ax += p1_x
         # beam.ay += p1_y
+        return True
 
     def propagate(self, beam):
         """
@@ -6558,7 +6588,8 @@ class Prism:
             Beam object to propagate through prism. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        success = self.multiply(beam)
+        return success
 
 
 class WFS:
@@ -6662,10 +6693,12 @@ class WFS:
         """
         # Only do something if enabled.
         if self.enabled:
-            self.multiply(beam)
+            success = self.multiply(beam)
         else:
             print('skipping')
-            pass
+            success = True
+
+        return success
 
     def disable(self):
         """
@@ -6741,6 +6774,8 @@ class WFS:
         # multiply beam by grating
         beam.wavex *= self.grating_x
         beam.wavey *= self.grating_y
+
+        return True
 
 
 class PhasePlate:
@@ -6875,6 +6910,8 @@ class PhasePlate:
         # beam.zx = 100000
         beam.wavey *= transmission_y
 
+        return True
+
     def propagate(self, beam):
         """
         Method to propagate beam through PhasePlate. Calls multiply.
@@ -6883,4 +6920,7 @@ class PhasePlate:
         :return: None
         """
         if self.platePhase is not None:
-            self.multiply(beam)
+            success = self.multiply(beam)
+        else:
+            success = True
+        return success
