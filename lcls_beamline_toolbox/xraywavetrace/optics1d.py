@@ -2077,6 +2077,29 @@ class CurvedMirror(Mirror):
 
         total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
             # beam.focused_x = True
+
+        if self.shapeError is not None:
+            mirror_shape = np.shape(self.shapeError)
+
+            if np.size(mirror_shape) == 1:
+                # assume this is the central line
+                Ms = mirror_shape[0]
+
+                max_zs = self.length / 2
+                zs = np.linspace(-Ms / 2, Ms / 2 -1, Ms) * max_zs / (Ms / 2 - 1)
+
+                shapeInterp = np.interp(d_length, zs, self.shapeError) * 1e-9
+
+            else:
+                Ns = mirror_shape[0]
+                Ms = mirror_shape[1]
+
+                max_zs = self.length / 2
+                zs = np.linspace(-Ms / 2, Ms / 2 - 1, Ms) * max_zs / (Ms / 2 - 1)
+                shapeInterp = np.interp(d_length, zs, self.shapeError[int(Ns/2),:]) * 1e-9
+
+            total_phase -= shapeInterp * 4 * np.pi * np.sin(self.alpha) / beam.lambda0
+
         try:
             # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
             mask2 = abs_out > .01*np.max(abs_out)
@@ -2232,6 +2255,8 @@ class CurvedMirror(Mirror):
             beam.wavey = wave2
 
         print('new ratio: {}'.format(np.sum(np.abs(beam.wavex)) / np.sum(np.abs(wave3))))
+
+
 
         # now figure out global coordinates
         # get back into global coordinates using inverse of transformation matrix, just looking at central ray
@@ -2684,7 +2709,7 @@ class CurvedMirror(Mirror):
         # beam.global_y = self.y_intersect
         # beam.global_z = self.z_intersect
 
-        return
+        return True
 
 
 class Mono:
@@ -6601,7 +6626,8 @@ class WFS:
 
     """
 
-    def __init__(self, name, pitch=None, duty_cycle=0.1, z=None, f0=100, phase=False, enabled=True, fraction=1):
+    def __init__(self, name, pitch=None, duty_cycle=0.1, z=None, f0=100, phase=False, enabled=True, fraction=1,
+                 grating_phase=np.pi):
         """
         Method to initialize a wavefront sensor.
         :param name: str
@@ -6625,6 +6651,7 @@ class WFS:
         # set attributes
         self.name = name
         self.pitch = pitch
+        self.grating_phase = grating_phase
         self.duty_cycle = duty_cycle
         self.f0 = f0
         self.z = z
@@ -6768,8 +6795,8 @@ class WFS:
         # convert to checkerboard pi phase grating if desired
         if self.phase:
 
-            self.grating_x = np.exp(1j*np.pi*self.grating_x)
-            self.grating_y = np.exp(1j*np.pi*self.grating_y)
+            self.grating_x = np.exp(1j*self.grating_phase*self.grating_x)
+            self.grating_y = np.exp(1j*self.grating_phase*self.grating_y)
 
         # multiply beam by grating
         beam.wavex *= self.grating_x
