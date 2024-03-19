@@ -5482,8 +5482,14 @@ class PPM:
         """
 
         # normalize lineouts
-        line_x = line_x / np.max(line_x)
-        line_y = line_y / np.max(line_y)
+        if np.max(line_x) > 0:
+            line_x = line_x / np.max(line_x)
+        else:
+            line_x = line_x
+        if np.max(line_y) > 0:
+            line_y = line_y / np.max(line_y)
+        else:
+            line_y = line_y
 
         # set 20% threshold
         thresh_x = np.max(line_x) * .2
@@ -5492,17 +5498,29 @@ class PPM:
         norm_x = line_x - thresh_x
         norm_x[norm_x < 0] = 0
         # re-normalize
-        norm_x = norm_x / np.max(norm_x)
+        if np.max(norm_x) > 0:
+            norm_x = norm_x / np.max(norm_x)
+        else:
+            norm_x = norm_x
 
         # subtract threshold and set everything below to zero
         norm_y = line_y - thresh_y
         norm_y[norm_y < 0] = 0
         # re-normalize
-        norm_y = norm_y / np.max(norm_y)
+        if np.max(norm_y) > 0:
+            norm_y = norm_y / np.max(norm_y)
+        else:
+            norm_y = norm_y
 
         # calculate centroids
-        cx = np.sum(norm_x * self.x) / np.sum(norm_x)
-        cy = np.sum(norm_y * self.y) / np.sum(norm_y)
+        if np.sum(norm_x) > 0:
+            cx = np.sum(norm_x * self.x) / np.sum(norm_x)
+        else:
+            cx = 0
+        if np.sum(norm_y) > 0:
+            cy = np.sum(norm_y * self.y) / np.sum(norm_y)
+        else:
+            cy = 0
 
         # calculate second moments. Converted to microns to help with fitting
         sx = np.sqrt(np.sum(norm_x * (self.x - cx) ** 2) / np.sum(norm_x)) * 1e6
@@ -5727,7 +5745,7 @@ class PPM:
 
         return ax_y
 
-    def view_beam(self, title=None):
+    def view_beam(self, title=None, cmap='gnuplot'):
         """
         Method to view beam after the fact. Will be zero intensity everywhere if calc_profile (or propagate)
         haven't been called yet.
@@ -5763,7 +5781,7 @@ class PPM:
         ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
 
         # show the image, with positive y at the top of the figure
-        ax_profile.imshow(np.flipud(self.profile), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
+        ax_profile.imshow(np.flipud(self.profile), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap(cmap))
         # label coordinates
         ax_profile.set_xlabel('X coordinates (%s)' % units)
         ax_profile.set_ylabel('Y coordinates (%s)' % units)
@@ -5917,7 +5935,7 @@ class PPM:
         print('retrieving wavefront')
 
         # go ahead and retrieve 1D wavefront first
-        wfs_data, wfs_param = self.retrieve_wavefront(wfs)
+        wfs_data, wfs_param = self.retrieve_wavefront2(wfs)
 
         # get Talbot fraction that we're using (fractional Talbot effect)
         fraction = wfs.fraction
@@ -6776,6 +6794,9 @@ class WFS:
         # width of feature based on duty cycle
         x_width = int(self.x_pitch/2*self.duty_cycle)
         y_width = int(self.y_pitch/2*self.duty_cycle)
+
+        self.x_pitch_units = x_width*2/self.duty_cycle*beam.dx
+        self.y_pitch_units = y_width*2/self.duty_cycle*beam.dy
 
         # loop through periods in the horizontal grating
         for i in range(int(Mg)):
