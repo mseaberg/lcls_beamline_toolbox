@@ -5207,7 +5207,6 @@ class Drift:
         #         alpha = self.downstream_component.global_alpha
         #
 
-        print(beam.suppress)
         if not beam.suppress:
             print('global_x %.2f' % beam.global_x)
             print('global_y %.2f' % beam.global_y)
@@ -5544,11 +5543,11 @@ class PPM:
         if np.sum(norm_x) > 0:
             cx = np.sum(norm_x * self.x) / np.sum(norm_x)
         else:
-            cx = 0
+            cx = np.max(self.x)
         if np.sum(norm_y) > 0:
             cy = np.sum(norm_y * self.y) / np.sum(norm_y)
         else:
-            cy = 0
+            cy = np.max(self.y)
 
         # calculate second moments. Converted to microns to help with fitting
         sx = np.sqrt(np.sum(norm_x * (self.x - cx) ** 2) / np.sum(norm_x)) * 1e6
