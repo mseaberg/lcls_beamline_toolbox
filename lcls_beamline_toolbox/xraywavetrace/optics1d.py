@@ -5187,7 +5187,6 @@ class Drift:
         self.xhat = None
         self.yhat = None
         self.zhat = None
-        self.suppress = True
 
     def propagate(self, beam):
         """
@@ -5207,7 +5206,9 @@ class Drift:
         #     if issubclass(type(self.downstream_component), Mirror):
         #         alpha = self.downstream_component.global_alpha
         #
-        if not self.suppress:
+
+        print(beam.suppress)
+        if not beam.suppress:
             print('global_x %.2f' % beam.global_x)
             print('global_y %.2f' % beam.global_y)
 
@@ -5278,11 +5279,11 @@ class Drift:
                            (nx * kx + ny * ky + nz * kz))
 
         x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
-        if not self.suppress:
+        if not beam.suppress:
             print('x intersect: %.10e' % x_intersect)
             print('component x: %.10e' % self.downstream_component.global_x)
         y_intersect = k[1] / k[2] * (z_intersect - beam.global_z) + beam.global_y
-        if not self.suppress:
+        if not beam.suppress:
             print('y intersect: %.10e' % y_intersect)
             print('component y: %.10e' % self.downstream_component.global_y)
             print('z intersect: %.10e' % z_intersect)
@@ -5293,10 +5294,10 @@ class Drift:
 
         if issubclass(type(self.downstream_component), Mirror):
 
-            if not self.suppress:
+            if not beam.suppress:
                 print('found curved mirror')
             intersection = self.downstream_component.find_intersection(beam).flatten()
-            if not self.suppress:
+            if not beam.suppress:
                 print(intersection)
             x_intersect = intersection[0]
             y_intersect = intersection[1]
@@ -5313,7 +5314,7 @@ class Drift:
 
         self.dz = np.sqrt(dx**2 + dy**2 + dz**2)
         self.downstream_component.correction = self.dz - old_z
-        if not self.suppress:
+        if not beam.suppress:
             print('delta z: %.2f' % ((self.dz - old_z)*1e6))
 
         # beam.global_x = x_intersect

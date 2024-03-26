@@ -267,7 +267,7 @@ class Beam:
     def reinitialize(self, dz):
         self.beam_params['z0x'] = dz
         self.beam_params['z0y'] = dz
-        self.__init__(beam_params=self.beam_params)
+        self.__init__(beam_params=self.beam_params,suppress=self.suppress)
 
     def update_parameters(self, dz):
         """

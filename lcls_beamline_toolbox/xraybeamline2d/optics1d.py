@@ -5066,6 +5066,15 @@ class WFS:
         # plt.figure()
         # plt.plot(beam.y*1e6, self.grating_y)
 
+        shiftx = np.mod(int(M/2),int(self.x_pitch))
+        shifty = np.mod(int(N/2),int(self.y_pitch))
+
+        print(shiftx)
+        print(shifty)
+
+        self.grating_x = np.roll(self.grating_x, int(shiftx))
+        self.grating_y = np.roll(self.grating_y, int(shifty))
+
         # convert to checkerboard pi phase grating if desired
         if self.phase:
 
@@ -5073,8 +5082,8 @@ class WFS:
             self.grating_y = np.exp(1j*self.grating_phase*self.grating_y)
 
         # shift grating if there is an offset
-        self.grating_x = np.roll(self.grating_x, int(np.round(beam.cx/beam.dx)))
-        self.grating_y = np.roll(self.grating_y, int(np.round(beam.cy / beam.dy)))
+        # self.grating_x = np.roll(self.grating_x, int(np.round(beam.cx/beam.dx)))
+        # self.grating_y = np.roll(self.grating_y, int(np.round(beam.cy / beam.dy)))
 
         # multiply beam by grating
         beam.wavex *= self.grating_x
