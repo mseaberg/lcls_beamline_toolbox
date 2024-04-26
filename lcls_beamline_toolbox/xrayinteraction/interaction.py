@@ -6,13 +6,14 @@ from lcls_beamline_toolbox.utility.util import Util
 
 class Device:
 
-    def __init__(self,name=None,range=None,material=None,angle=np.pi/2, thickness=None, z=None):
+    def __init__(self,name=None,range=None,material=None,angle=np.pi/2, thickness=None, z=None, roughness=0):
 
         self.range = range
         self.material = material
         self.angle = angle
         self.name = name
         self.thickness = thickness
+        self.roughness = roughness
         self.z = z
 
         self.get_atomic_mass()
@@ -546,8 +547,6 @@ class Multilayer:
         all_layers = self.layers + [self.vacuum]
         index_l = np.zeros(len(all_layers), dtype=complex)
 
-
-
         cos_alpha_l = np.zeros(len(all_layers), dtype=complex)
         sin_alpha_l = np.zeros_like(cos_alpha_l)
 
@@ -590,6 +589,17 @@ class Multilayer:
                 rij = ((index_l[i] * sin_alpha_l[j] - index_l[j] * sin_alpha_l[i])/
                        (index_l[i] * sin_alpha_l[j] + index_l[j] * sin_alpha_l[i]))
 
+            # incorporate roughness
+            s = 4*np.pi*np.sqrt(sin_alpha_l[i]*sin_alpha_l[j])/lambda0
+
+            if all_layers[j].roughness>0:
+                # w = np.sin(np.sqrt(3)*all_layers[j].roughness*s)/np.sqrt(3)/all_layers[j].roughness/s
+                # w = 1/(1+s**2*all_layers[j].roughness**2/2)
+                w = np.exp(-s ** 2 * all_layers[j].roughness ** 2 / 2)
+            else:
+                w=1
+            rij *= w
+
             # print(np.abs(rij)**2)
             # rij = self.reflect_layer(self.layers[j], self.layers[i], alpha_in, polarization)
 
@@ -621,6 +631,7 @@ class Multilayer:
 class Vacuum:
     def __init__(self, shape):
         self.thickness = np.zeros(shape)
+        self.roughness = 0
         self.index = 1
 
     def update_thickness(self, shape):
