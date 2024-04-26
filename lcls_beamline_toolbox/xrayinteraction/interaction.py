@@ -537,7 +537,7 @@ class Multilayer:
         if hasattr(substrate.thickness,'shape'):
             self.vacuum = Vacuum(substrate.thickness.shape)
         else:
-            self.vacuum = Vacuum(0)
+            self.vacuum = Vacuum(1)
         self.layers = [substrate] + layer_list
 
     def reflectivity(self, lambda0, alpha_in, polarization='s'):
@@ -567,6 +567,7 @@ class Multilayer:
             ri = np.ones(all_layers[0].thickness.shape, dtype=complex)
         else:
             ri = np.array([1],dtype=complex)
+
         # ri_total = np.zeros_like(ri)
         rj = np.zeros_like(ri)
         #rj = self.reflect_layer(self.layers[0], self.layers[1], alpha_in, polarization)
@@ -594,6 +595,7 @@ class Multilayer:
 
             #ri = (rij + rj * np.exp(2*1j * beta_i)) / (1 + rij * rj * np.exp(2 * 1j * beta_i))
             ri = np.exp(2*1j*beta_i) * (rij + rj) / (1 + rij*rj)
+            # print(ri)
 
             # ri_total += ri
 
