@@ -4077,6 +4077,7 @@ class Crystal(Mirror):
         # now make minor adjustment to k-vector based on central ray at exit plane
         # might want to do one axis at a time or change the order. Or could change the rotation
         # to rotate about the "unrotated" axes.
+        # have checked the following with a diagram and it is correct
         delta_ax = np.arcsin(np.sqrt(delta_k[0]**2+delta_k[2]**2))
         # delta_ax = np.arcsin(delta_k[0]/np.cos(self.beta0))
         x_sign = np.sign(np.dot(np.cross(k_i, k_f_global), beam.yhat))
@@ -6528,9 +6529,14 @@ class TransmissionGrating:
             beam.rotate_nominal(delta_elevation=self.beta0)
 
         delta_k = k_f - beam.zhat
-        delta_ax = np.arcsin(delta_k[0])
-        delta_ay = np.arcsin(delta_k[1])
-        beam.rotate_beam(delta_ax=delta_ax,delta_ay=delta_ay)
+
+        # have checked the following with a diagram and it is correct
+        delta_ax = np.arcsin(np.sqrt(delta_k[0] ** 2 + delta_k[2] ** 2))
+        # delta_ax = np.arcsin(delta_k[0]/np.cos(self.beta0))
+        x_sign = np.sign(np.dot(np.cross(beam.zhat, k_f), beam.yhat))
+        delta_ay = -np.arcsin(np.sqrt(delta_k[1] ** 2 + delta_k[2] ** 2))
+        y_sign = np.sign(-np.dot(np.cross(beam.zhat, k_f), beam.xhat))
+        beam.rotate_beam(delta_ax=x_sign * np.abs(delta_ax), delta_ay=y_sign * np.abs(delta_ay))
 
         return True
 
