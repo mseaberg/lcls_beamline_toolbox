@@ -3758,6 +3758,8 @@ class Crystal(Mirror):
         crystal_y = self.sagittal
         crystal_z = self.transverse
 
+        focused = False
+
         if not self.suppress:
             print('crystal unit vectors')
             print(self.normal)
@@ -3778,6 +3780,8 @@ class Crystal(Mirror):
 
             beamx = beam.x
             beamN = beam.M
+
+            focused = beam.focused_x
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
@@ -3790,6 +3794,7 @@ class Crystal(Mirror):
             wave = beam.wavey
             beamx = beam.y
             beamN = beam.N
+            focused = beam.focused_y
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
@@ -3802,6 +3807,7 @@ class Crystal(Mirror):
             wave = beam.wavex
             beamx = beam.x
             beamN = beam.M
+            focused = beam.focused_x
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
@@ -3814,6 +3820,7 @@ class Crystal(Mirror):
             wave = beam.wavey
             beamx = beam.y
             beamN = beam.N
+            focused = beam.focused_y
 
         # reference to global origin by adding beam global center
         coords += np.reshape(beam_center, (3, 1))
@@ -3829,6 +3836,15 @@ class Crystal(Mirror):
         # calculate contribution to rays from wavefront
         beam_slope_error = np.gradient(np.unwrap(np.angle(wave)),
                                        beamx) * beam.lambda0 / 2 / np.pi
+
+        # linear slope error (quadratic wavefront) needs to be subtracted if the
+        # beam is "focused", since this is already accounted for.
+        if focused:
+            beam_slope_error = np.nan_to_num(beam_slope_error, posinf=0, neginf=0)
+            linear = np.polyfit(beamx,beam_slope_error,1,w=np.abs(wave)**2)
+            beam_slope_error -= np.polyval(linear, beamx)
+            # beam_slope_p[0:2] = 0
+
         # rays_x_full = rays_x - beam_slope_error
         rays_x_full = np.copy(rays_x) + beam_slope_error
         rays_z_full = np.sqrt(np.ones_like(rays_x_full) - rays_x_full ** 2)
@@ -3892,7 +3908,7 @@ class Crystal(Mirror):
         crystal_normal[0,:] = np.ones_like(z_intersect) * np.cos(self.alphaAsym)
         crystal_normal[2,:] = np.ones_like(z_intersect) * np.sin(self.alphaAsym)
 
-        c_parallel = np.sum(crystal_normal* uz, axis=0) * uz * self.lambda0/self.d
+        c_parallel = np.sum(crystal_normal* uz, axis=0) * uz * beam.lambda0/self.d
 
         if figon:
             plt.figure()
@@ -4062,6 +4078,7 @@ class Crystal(Mirror):
         # might want to do one axis at a time or change the order. Or could change the rotation
         # to rotate about the "unrotated" axes.
         delta_ax = np.arcsin(np.sqrt(delta_k[0]**2+delta_k[2]**2))
+        # delta_ax = np.arcsin(delta_k[0]/np.cos(self.beta0))
         x_sign = np.sign(np.dot(np.cross(k_i, k_f_global), beam.yhat))
         delta_ay = -np.arcsin(np.sqrt(delta_k[1]**2+delta_k[2]**2))
         y_sign = np.sign(-np.dot(np.cross(k_i, k_f_global), beam.xhat))
@@ -4237,7 +4254,9 @@ class Crystal(Mirror):
         # total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
 
         wave = abs_out * np.exp(1j * phase_interp)
-        wave *= mask2
+
+        ### where did this come from??!!
+        # wave *= mask2
 
         if figon:
             plt.figure()
@@ -5451,6 +5470,8 @@ class PPM:
         self.y_phase = np.zeros(N)
         self.zx = 0
         self.zy = 0
+        self.ax = 0
+        self.ay = 0
         self.cx_beam = 0
         self.cy_beam = 0
         self.x_lineout = np.zeros(N)
@@ -5677,8 +5698,10 @@ class PPM:
         self.group_delay = beam.group_delay
 
         # add linear phase (centered on beam)
-        self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
-        self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y - beam.cy)
+        # self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
+        # self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y - beam.cy)
+        self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x-x_shift)
+        self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y-y_shift)
 
         # self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x)
         # self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y)
@@ -5688,11 +5711,17 @@ class PPM:
 
         # if beam is not focused get quadratic phase information
         if not beam.focused_x:
-            self.zx = beam.zx
-            self.cx_beam = beam.cx
+            self.zx = np.copy(beam.zx)
+            # self.cx_beam = beam.cx
+            self.cx_beam = x_shift
+
         if not beam.focused_y:
-            self.zy = beam.zy
-            self.cy_beam = beam.cy
+            self.zy = np.copy(beam.zy)
+            # self.cy_beam = beam.cy
+            self.cy_beam = y_shift
+
+        self.ax = np.copy(beam.ax)
+        self.ay = np.copy(beam.ay)
 
         # calculate horizontal lineout
         self.x_lineout = np.sum(self.profile, axis=0)
@@ -6356,8 +6385,154 @@ class PPM:
         # reshape into 2 dimensional representation
         complex_beam = np.sqrt(self.profile) * phase_2D
 
-        return complex_beam, self.group_delay, self.zx, self.zy, self.cx_beam, self.cy_beam
+        return complex_beam, self.group_delay, self.ax, self.ay, self.zx, self.zy, self.cx_beam, self.cy_beam
 
+class TransmissionGrating:
+    """
+    Class to represent transmission gratings, while only tracking a single order (multiple orders simultaneously can
+    be handled with "brute force" - modeling the complex-valued transmission directly).
+
+    Attributes
+    ----------
+    name: str
+        Name of the device (e.g. G1)
+    xwidth: float
+        Horizontal width beyond which the grating absorbs all photons. (meters)
+    ywidth: float
+        Vertical width beyond which the grating absorbs all photons. (meters)
+    E0: float or None
+        reference photon energy used to define pi phase shift depth if depth is None
+    material: str
+        Lens material. Currently only Be is implemented but may add CVD diamond in the future.
+        Looks up downloaded data from CXRO.
+    pitch: float
+        Grating period (m)
+    depth: float
+        Groove depth (m)
+    dx: float
+        Grating de-centering along beam's x-axis.
+    dy: float
+        Grating de-centering along beam's y-axis.
+    z: float
+        z location of grating along beamline.
+    energy: (N,) ndarray
+        List of photon energies from CXRO file (eV).
+    delta: (N,) ndarray
+        Real part of index of refraction. n = 1 - delta + 1j * beta
+    beta: (N,) ndarray
+        Imaginary part of index of refraction. n = 1 - delta + 1j * beta
+    orientation: int
+            Whether or not this is a horizontally deflecting or vertically deflecting
+            grating (0 for horizontal, 1 for vertical).
+    """
+    def __init__(self, name, material='CVD', pitch=1e-6, depth=None, E0=None, phase_shift=np.pi, order=1, dx=0, dy=0, z=0, orientation=0,
+                 xwidth=2e-3, ywidth=2e-3, suppress=True):
+        self.name = name
+        self.material = material
+        self.pitch = pitch
+        self.depth = depth
+        self.E0 = E0
+        self.lambda0 = 1239.8/self.E0*1e-9
+        self.phase_shift = phase_shift
+        self.order = order
+        self.dx = dx
+        self.dy = dy
+        self.z = z
+        self.orientation = orientation
+        self.xwidth = xwidth
+        self.ywidth = ywidth
+        self.xhat = None
+        self.yhat = None
+        self.zhat = None
+        self.suppress = suppress
+
+        # get file name of CXRO data
+        filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
+
+        # load in CXRO data
+        cxro_data = np.genfromtxt(filename, delimiter=',')
+        self.energy = cxro_data[:, 0]
+        self.delta = cxro_data[:, 1]
+        self.beta = cxro_data[:, 2]
+
+        # if these arguments are given then override default roc or even roc argument
+        if self.E0 is not None:
+            # interpolate to find index of refraction at beam's energy
+            delta = np.interp(self.E0, self.energy, self.delta)
+            # calculate radius of curvature based on f and delta
+            self.depth = self.lambda0*self.phase_shift/(2*np.pi*delta)
+
+            # calculate nominal diffraction angle for reference energy
+            self.beta0 = np.arcsin(self.order * self.lambda0/self.pitch)
+        else:
+            self.beta0 = 0.0
+        # assume nominal incidence angle is 0 (measured from normal)
+        self.alpha = 0.0
+
+    def propagate(self, beam):
+        """
+        Method to propagate beam through grating. Calls multiply.
+        :param beam: Beam
+            Beam object to propagate through grating. Beam is modified by this method.
+        :return: None
+        """
+        success = self.multiply(beam)
+        return success
+
+    def multiply(self, beam):
+
+        # calculate diffraction angle at beam center
+        beta0 = np.arcsin(self.order * beam.lambda0/self.pitch)
+
+        # calculate diffraction efficiency
+        delta = np.interp(beam.photonEnergy, self.energy, self.delta)
+        phase_shift = 2 * np.pi / beam.lambda0 * delta * self.depth
+        if self.order==0:
+            efficiency = np.cos(phase_shift/2)**2
+        elif np.mod(self.order,2)==0:
+            efficiency = 0
+        else:
+            efficiency = (2/np.pi*np.sin(phase_shift/2)/self.order)**2
+
+        # calculate incidence angle
+
+        if self.orientation==0:
+            # calculate beam "rays" in beam local coordinates
+            # rays_x = beam.x/beam.zx
+            # # transverse unit vector
+            # t_hat = beam.xhat
+            #
+            # # project beam x-axis into grating xz-plane
+            # xplane = beam.xhat - np.dot(beam.xhat,self.yhat)*self.yhat
+            # c = np.cross(beam.xhat, self.xhat)
+            # sign = np.sign(np.dot(c,self.yhat))
+            # alpha0 = np.arcsin(np.sqrt(np.sum(np.abs(c)**2)))*sign
+            grating_vec = 2*np.pi/self.pitch * self.order * self.xhat
+            beam.wavex *= np.sqrt(efficiency)
+        elif self.orientation==1:
+            # calculate beam "rays" in beam local coordinates
+            # rays_x = beam.y/beam.zy
+            # # transverse unit vector
+            # t_hat = beam.yhat
+            grating_vec = 2*np.pi/self.pitch * self.order * self.yhat
+            beam.wavey *= np.sqrt(efficiency)
+
+        k_i_parallel = beam.zhat - np.dot(beam.zhat, self.zhat) * self.zhat
+        k_f_parallel = k_i_parallel + beam.lambda0/2/np.pi * grating_vec
+        k_f_perp = np.sqrt(1-np.dot(k_f_parallel, k_f_parallel)) * self.zhat
+        k_f = k_f_parallel + k_f_perp
+
+        if self.orientation==0:
+            beam.rotate_nominal(delta_azimuth=self.beta0)
+        elif self.orientation==1:
+            beam.rotate_nominal(delta_elevation=self.beta0)
+
+        delta_k = k_f - beam.zhat
+        delta_ax = np.arcsin(delta_k[0])
+        delta_ay = np.arcsin(delta_k[1])
+        beam.rotate_beam(delta_ax=delta_ax,delta_ay=delta_ay)
+
+        return True
 
 class CRL:
     """

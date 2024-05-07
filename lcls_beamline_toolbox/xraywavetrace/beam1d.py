@@ -1144,6 +1144,10 @@ class Pulse:
         self.cx = {}
         self.cy = {}
 
+        # initialize beam angle
+        self.ax = {}
+        self.ay = {}
+
         # initialize group delay dictionary
         self.delay = {}
 
@@ -1317,6 +1321,8 @@ class Pulse:
             self.qy[screen] = np.zeros(self.N)
             self.cx[screen] = np.zeros(self.N)
             self.cy[screen] = np.zeros(self.N)
+            self.ax[screen] = np.zeros(self.N)
+            self.ay[screen] = np.zeros(self.N)
             self.delay[screen] = np.zeros(self.N)
 
         # loop through beams in the pulse
@@ -1329,7 +1335,7 @@ class Pulse:
             for screen in screen_names:
                 # put current photon energy into energy stack, multiply by spectral envelope
                 screen_obj = getattr(beamline, screen)
-                energy_slice, delay, zx, zy, cx, cy = screen_obj.complex_beam()
+                energy_slice, delay, ax, ay, zx, zy, cx, cy = screen_obj.complex_beam()
                 self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
                 if zx != 0:
                     self.qx[screen][num] = 1/zx
@@ -1337,6 +1343,8 @@ class Pulse:
                     self.qy[screen][num] = 1/zy
                 self.cx[screen][num] = cx
                 self.cy[screen][num] = cy
+                self.ax[screen][num] = ax
+                self.ay[screen][num] = ay
                 self.delay[screen][num] = delay
                 # self.energy_stacks[screen][:, :, num] = screen_obj.complex_beam() * self.envelope[num]
 
