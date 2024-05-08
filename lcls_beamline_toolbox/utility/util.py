@@ -2,12 +2,14 @@
 util module for xraybeamline2d package
 """
 import numpy as np
-try:
-    import cupy as xp
-    import cupyx.scipy as sp
-except ImportError:
-    import numpy as xp
-    import scipy as sp
+import numpy as xp
+import scipy as sp
+#try:
+#    import cupy as xp
+#    import cupyx.scipy as sp
+#except ImportError:
+#    import numpy as xp
+#    import scipy as sp
 import scipy.special
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
