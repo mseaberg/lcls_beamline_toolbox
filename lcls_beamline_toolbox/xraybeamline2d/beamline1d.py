@@ -9,7 +9,7 @@ Currently implements the following classes:
 Beamline: stores list of optics devices, and interfaces with Beam to propagate through beamline sections.
 """
 
-from .optics1d import Drift, Mono, Mirror
+from .optics1d import Drift, Mono, Mirror, TransmissionGrating
 # import matplotlib.pyplot as plt
 import copy
 import numpy as np
@@ -166,6 +166,14 @@ class Beamline:
                 device.xhat = xhat
                 device.yhat = yhat
                 device.zhat = zhat
+
+                if issubclass(type(device), TransmissionGrating):
+                    if device.orientation==0:
+                        xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.beta0)
+                    elif device.orientation==1:
+                        xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.beta0, dir='elevation')
+
+                k = np.copy(zhat)
                 # device.azimuth = azimuth
                 # device.elevation = elevation
             # update previous device

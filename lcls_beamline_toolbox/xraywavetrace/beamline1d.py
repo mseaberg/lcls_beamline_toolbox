@@ -9,7 +9,7 @@ Currently implements the following classes:
 Beamline: stores list of optics devices, and interfaces with Beam to propagate through beamline sections.
 """
 
-from .optics1d import Drift, Mono, Mirror, Grating
+from .optics1d import Drift, Mono, Mirror, Grating, TransmissionGrating
 # import matplotlib.pyplot as plt
 import copy
 import json
@@ -33,7 +33,7 @@ class Beamline:
         A list of all the devices contained along a given beamline (including Drifts).
     """
 
-    def __init__(self, device_list, ordered=False):
+    def __init__(self, device_list, ordered=False, suppress=True):
         """
         Initialize a Beamline object.
         :param device_list: list of optics objects (see optics module)
@@ -45,6 +45,8 @@ class Beamline:
 
         # set attribute for whether devices are in correct order
         self.ordered = ordered
+
+        self.suppress = suppress
 
         # initialize full array without drifts
         self.full_list = self.device_list.copy()
@@ -168,6 +170,14 @@ class Beamline:
                 device.xhat = xhat
                 device.yhat = yhat
                 device.zhat = zhat
+
+                if issubclass(type(device), TransmissionGrating):
+                    if device.orientation==0:
+                        xhat, yhat, zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=device.beta0)
+                    elif device.orientation==1:
+                        xhat, yhat, zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=device.beta0, dir='elevation')
+
+                k = np.copy(zhat)
                 # device.azimuth = azimuth
                 # device.elevation = elevation
             # update previous device
@@ -384,16 +394,21 @@ class Beamline:
         # loop through all devices including drifts
         for device in self.full_list:
             # print name
-            print('\033[1m' +device.name+'\033[0m')
+            if not self.suppress:
+                print('\033[1m' +device.name+'\033[0m')
 
             # propagate through device. beam is modified directly.
-            device.propagate(beam)
+            success = device.propagate(beam)
             # print some beam info
-            print('zx: %.6f' % beam.zx)
-            print('zy: %.6f' % beam.zy)
-            print('azimuth %.2f mrad' % (beam.global_azimuth*1e3))
+            if not self.suppress:
+                print('zx: %.6f' % beam.zx)
+                print('zy: %.6f' % beam.zy)
+                print('azimuth %.2f mrad' % (beam.global_azimuth*1e3))
             # print('ay: %.2f microrad' % (beam.ay*1e6))
             # print('cy: %.2f microns' % (beam.cy*1e6))
+
+            if not success:
+                break
 
         # return the output of the beamline
         return beam
@@ -474,7 +489,8 @@ class Beamline:
         for device in partial_list:
             # propagate through current device and print the name
             device.propagate(beam)
-            print(device.name)
+            if not self.suppress:
+                print(device.name)
 
         return beam
 
@@ -503,7 +519,8 @@ class Beamline:
             device1 = getattr(self, devices[0])
         except AttributeError:
             # give up if there aren't any motors
-            print('Need at least one motor')
+            if not self.suppress:
+                print('Need at least one motor')
             return
         # check if there's a second device. If not just use one.
         try:
@@ -515,7 +532,8 @@ class Beamline:
             screen1 = getattr(self, screen1)
         except AttributeError:
             # give up if there aren't any screens
-            print('Need at least one screen')
+            if not self.suppress:
+                print('Need at least one screen')
             return
         # check if there is a second screen
         try:
@@ -550,13 +568,15 @@ class Beamline:
                 dz = screen1.z - device1.z
                 if dz < 0:
                     # give up if screen is upstream of device
-                    print('Screen is upstream of device')
+                    if not self.suppress:
+                        print('Screen is upstream of device')
                     return
 
                 # make adjustment
                 delta = -error / dz / 2
                 device1.adjust_motor('delta', delta)
-                print('Changed %s angle by %.2f microrad' % (device1.name, delta*1e6))
+                if not self.suppress:
+                    print('Changed %s angle by %.2f microrad' % (device1.name, delta*1e6))
                 return
 
             else:
@@ -581,21 +601,24 @@ class Beamline:
                 device1.adjust_motor('dx', dx)
 
                 # print message
-                print('Changed %s angle by %.2f microrad' % (device1.name, delta*1e6))
-                print('Moved %s x by %.2f microns' % (device1.name, dx*1e6))
+                if not self.suppress:
+                    print('Changed %s angle by %.2f microrad' % (device1.name, delta*1e6))
+                    print('Moved %s x by %.2f microns' % (device1.name, dx*1e6))
 
         # if we have two devices just use the angle of both for alignment. May need to adjust this to also keep
         # second mirror centered with dx also.
         else:
             # make sure there are two screens
             if screen2 is None:
-                print('Need a second screen')
+                if not self.suppress:
+                    print('Need a second screen')
                 return
             # we have two screens and two mirrors/devices!
             else:
                 # calibrate motion influence on beam position at screens
                 A = self.calibrate(beam_in, device1, device2, screen1, screen2)
-                print(A)
+                if not self.suppress:
+                    print(A)
 
                 # propagate beam up until first device
                 beamOut = self.propagate_until(beam_in, device1.name)
@@ -605,7 +628,8 @@ class Beamline:
                 # still needs work, this only works for horizontal motion...
                 deltaC = np.array([screen1.cx, screen2.cx])
                 deltaX = np.dot(A, deltaC)
-                print(deltaX)
+                if not self.suppress:
+                    print(deltaX)
 
                 # move devices
                 device1.adjust_motor('delta', -deltaX[0])
@@ -754,8 +778,9 @@ class Beamline:
         # get wavefront data into measurement dicts
         mx['z'] = wfs_data['z2x']
         my['z'] = wfs_data['z2y']
-        print(mx['z'])
-        print(my['z'])
+        if not self.suppress:
+            print(mx['z'])
+            print(my['z'])
         mx['L3'] = wfs_data['coeff_x'][2]
         my['L3'] = wfs_data['coeff_y'][2]
 
@@ -774,8 +799,9 @@ class Beamline:
         deltaC_y.append(my['z']-yGoals['z'])
         deltaC_y.append(my['L3']-yGoals['L3'])
 
-        print('deltaC_x: ' + str(deltaC_x))
-        print('deltaC_y: ' + str(deltaC_y))
+        if not self.suppress:
+            print('deltaC_x: ' + str(deltaC_x))
+            print('deltaC_y: ' + str(deltaC_y))
 
         # calculate motion necessary for alignment
         deltaX_x = np.dot(Ax, np.array(deltaC_x))
@@ -785,7 +811,8 @@ class Beamline:
         motors_x = mirror_x.motor_list
         motors_y = mirror_y.motor_list
 
-        print(motors_x)
+        if not self.suppress:
+            print(motors_x)
 
         # move motors accordingly
         for num, motor in enumerate(motors_x):
@@ -836,8 +863,9 @@ class Beamline:
         screens.pop(0)
 
         # print screen names
-        for screen in screens:
-            print(screen.name)
+        if not self.suppress:
+            for screen in screens:
+                print(screen.name)
 
         # number of measurements per axis. One per screen and 2 wavefront measurements
         N = len(screens) + 2
@@ -895,8 +923,9 @@ class Beamline:
         motors_y = mirror_y.motor_list
 
         # print motors
-        print(motors_x)
-        print(motors_y)
+        if not self.suppress:
+            print(motors_x)
+            print(motors_y)
 
         # number of measurements per axis
         measurementsPerAxis = 2+len(screens)
@@ -952,16 +981,18 @@ class Beamline:
             self.adjust_device(mirror_x_name, motor, -adjustment)
 
         # print the measurement matrix
-        print(Ax_inverse)
+        if not self.suppress:
+            print(Ax_inverse)
 
-        # make sure the matrix is full rank
-        print('rank: %.2f' % np.linalg.matrix_rank(Ax_inverse))
+            # make sure the matrix is full rank
+            print('rank: %.2f' % np.linalg.matrix_rank(Ax_inverse))
 
         # invert to get calibration matrix
         Ax = np.linalg.inv(Ax_inverse)
 
         # print it
-        print(Ax)
+        if not self.suppress:
+            print(Ax)
 
         # now calibrate vertical motors
         for num, motor in enumerate(motors_y):
@@ -1009,6 +1040,7 @@ class Beamline:
         Ay = np.linalg.inv(Ay_inverse)
 
         # print it
-        print(Ay)
+        if not self.suppress:
+            print(Ay)
 
         return Ax, Ay

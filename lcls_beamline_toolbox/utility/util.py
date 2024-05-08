@@ -1074,12 +1074,18 @@ class Util:
         return xhat, yhat, zhat
 
     @staticmethod
-    def plan_checkerboard(wfs_obj, ppm_obj, photon_energy, fraction=1):
+    def plan_checkerboard(wfs_obj=None, ppm_obj=None, photon_energy=None, f0=None,
+                          zT=None, fraction=1):
 
-        # distance from focus to grating
-        R1 = wfs_obj.f0
-        # "Talbot" distance
-        zT = ppm_obj.z - wfs_obj.z
+        if wfs_obj is not None and ppm_obj is not None:
+            # distance from focus to grating
+            R1 = wfs_obj.f0
+            # "Talbot" distance
+            zT = ppm_obj.z - wfs_obj.z
+        elif f0 is not None and zT is not None:
+            R1 = f0
+        else:
+            print("Provide either WFS/PPM objects or distances (f0, zT)")
         # distance from focus to imager
         R2 = R1 + zT
         lambda0 = 1239.8/photon_energy*1e-9

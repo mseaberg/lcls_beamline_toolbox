@@ -6,13 +6,14 @@ from lcls_beamline_toolbox.utility.util import Util
 
 class Device:
 
-    def __init__(self,name=None,range=None,material=None,angle=np.pi/2, thickness=None, z=None):
+    def __init__(self,name=None,range=None,material=None,angle=np.pi/2, thickness=None, z=None, roughness=0):
 
         self.range = range
         self.material = material
         self.angle = angle
         self.name = name
         self.thickness = thickness
+        self.roughness = roughness
         self.z = z
 
         self.get_atomic_mass()
@@ -537,7 +538,7 @@ class Multilayer:
         if hasattr(substrate.thickness,'shape'):
             self.vacuum = Vacuum(substrate.thickness.shape)
         else:
-            self.vacuum = Vacuum(0)
+            self.vacuum = Vacuum(1)
         self.layers = [substrate] + layer_list
 
     def reflectivity(self, lambda0, alpha_in, polarization='s'):
@@ -545,8 +546,6 @@ class Multilayer:
         # self.vacuum.update_index(alpha_in.shape)
         all_layers = self.layers + [self.vacuum]
         index_l = np.zeros(len(all_layers), dtype=complex)
-
-
 
         cos_alpha_l = np.zeros(len(all_layers), dtype=complex)
         sin_alpha_l = np.zeros_like(cos_alpha_l)
@@ -567,6 +566,7 @@ class Multilayer:
             ri = np.ones(all_layers[0].thickness.shape, dtype=complex)
         else:
             ri = np.array([1],dtype=complex)
+
         # ri_total = np.zeros_like(ri)
         rj = np.zeros_like(ri)
         #rj = self.reflect_layer(self.layers[0], self.layers[1], alpha_in, polarization)
@@ -589,11 +589,23 @@ class Multilayer:
                 rij = ((index_l[i] * sin_alpha_l[j] - index_l[j] * sin_alpha_l[i])/
                        (index_l[i] * sin_alpha_l[j] + index_l[j] * sin_alpha_l[i]))
 
+            # incorporate roughness
+            s = 4*np.pi*np.sqrt(sin_alpha_l[i]*sin_alpha_l[j])/lambda0
+
+            if all_layers[j].roughness>0:
+                # w = np.sin(np.sqrt(3)*all_layers[j].roughness*s)/np.sqrt(3)/all_layers[j].roughness/s
+                # w = 1/(1+s**2*all_layers[j].roughness**2/2)
+                w = np.exp(-s ** 2 * all_layers[j].roughness ** 2 / 2)
+            else:
+                w=1
+            rij *= w
+
             # print(np.abs(rij)**2)
             # rij = self.reflect_layer(self.layers[j], self.layers[i], alpha_in, polarization)
 
             #ri = (rij + rj * np.exp(2*1j * beta_i)) / (1 + rij * rj * np.exp(2 * 1j * beta_i))
             ri = np.exp(2*1j*beta_i) * (rij + rj) / (1 + rij*rj)
+            # print(ri)
 
             # ri_total += ri
 
@@ -619,6 +631,7 @@ class Multilayer:
 class Vacuum:
     def __init__(self, shape):
         self.thickness = np.zeros(shape)
+        self.roughness = 0
         self.index = 1
 
     def update_thickness(self, shape):
