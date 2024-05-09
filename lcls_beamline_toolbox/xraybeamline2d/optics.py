@@ -26,6 +26,7 @@ import scipy.optimize as optimize
 import scipy.spatial.transform as transform
 import skimage.transform as sktransform
 from skimage.restoration import unwrap_phase
+from datetime import datetime
 import os
 import pickle
 from ..polyprojection.legendre import LegendreFit2D
@@ -2967,7 +2968,10 @@ class PPM_Device(PPM):
         if port is None:
             self.epics_name = self.imager_prefix + 'IMAGE1:'
             self.acquisition_period = PV(self.imager_prefix + 'AcquirePeriod_RBV').get()
+       
         
+        self.x_bm_ctr = PV(self.imager_prefix + 'CAM:X_BM_CTR')
+        self.y_bm_ctr = PV(self.imager_prefix + 'CAM:Y_BM_CTR')
 
         self.orientation = 'action0'
 
@@ -3177,7 +3181,9 @@ class PPM_Device(PPM):
         self.fit_object = None
 
         # load in dummy image
-        self.dummy_image = np.load('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
+        #self.dummy_image = np.load('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
+        img_data = np.load('/cds/home/s/seaberg/im5k4_run123.npz')
+        self.dummy_image = img_data['image']
 
     def set_orientation(self, orientation):
         self.orientation = orientation
@@ -3457,6 +3463,8 @@ class PPM_Device(PPM):
 
     def stop(self):
         self.running = False
+        self.x_bm_ctr.put(np.nan)
+        self.y_bm_ctr.put(np.nan)
         try:
             pass
             #self.gige.cam.acquire.put(0, wait=True)
@@ -3483,31 +3491,36 @@ class PPM_Device(PPM):
     def get_dummy_image(self):
         return self.dummy_image
 
-    def get_image(self, angle=0):
+    def get_image(self, angle=0, demo=False):
         #try:
     # do averaging
         if hasattr(self, 'average'):
             numImages = getattr(self, 'average').get_numImages()
         else:
             numImages = 1
-        
-        try:
-            image_data = self.image_pv.get_with_metadata()
-        except:
-            image_data = np.zeros((self.ysize, self.xsize))
-        img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
-        if numImages > 1:
-            for i in range(numImages-1):
-                # wait for the next image
-                sleep(self.acquisition_period)
+       
+        if demo:
+            img = self.get_dummy_image()
+            print('shape: {}'.format(img.shape[0]))
+            time_stamp = datetime.timestamp(datetime.now())
+        else:
+            try:
                 image_data = self.image_pv.get_with_metadata()
-                imgTemp = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
-                img += imgTemp
+            except:
+                image_data = np.zeros((self.ysize, self.xsize))
+            img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+            if numImages > 1:
+                for i in range(numImages-1):
+                    # wait for the next image
+                    sleep(self.acquisition_period)
+                    image_data = self.image_pv.get_with_metadata()
+                    imgTemp = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+                    img += imgTemp
 
 
-        img = img/numImages
+            img = img/numImages
 
-        time_stamp = image_data['timestamp']
+            time_stamp = image_data['timestamp']
         # time_stamp = image_data.time_stamp
         # img = np.array(image_data.shaped_image,dtype='float')
         # img = np.array(self.gige.image2.image,dtype='float')
@@ -3579,6 +3592,13 @@ class PPM_Device(PPM):
 
         #print(self.cx)
         #print(self.cy)
+
+        if self.centroid_is_valid:
+            self.x_bm_ctr.put(self.cx)
+            self.y_bm_ctr.put(self.cy)
+        else:
+            self.x_bm_ctr.put(np.nan)
+            self.y_bm_ctr.put(np.nan)
 
         #print(x_center)
         #print(y_center)
@@ -3864,7 +3884,9 @@ class EXS_Device(PPM):
         self.fit_object = None
 
         # load in dummy image
-        self.dummy_image = np.load('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
+        #self.dummy_image = np.load('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/im2l0_sim.npy')
+        img_data = np.load('/cds/home/s/seaberg/im5k4_run123.npz')
+        self.dummy_image = img_data['image']
 
     def beam_analysis(self, line_x, line_y):
         """
@@ -4288,7 +4310,7 @@ class EXS_Device(PPM):
     def get_dummy_image(self):
         return self.dummy_image
 
-    def get_image(self, angle=0):
+    def get_image(self, angle=0, demo=False):
         try:
             # do averaging
             if hasattr(self, 'average'):
@@ -4296,20 +4318,24 @@ class EXS_Device(PPM):
             else:
                 numImages = 1
 
-            image_data = self.image_pv.get_with_metadata()
+            if demo:
+                img = self.get_dummy_image()
+                print('shape: {}'.format(np.shape(img)[0]))
+                time_stamp = datetime.timestamp(datetime.now())
+            else:
+                image_data = self.image_pv.get_with_metadata()
+                img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+                if numImages > 1:
+                    for i in range(numImages - 1):
+                        # wait for the next image
+                        sleep(self.acquisition_period)
+                        image_data = self.image_pv.get_with_metadata()
+                        imgTemp = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
+                        img += imgTemp
 
-            img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
-            if numImages > 1:
-                for i in range(numImages - 1):
-                    # wait for the next image
-                    sleep(self.acquisition_period)
-                    image_data = self.image_pv.get_with_metadata()
-                    imgTemp = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
-                    img += imgTemp
+                img = img / numImages
 
-            img = img / numImages
-
-            time_stamp = image_data['timestamp']
+                time_stamp = image_data['timestamp']
             # time_stamp = image_data.time_stamp
             # img = np.array(image_data.shaped_image,dtype='float')
             # img = np.array(self.gige.image2.image,dtype='float')
@@ -4570,7 +4596,7 @@ class WFS_Device(WFS):
             'PF1L0': 735.6817413,
             'PF1K4': 763.515,
             #'PF1K4': 763.66694 - .0093,
-            'PF2K4': 768.583,
+            'PF2K4': 768.583 - .0093,
             #'PF2K2': 792.319 - .0093,
             'PF2K2': 792.319 - .0093
         }
