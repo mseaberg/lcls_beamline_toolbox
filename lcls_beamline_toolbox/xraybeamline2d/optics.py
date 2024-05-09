@@ -3083,8 +3083,15 @@ class PPM_Device(PPM):
             self.cx_target = 0.0
             self.cy_target = 0.0
 
-        
-
+        dx = PV(self.imager_prefix + 'CAM:RESOLUTION').get()
+        if dx is not None:
+            self.dx = dx
+        cx_target = PV(self.imager_prefix + 'CAM:X_RTCL_CTR').get()
+        if cx_target is not None:
+            self.cx_target = cx_target
+        cy_target = PV(self.imager_prefix + 'CAM:Y_RTCL_CTR').get()
+        if cy_target is not None:
+            self.cy_target = cy_target
         #self.cx_target = 0
         #self.cy_target = 0
 
@@ -3093,6 +3100,12 @@ class PPM_Device(PPM):
         # if len(sys.argv)>1:
         #     self.cam_name = sys.argv[1]
         #     self.epics_name = sys.argv[1] + 'IMAGE2:'
+
+        if 'XTES' in self.imager_prefix or 'PPM' in self.imager_prefix:
+            PV(self.epics_name + 'ROI:Scale').put(1)
+            PV(self.epics_name + 'ROI:BinX').put(1)
+            PV(self.epics_name + 'ROI:BinY').put(1)
+            PV(self.imager_prefix + 'CAM:DataType').put('UInt16')
 
         self.image_pv = PV(self.epics_name + 'ArrayData')
 
