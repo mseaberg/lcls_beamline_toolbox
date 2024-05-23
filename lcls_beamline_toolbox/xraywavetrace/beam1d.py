@@ -1051,6 +1051,7 @@ class Pulse:
         self.num_spikes = num_spikes
         self.E0 = beam_params['photonEnergy']
         self.suppress = suppress
+        self.spectral_width = spectral_width
 
         # ----- energy range
         # 1/e^2 in intensity bandwidth (radius) for transform-limited pulse
@@ -1063,7 +1064,7 @@ class Pulse:
             f_range = E_range / 4.136
 
             # time resolution corresponding to full energy range (in fs)
-            self.deltaT = 1 / f_range
+            self.deltaT = 1.0 / f_range
 
             self.N = N
             # define pulse energies and envelope
@@ -1418,7 +1419,10 @@ class Pulse:
         beam_params = self.beam_params
         tau = self.tau
         time_window = self.time_window
-        new_pulse = Pulse(beam_params=beam_params, tau=tau, time_window=time_window)
+        if self.tau is not None:
+            new_pulse = Pulse(beam_params=beam_params, tau=tau, time_window=time_window)
+        else:
+            new_pulse = Pulse(beam_params=beam_params, unit_spectrum=True, N=self.N, spectral_width=self.spectral_width)
 
         time_stacks = {}
         energy_stacks = {}

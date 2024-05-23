@@ -93,6 +93,7 @@ class Mirror:
         self.motor_list = ['dx', 'delta']
         self.length = 1.
         self.width = 25.e-3
+        self.thickness = None
         self.alpha = 1.e-3
         self.beta0 = 1.e-3
         self.z = None
@@ -127,7 +128,7 @@ class Mirror:
         # set allowed kwargs
         allowed_arguments = ['length', 'width', 'alpha', 'z', 'orientation', 'shapeError',
                              'delta', 'dx', 'dy', 'motor_list', 'roll', 'yaw', 'show_figures', 'use_reflectivity',
-                             'material', 'suppress']
+                             'material', 'suppress', 'thickness']
         # update attributes based on kwargs
         for key, value in kwargs.items():
             if key in allowed_arguments:
@@ -3545,11 +3546,11 @@ class Crystal(Mirror):
         self.E0 = E0
         self.lambda0 = 1239.8 / E0 * 1e-9
 
-        # define xrt crystal for reflectivity and crystal parameters
+        # define xrt crystal for reflectivity and crystal parameters. Crystal thickness argument has mm units
         if self.material == 'Si':
-            self.crystal = materials.CrystalSi(hkl=self.hkl)
+            self.crystal = materials.CrystalSi(hkl=self.hkl, t=self.thickness*1e3)
         elif self.material == 'diamond':
-            self.crystal = materials.CrystalDiamond(hkl=self.hkl)
+            self.crystal = materials.CrystalDiamond(hkl=self.hkl, t=self.thickness*1e3)
 
         # lattice spacing
         self.d = self.crystal.d * 1e-10
