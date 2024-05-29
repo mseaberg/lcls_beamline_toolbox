@@ -3548,9 +3548,15 @@ class Crystal(Mirror):
 
         # define xrt crystal for reflectivity and crystal parameters. Crystal thickness argument has mm units
         if self.material == 'Si':
-            self.crystal = materials.CrystalSi(hkl=self.hkl, t=self.thickness*1e3)
+            if self.thickness is None:
+                self.crystal = materials.CrystalSi(hkl=self.hkl)
+            else:
+                self.crystal = materials.CrystalSi(hkl=self.hkl, t=self.thickness*1e3)
         elif self.material == 'diamond':
-            self.crystal = materials.CrystalDiamond(hkl=self.hkl, t=self.thickness*1e3)
+            if self.thickness is None:
+                self.crystal = materials.CrystalDiamond(hkl=self.hkl)
+            else:
+                self.crystal = materials.CrystalDiamond(hkl=self.hkl, t=self.thickness*1e3)
 
         # lattice spacing
         self.d = self.crystal.d * 1e-10

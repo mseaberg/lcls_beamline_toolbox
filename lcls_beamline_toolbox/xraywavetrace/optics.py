@@ -4446,7 +4446,7 @@ class Mono:
         self.delta = delta
         self.f = f
         self.cff = CFF
-        self.grating.z = self.m2.z + .68
+        # self.grating.z = self.m2.z + .68
         self.e0 = E0
 
         # set grating focal length
@@ -4456,8 +4456,10 @@ class Mono:
 
         # calculate some reference angles
         self.m_ref = np.arctan(.012 / .68) / 2
-        self.alpha_ref = (85.52e-3 - 2 * self.m_ref) / (self.cff + 1)
-        self.beta_ref = self.cff * self.alpha_ref
+        # self.alpha_ref = (85.52e-3 - 2 * self.m_ref) / (self.cff + 1)
+        # self.beta_ref = self.cff * self.alpha_ref
+        self.alpha_ref = (85.52e-3 - 2 * self.m_ref) / 2
+        self.beta_ref = np.copy(self.alpha_ref)
 
         # calculate reference energy
         lambda1 = np.cos(self.alpha_ref) - np.cos(np.arcsin(self.cff * np.sin(self.alpha_ref))) / self.grating.n0
@@ -4465,7 +4467,15 @@ class Mono:
 
         # set pre-mirror alpha (angle of incidence when beam is centered on pre-mirror)
         self.m2.alpha = self.m_ref
+        self.m2.beta0 = self.m_ref
 
+        # set grating to reference angles
+        self.grating.alpha = self.alpha_ref
+        self.grating.beta0 = self.beta_ref
+
+
+
+    def align(self):
         # calculate grating angle of incidence and diffraction angle for energy E0
         alpha0 = self.calc_alpha()
         beta0 = self.calc_beta(alpha0)
@@ -4480,16 +4490,26 @@ class Mono:
         self.delta_mirror = self.delta * (1 + 1 / self.cff) / 2
 
         # pre-mirror distance adjustment
-        self.m2.z = self.m2.z + .006 * (self.delta_mirror + delta_mirror) - .68 * (
-                np.cos(self.delta_mirror + delta_mirror) - 1)
-        # pre-mirror x-axis position adjustment
-        self.m2.dx = self.m2.dx - .68 * (self.delta_mirror + delta_mirror) - .006 * (
-                np.cos(self.delta_mirror + delta_mirror) - 1)
+        # self.m2.z = self.m2.z + .006 * (self.delta_mirror + delta_mirror) - .68 * (
+        #         np.cos(self.delta_mirror + delta_mirror) - 1)
+        # # pre-mirror x-axis position adjustment
+        # self.m2.dx = (self.m2.dx - .68 * (self.delta_mirror + delta_mirror) - .006 * (
+        #         np.cos(self.delta_mirror + delta_mirror) - 1))
         # pre-mirror angle adjustment
-        self.m2.delta = self.delta_mirror + delta_mirror
+
+        point = Mono.get_pos(self.m2) + self.m2.transverse * 0.68
+        new_pos = Mono.rotate_about_point(self.m2, point, self.m2.sagittal * delta_mirror)
+
+        self.m2.alpha = mirror0
+        self.m2.beta0 = mirror0
+        # self.m2.delta = self.delta_mirror + delta_mirror
         # grating angle of incidence
+        point2 = Mono.get_pos(self.grating)
+        rotation = alpha0 + self.delta - self.delta_mirror * 2 - self.grating.alpha + 2*delta_mirror
+        print(rotation)
+        new_pos = Mono.rotate_about_point(self.grating, point2, rotation * self.grating.sagittal)
         self.grating.alpha = alpha0 + self.delta - self.delta_mirror * 2
-        # grating diffraction angle
+        # # grating diffraction angle
         self.grating.beta0 = beta0 - self.delta
 
         # set monochromator z-position to pre-mirror z-position
@@ -4497,6 +4517,37 @@ class Mono:
 
         self.elevation = 0
         self.azimuth = 0
+
+    @staticmethod
+    def get_pos(device):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = device.global_x
+        pos_vec[1] = device.global_y
+        pos_vec[2] = device.z
+
+        return pos_vec
+    @staticmethod
+    def rotate_about_point(device, point, rot_vec):
+        re = transform.Rotation.from_rotvec(rot_vec)
+        Re = re.as_matrix()
+
+        device_pos = Mono.get_pos(device)
+        new_pos = np.matmul(Re, device_pos - point) + point
+
+        if issubclass(type(device), Mirror):
+            device.normal = np.matmul(Re, device.normal)
+            device.sagittal = np.matmul(Re, device.sagittal)
+            device.transverse = np.matmul(Re, device.transverse)
+        else:
+            device.xhat = np.matmul(Re, device.xhat)
+            device.yhat = np.matmul(Re, device.yhat)
+            device.zhat = np.matmul(Re, device.zhat)
+
+        device.global_x = new_pos[0]
+        device.global_y = new_pos[1]
+        device.z = new_pos[2]
+
+        return new_pos
 
     def calc_alpha(self):
         """
@@ -4514,6 +4565,8 @@ class Mono:
         # interpolate to find the proper angle for this energy
         alpha0 = Util.interp_flip(self.e0, energy1, alpha)
         return alpha0
+
+
 
     def calc_beta(self, alpha):
         """
@@ -4772,6 +4825,8 @@ class Grating(Mirror):
         mirror_y = self.sagittal
         mirror_z = self.transverse
 
+        print('alpha: {}'.format(np.arccos(np.dot(mirror_z,beam.zhat))))
+
         # define beam rays up to second order (assume that linear term is not needed and is
         # already captured in the k-vector
         rays_x = beam.x/beam.zx
@@ -4845,13 +4900,22 @@ class Grating(Mirror):
         # distance along width axis
         d_width = np.sum((intersect_coords) * np.reshape(mirror_y_local, (3, 1, 1)), axis=0)
 
+        if figon:
+            plt.figure()
+            plt.plot(beam.y[:,int(beam.M/2)],d_length[:,int(beam.M/2)])
+            plt.title('length')
+
         # calculate grating effect
         # g_parallel = np.sum(c_normal * mirror_z_local, axis=0) * beam.lambda0 / self.d
-        g_parallel = self.order*beam.lambda0 * (self.n0 + self.n1 * d_length + self.n2 * d_length ** 2)
+        g_parallel = -self.order*beam.lambda0 * (self.n0 + self.n1 * d_length + self.n2 * d_length ** 2)
         rays_out = np.zeros_like(rays_mirror)
         rays_out[1,:,:] = rays_mirror[1,:,:]
         rays_out[2,:,:] = rays_mirror[2,:,:] + g_parallel
         rays_out[0,:,:] = np.sqrt(np.ones_like(rays_out[0,:,:]) - rays_out[1,:,:]**2 - rays_out[2,:,:]**2)
+
+        if figon:
+            plt.figure()
+            plt.plot(d_length[:,int(beam.M/2)],self.n0 + self.n1 * d_length[:,int(beam.M/2)] + self.n2 * d_length[:,int(beam.M/2)] ** 2)
 
         # calculate ray direction after interaction with ellipse using law of reflection
         # rays_out = rays_mirror - 2 * np.sum(rays_mirror*mirror_normal,axis=0) * mirror_normal
@@ -4981,8 +5045,9 @@ class Grating(Mirror):
                 f = RectBivariateSpline(ys,zs,np.tile(self.shapeError,(100,1)))
                 shapeInterp = np.reshape(f.ev(d_width.flatten(),d_length.flatten()),(beam.N, beam.M))*1e-9
 
-                plt.figure()
-                plt.imshow(shapeInterp)
+                if figon:
+                    plt.figure()
+                    plt.imshow(shapeInterp)
             # if 2D, assume index 0 corresponds to short axis, index 1 to long axis
             else:
                 # shape error array shape
@@ -5001,7 +5066,9 @@ class Grating(Mirror):
                 # f = interpolation.interp2d(zs, ys, self.shapeError, fill_value=0)
                 # shapeError2 = f(zi_1d - self.dx / np.tan(self.total_alpha), yi_1d - self.dy)
 
-        gratingPhase = -self.order*2*np.pi*d_length * (self.n0 + self.n1 * d_length + self.n2 * d_length ** 2)
+        # Finally realized that this is the integral of the grating line density, so needed to integrate the polynomial
+        gratingPhase = self.order*2*np.pi*d_length * (self.n0 + 0.5*self.n1 * d_length + 1/3*self.n2 * d_length ** 2)
+        # gratingPhase = self.order * 2 * np.pi * d_length * self.n0
 
         # mask based on mirror length
         mask = np.logical_and(mask, np.abs(d_length)<self.length/2)
@@ -5103,20 +5170,30 @@ class Grating(Mirror):
         angle_in += quadratic
 
         # add phase contribution from deviations in the distance traveled by each ray
-        total_phase = (angle_in + 2 * np.pi / beam.lambda0 * total_distance
+        total_phase = (angle_in + 2*np.pi / beam.lambda0 * total_distance
                        - shapeInterp * 4*np.pi*np.sin(self.alpha) / beam.lambda0 - gratingPhase)
+
+        # pd = np.polyfit()
+
+        # total_phase = (angle_in + 2 * np.pi / beam.lambda0 * total_distance
+        #                )
+
+        # now also need to consider the directions of the rays at the output plane, and map this
+        # back onto phase - actually this should be accounted for based on the distances
 
         diff = gratingPhase-2 * np.pi / beam.lambda0 *total_distance
         diff -= np.mean(diff)
 
         p1 = np.polyfit(d_length[int(beam.N/2),:],total_distance[int(beam.N/2),:],1)
-        plt.figure()
-        plt.imshow(total_distance-np.polyval(p1,d_length))
+        if figon:
+            plt.figure()
+            plt.imshow(total_distance-np.polyval(p1,d_length))
 
         p1 = np.polyfit(d_length[int(beam.N/2),:],gratingPhase[int(beam.N/2),:],1)
 
-        plt.figure()
-        plt.imshow(gratingPhase-np.polyval(p1,d_length))
+        if figon:
+            plt.figure()
+            plt.imshow(gratingPhase-np.polyval(p1,d_length))
 
         # get polynomial fits based on new coordinates
         p_coeff_x = np.polyfit(x_eff[int(beam.N/2),:][mask_x], total_phase[int(beam.N/2),:][mask_x], 2,
@@ -5137,6 +5214,15 @@ class Grating(Mirror):
         print('new z: %.6f' % z_total_x)
         print('new z y: %.6f' % z_total_y)
 
+        if figon:
+            plt.figure()
+            plt.plot(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y])
+            plt.plot(y_eff[:,int(beam.M / 2)][mask_y], np.polyval(p_coeff_y,y_eff[:,int(beam.M / 2)][mask_y]))
+
+            plt.figure()
+            plt.plot(y_eff[:, int(beam.M / 2)][mask_y], total_phase[:, int(beam.M / 2)][mask_y]-np.polyval(p_coeff_y, y_eff[:, int(beam.M / 2)][mask_y]))
+        # plt.plot(y_eff[:, int(beam.M / 2)][mask_y], np.polyval(p_coeff_y, y_eff[:, int(beam.M / 2)][mask_y]))
+
         # calculate residual linear phase terms
         # linear += p_coeff_x[-2] * beam.lambda0/2/np.pi
         # linear_y += p_coeff_y[-2] * beam.lambda0/2/np.pi
@@ -5150,9 +5236,11 @@ class Grating(Mirror):
         # Now this is being done in both tangential and sagittal directions, and we compensate with
         # a change in beam k-vector direction.
         total_phase -= np.polyval(p_coeff_x[-2:], x_eff) + np.polyval(p_coeff_y[-2:], y_eff)
+        total_phase[mask] -= np.mean(total_phase[mask])
 
-        plt.figure()
-        plt.imshow(total_phase * mask)
+        if figon:
+            plt.figure()
+            plt.imshow(total_phase * mask)
 
         # sutbtract off quadratic phase term if the beam is not focused
         if not beam.focused_x:
@@ -5186,6 +5274,8 @@ class Grating(Mirror):
         k_f_global = np.tensordot(np.linalg.inv(transform_matrix), np.reshape(k_f, (3, 1, 1)), axes=(1, 0))
         k_f_global = k_f_global / np.sqrt(np.sum(np.abs(k_f_global ** 2)))
 
+
+
         # compensate for removing linear phase by adjusting beam k-vector
         beam.rotate_beam(delta_ax=linear)
         beam.rotate_beam(delta_ay=linear_y)
@@ -5210,6 +5300,8 @@ class Grating(Mirror):
         print(np.arccos(np.dot(beam.zhat, k_f_global[:, 0, 0])))
         print(k_f)
         print(k_f_global)
+
+        print('beta: {}'.format(np.arccos(np.dot(mirror_z, beam.zhat))))
 
         # now figure out global coordinates
         # get back into global coordinates using inverse of transformation matrix, just looking at central ray
@@ -6620,10 +6712,12 @@ class PPM:
 
         # set defaults
         self.FOV = 10e-3
+        self.aspect_ratio = 1
         self.z = None
         self.global_x = 0
         self.global_y = 0
         self.N = 2048
+        self.M = 2048
         self.blur = False
         self.view_angle_x = 90
         self.view_angle_y = 90
@@ -6642,7 +6736,7 @@ class PPM:
         self.z_intersect = 0
 
         # set allowed kwargs
-        allowed_arguments = ['N', 'dx', 'FOV', 'z', 'blur', 'view_angle_x',
+        allowed_arguments = ['N', 'dx', 'FOV', 'aspect_ratio', 'z', 'blur', 'view_angle_x',
                              'view_angle_y', 'resolution', 'calc_phase', 'threshold', 'xoffset', 'yoffset']
         # update attributes based on kwargs
         for key, value in kwargs.items():
@@ -6653,6 +6747,7 @@ class PPM:
         # self.N = N
         self.M = np.copy(self.N)
         self.dx = self.FOV / self.N
+        self.dy = self.dx * self.aspect_ratio
         # self.FOV = FOV
         # self.z = z
         self.name = name
@@ -6664,10 +6759,10 @@ class PPM:
 
         # calculate PPM coordinates
         self.x = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx + self.xoffset
-        self.y = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dx + self.yoffset
+        self.y = np.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dy + self.yoffset
 
         f_x = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
-        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
+        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dy
 
         # get 2D coordinate arrays
         self.xx, self.yy = np.meshgrid(self.x, self.y)
@@ -6842,7 +6937,7 @@ class PPM:
         # self.profile = interpolation.griddata(points, profile, (self.x, self.y), method='linear')
 
         # account for coordinate scaling between PPM and beam
-        self.profile *= self.dx/beam.dx * self.dx/beam.dy
+        self.profile *= self.dx/beam.dx * self.dy/beam.dy
 
         if self.calc_phase:
             phase = unwrap_phase(np.angle(beam.wave))
@@ -7280,7 +7375,8 @@ class PPM:
         ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
 
         # show the image, with positive y at the top of the figure
-        ax_profile.imshow(np.flipud(self.profile), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'))
+        ax_profile.imshow(np.flipud(self.profile), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'),
+                          aspect='auto')
         # label coordinates
         ax_profile.set_xlabel('X coordinates (%s)' % units)
         ax_profile.set_ylabel('Y coordinates (%s)' % units)
@@ -7384,7 +7480,7 @@ class PPM_Device(PPM):
         if port is None:
             self.epics_name = self.imager_prefix + 'DATA1:'
             self.acquisition_period = PV(self.imager_prefix + 'AcquirePeriod_RBV').get()
-        
+
 
         self.orientation = 'action0'
 
@@ -7465,7 +7561,7 @@ class PPM_Device(PPM):
         try:
             with open('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
                 data = json.load(json_file)
-           
+
             key_name = self.epics_name[0:5]
             if 'MONO' in self.epics_name:
                 if '3' in self.epics_name:
@@ -7496,7 +7592,7 @@ class PPM_Device(PPM):
             self.cx_target = 0.0
             self.cy_target = 0.0
 
-        
+
 
         #self.cx_target = 0
         #self.cy_target = 0
@@ -7630,10 +7726,10 @@ class PPM_Device(PPM):
         # get Talbot fraction that we're using (fractional Talbot effect)
         fraction = wfs.fraction
 
-        # Distance from wavefront sensor to PPM, 
+        # Distance from wavefront sensor to PPM,
         # including correction based on z stage
         zT = self.z - wfs.z - wfs.zPos()
-        
+
         # include correction to f0 (distance between focus and grating)
         # based on z stage
         f0 = wfs.f0 + wfs.zPos()
@@ -7744,8 +7840,8 @@ class PPM_Device(PPM):
 
         focus_PPM = PPM('focus', FOV=focusFOV*1e-6, N=256)
         focus_PPM.propagate(recovered_beam)
-        
-       
+
+
         focus = focus_PPM.profile/np.max(focus_PPM.profile)
         focus_horizontal = focus_PPM.x_lineout/np.max(focus_PPM.x_lineout)
         focus_vertical = focus_PPM.y_lineout/np.max(focus_PPM.y_lineout)
@@ -7883,7 +7979,7 @@ class PPM_Device(PPM):
         return rate
 
     def reset_camera(self):
-        
+
         try:
             if self.check_rate()>0:
                 print('camera is acquiring')

@@ -207,12 +207,14 @@ class Beamline:
             for num, drift in enumerate(drift_list):
                 self.full_list.insert(2*num+1, drift)
 
-    def draw_beamline(self,figsize=None):
-        if figsize is not None:
-            fig = plt.figure(figsize=figsize)
-        else:
-            fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+    def draw_beamline(self,figsize=None,ax=None):
+
+        if ax is None:
+            if figsize is not None:
+                fig = plt.figure(figsize=figsize)
+            else:
+                fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
 
         # collect vertices
         xs = np.zeros(len(self.device_list))
@@ -267,7 +269,7 @@ class Beamline:
                           tuple(point-t*device.length/2-s*device.width/2),
                           tuple(point-t*device.length/2+s*device.width/2)])
 
-        col = Poly3DCollection(verts,facecolors=['r'])
+        col = Poly3DCollection(verts,facecolors=['r'],edgecolors=((0,0,0,1)))
 
         # ax.set_ylim(np.min(ys),np.max(ys))
         # ax.set_zlim(np.min(zs),np.max(zs))
@@ -279,6 +281,79 @@ class Beamline:
         ax.add_collection3d(col)
 
         return ax, zs
+
+    # def draw_beamline(self,figsize=None):
+    #     if figsize is not None:
+    #         fig = plt.figure(figsize=figsize)
+    #     else:
+    #         fig = plt.figure()
+    #     ax = fig.add_subplot(111, projection='3d')
+    #
+    #     # collect vertices
+    #     xs = np.zeros(len(self.device_list))
+    #     ys = np.zeros(len(self.device_list))
+    #     zs = np.zeros(len(self.device_list))
+    #     for num, device in enumerate(self.device_list):
+    #         xs[num] = device.global_x
+    #         ys[num] = device.global_y
+    #         zs[num] = device.z
+    #
+    #     ax.plot(zs,xs,zs=ys)
+    #     ax.scatter(zs,xs,zs=ys)
+    #
+    #     patches = []
+    #     dirs = []
+    #     mirror_z = []
+    #
+    #     verts = []
+    #     for num, device in enumerate(self.device_list):
+    #         # ax.text(zs[num],xs[num],ys[num],device.name, 'y')
+    #         if issubclass(type(device), Mirror):
+    #             # if (device.orientation==0) or (device.orientation==2):
+    #             #     # x = device.z-device.length/2
+    #             #     # y = device.global_x
+    #             #     # mirror_z.append(device.global_y)
+    #             #     # dirs.append('x')
+    #             #     # mirror_patch = Rectangle((x,y),device.length,device.width)
+    #             #     # patches.append(mirror_patch)
+    #             #
+    #             #     x1 = device.z-(device.length/2 * np.cos(device.global_alpha))
+    #             #     x2 = device.z + (device.length/2 * np.cos(device.global_alpha))
+    #             #     y1 = device.global_x - device.length/2*np.sin(device.global_alpha)
+    #             #     y2 = device.global_x + device.length/2*np.sin(device.global_alpha)
+    #             #     z1 = device.global_y-device.width/2
+    #             #     z2 = device.global_y+device.width/2
+    #             #     verts.append([(x1,y1,z1),(x2,y2,z1),(x2,y2,z2),(x1,y1,z2)])
+    #             # else:
+    #             #     x1 = device.z - (device.length / 2 * np.cos(device.global_alpha))
+    #             #     x2 = device.z + (device.length / 2 * np.cos(device.global_alpha))
+    #             #     y1 = device.global_x - device.width / 2
+    #             #     y2 = device.global_x + device.width / 2
+    #             #     z1 = device.global_y - device.length / 2*np.sin(device.global_alpha)
+    #             #     z2 = device.global_y + device.length / 2*np.sin(device.global_alpha)
+    #             #     verts.append([(x1, y1, z1), (x2, y1, z2), (x2, y2, z2), (x1, y2, z1)])
+    #
+    #             s = np.array([device.sagittal[2],device.sagittal[0],device.sagittal[1]])
+    #             t = np.array([device.transverse[2],device.transverse[0],device.transverse[1]])
+    #
+    #             point = np.array([device.z,device.global_x,device.global_y])
+    #             verts.append([tuple(point+t*device.length/2+s*device.width/2),
+    #                       tuple(point+t*device.length/2-s*device.width/2),
+    #                       tuple(point-t*device.length/2-s*device.width/2),
+    #                       tuple(point-t*device.length/2+s*device.width/2)])
+    #
+    #     col = Poly3DCollection(verts,facecolors=['r'])
+    #
+    #     # ax.set_ylim(np.min(ys),np.max(ys))
+    #     # ax.set_zlim(np.min(zs),np.max(zs))
+    #     # ax.set_xlim(np.min(xs), np.max(xs))
+    #     # ax.set_ylim(np.min(ys),np.max(ys))
+    #     # ax.set_zlim(np.min(zs),np.max(zs))
+    #     # print(len(patches))
+    #     # coll = PatchCollection([patches[0]])
+    #     ax.add_collection3d(col)
+    #
+    #     return ax, zs
     # def add_drifts(self):
     #     """
     #     Method to calculate drift sections. Creates a bunch of Drift objects and adds them to self.full_list.

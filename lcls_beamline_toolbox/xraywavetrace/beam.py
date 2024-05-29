@@ -237,8 +237,10 @@ class Beam:
             self.z = self.global_z
 
         # initialize global angles
-        self.global_azimuth = np.copy(self.ax)
-        self.global_elevation = np.copy(self.ay)
+        # self.global_azimuth = np.copy(self.ax)
+        # self.global_elevation = np.copy(self.ay)
+        self.global_azimuth = 0.0
+        self.global_elevation = 0.0
 
         # initialize group delay
         self.group_delay = 0.0
@@ -272,6 +274,8 @@ class Beam:
         self.xhat = np.array([1, 0, 0])
         self.yhat = np.array([0, 1, 0])
         self.zhat = np.array([0, 0, 1])
+
+        self.rotate_nominal(delta_azimuth=self.ax, delta_elevation=self.ay)
 
         # define LCLS unit vectors
         self.x_nom = np.copy(self.xhat)
