@@ -3957,7 +3957,7 @@ class Crystal(Mirror):
         # beamInDotNormal = np.sum(rays_full_crystal * ux, axis=0)
         # beamOutDotNormal = np.sum(rays_full_out * ux, axis=0)
         # beamInDotHNormal = np.sum(rays_full_crystal * crystal_normal, axis=0)
-        # troubleshooting by commenting above three lines and using below lines
+        # troubleshooting by commenting above three lines and using below lines. Going to keep it this way for now.
         beamInDotNormal = np.sum(rays_crystal * ux, axis=0)
         beamOutDotNormal = np.sum(rays_out * ux, axis=0)
         beamInDotHNormal = np.sum(rays_crystal * crystal_normal, axis=0)
@@ -6689,9 +6689,6 @@ class CRL:
 
         # subtract 2nd order and linear terms
         phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((beamx + shift) ** 2))
-
-        plt.figure()
-        plt.plot(phase)
 
         # 2nd order
         p2 = -beam.k0 * delta * 2 / 2 / self.roc
