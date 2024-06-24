@@ -9,7 +9,7 @@ Currently implements the following classes:
 Beamline: stores list of optics devices, and interfaces with Beam to propagate through beamline sections.
 """
 
-from .optics1d import Drift, Mono, Mirror, Grating, TransmissionGrating
+from .optics1d import Drift, Mono, Mirror, Grating, TransmissionGrating, PPM
 # import matplotlib.pyplot as plt
 import copy
 import json
@@ -33,7 +33,7 @@ class Beamline:
         A list of all the devices contained along a given beamline (including Drifts).
     """
 
-    def __init__(self, device_list, ordered=False, suppress=True):
+    def __init__(self, device_list, ordered=False, suppress=True, x_offset=0.0, y_offset=0.0):
         """
         Initialize a Beamline object.
         :param device_list: list of optics objects (see optics module)
@@ -48,6 +48,9 @@ class Beamline:
 
         self.suppress = suppress
 
+        self.x_offset = x_offset
+        self.y_offset = y_offset
+
         # initialize full array without drifts
         self.full_list = self.device_list.copy()
 
@@ -57,6 +60,8 @@ class Beamline:
         # set devices to attributes of self
         for device in self.device_list:
             setattr(self, device.name, device)
+
+        self.dummy_device = None
 
     def add_drifts(self):
         """
@@ -71,9 +76,18 @@ class Beamline:
         # initialize drift list
         drift_list = []
 
+        self.dummy_device = PPM('dummy', z=self.device_list[0].z-1, N=1)
+
+        self.device_list.insert(0,self.dummy_device)
+
         # initialize coordinates
-        x = 0
-        y = 0
+        x = np.copy(self.x_offset)
+        y = np.copy(self.y_offset)
+        # x = 0
+        # y = 0
+
+        # self.dummy_device.global_x = np.copy(x)
+        # self.dummy_device.global_y = np.copy(y)
 
         # initialize angles
         elevation = 0
@@ -105,8 +119,10 @@ class Beamline:
                 # x += k[0] * dz
                 # y += k[1] * dz
                 # update device
-                device.global_x = x
-                device.global_y = y
+                device.global_x = np.copy(x)
+                device.global_y = np.copy(y)
+                # device.global_x = x
+                # device.global_y = y
 
                 # set drift name
                 name = 'drift%d' % i
@@ -114,6 +130,11 @@ class Beamline:
                     prev_device = prev_device.grating
                 drift_list.append(Drift(name, upstream_component=prev_device,
                                         downstream_component=device))
+            else:
+                device.global_x = np.copy(x)
+                device.global_y = np.copy(y)
+
+            # print(device.global_x)
 
             # update global orientation
             if issubclass(type(device), Mirror):
@@ -196,6 +217,8 @@ class Beamline:
             for num, drift in enumerate(drift_list):
                 self.full_list.insert(2*num+1, drift)
 
+        self.full_list.insert(0, self.dummy_device)
+
     def write_json(self, filename):
         file_dict = {}
         for device in self.device_list:
@@ -259,7 +282,7 @@ class Beamline:
                 device.yhat = np.array(device_data['yhat'])
                 device.zhat = np.array(device_data['zhat'])
 
-    def draw_beamline(self,figsize=None,ax=None):
+    def draw_beamline(self,figsize=None,ax=None,scatter=True):
 
         if ax is None:
             if figsize is not None:
@@ -278,7 +301,21 @@ class Beamline:
             zs[num] = device.z
 
         ax.plot(zs,xs,zs=ys)
-        ax.scatter(zs,xs,zs=ys)
+        if scatter:
+            ax.scatter(zs,xs,zs=ys)
+
+        xb = np.zeros(len(self.device_list)-1)
+        yb = np.zeros_like(xb)
+        zb = np.zeros_like(xb)
+
+        for num, device in enumerate(self.device_list[1:]):
+            xb[num] = device.x_intersect
+            yb[num] = device.y_intersect
+            zb[num] = device.z_intersect
+
+        ax.plot(zb, xb, zs=yb)
+        if scatter:
+            ax.scatter(zb, xb, zs=yb)
 
         patches = []
         dirs = []

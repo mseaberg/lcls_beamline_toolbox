@@ -219,9 +219,14 @@ class Beam:
         self.z_source = beam_params['z_source']
         self.global_z = beam_params['z_source'] + (self.zx + self.zy) / 2
 
+        self.global_x = np.copy(self.cx) + self.ax * (self.zx + self.zy) / 2
+        self.global_y = np.copy(self.cy) + self.ay * (self.zx + self.zy) / 2
+
         # initialize global angles
-        self.global_azimuth = np.copy(self.ax)
-        self.global_elevation = np.copy(self.ay)
+        # self.global_azimuth = np.copy(self.ax)
+        # self.global_elevation = np.copy(self.ay)
+        self.global_azimuth = 0.0
+        self.global_elevation = 0.0
 
         # initialize group delay
         self.group_delay = 0.0
@@ -262,6 +267,8 @@ class Beam:
         self.x_nom = np.copy(self.xhat)
         self.y_nom = np.copy(self.yhat)
         self.z_nom = np.copy(self.zhat)
+
+        self.rotate_nominal(delta_azimuth=self.ax, delta_elevation=self.ay)
 
 
     def reinitialize(self, dz):

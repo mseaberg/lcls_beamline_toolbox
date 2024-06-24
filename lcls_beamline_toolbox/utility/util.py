@@ -999,6 +999,7 @@ class Util:
             mask = y_data_thresh > 0
             px, pcovx = optimize.curve_fit(Util.fit_gaussian, x_data[mask], y_norm[mask],p0=guess)
             sx = px[1]
+            cx = px[0]
         except:
             print('Fit failed. Using second moment for width.')
 
