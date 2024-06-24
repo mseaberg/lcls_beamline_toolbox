@@ -78,16 +78,16 @@ class Beamline:
 
         self.dummy_device = PPM('dummy', z=self.device_list[0].z-1, N=1)
 
-        self.device_list.insert(0,self.dummy_device)
-
         # initialize coordinates
         x = np.copy(self.x_offset)
         y = np.copy(self.y_offset)
         # x = 0
         # y = 0
 
-        # self.dummy_device.global_x = np.copy(x)
-        # self.dummy_device.global_y = np.copy(y)
+        self.dummy_device.global_x = np.copy(x)
+        self.dummy_device.global_y = np.copy(y)
+
+        self.device_list.insert(0, self.dummy_device)
 
         # initialize angles
         elevation = 0
@@ -130,9 +130,9 @@ class Beamline:
                     prev_device = prev_device.grating
                 drift_list.append(Drift(name, upstream_component=prev_device,
                                         downstream_component=device))
-            else:
-                device.global_x = np.copy(x)
-                device.global_y = np.copy(y)
+            # else:
+            #     device.global_x = np.copy(x)
+            #     device.global_y = np.copy(y)
 
             # print(device.global_x)
 
@@ -206,6 +206,8 @@ class Beamline:
             # increment drift number
             i += 1
 
+        self.full_list.insert(0, self.dummy_device)
+
         if not self.ordered:
             # add drifts to full_list
             self.full_list.extend(drift_list)
@@ -216,8 +218,6 @@ class Beamline:
             # keep everything in the same order, interleave drifts in between devices
             for num, drift in enumerate(drift_list):
                 self.full_list.insert(2*num+1, drift)
-
-        self.full_list.insert(0, self.dummy_device)
 
     def write_json(self, filename):
         file_dict = {}
