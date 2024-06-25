@@ -3624,7 +3624,8 @@ class PPM:
     """
 
     def __init__(self, name, FOV=10e-3, z=None, N=2048, blur=False,
-                 view_angle_x=90, view_angle_y=90, resolution=5e-6, distort=False, xoffset=0, yoffset=0):
+                 view_angle_x=90, view_angle_y=90, resolution=5e-6, distort=False,
+                 xoffset=0, yoffset=0, aspect_ratio=1):
         """
         Method to initialize a PPM.
         :param name: str
@@ -3664,6 +3665,7 @@ class PPM:
         self.name = name
         self.blur = blur
         self.distort = distort
+        self.aspect_ratio = aspect_ratio
         self.view_angle_x = view_angle_x
         self.view_angle_y = view_angle_y
         self.resolution = resolution
@@ -3672,14 +3674,15 @@ class PPM:
         self.xhat = None
         self.yhat = None
         self.zhat = None
+        self.dy = self.dx * self.aspect_ratio
 
         # calculate PPM coordinates
-        self.x = np.linspace(-N / 2, N / 2 - 1, N) * dx + xoffset
+        self.x = np.linspace(-N / 2, N / 2 - 1, N) * self.dx + xoffset
         # self.y = np.copy(self.x) + yoffset
-        self.y = np.linspace(-N / 2, N / 2 -1, N) * dx + yoffset
+        self.y = np.linspace(-N / 2, N / 2 -1, N) * self.dy + yoffset
 
         f_x = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
-        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dx
+        f_y = np.linspace(-self.N / 2., self.N / 2. - 1., self.N) / self.N / self.dy
 
         self.xx, self.yy = np.meshgrid(self.x, self.y)
 
@@ -3874,7 +3877,7 @@ class PPM:
         profiley_interp = Util.interp_flip(self.y, y * scaling_y, profiley)
 
         profilex_interp *= self.dx / beam.dx
-        profiley_interp *= self.dx / beam.dy
+        profiley_interp *= self.dy / beam.dy
         self.x_lineout = profilex_interp
         self.y_lineout = profiley_interp
 
@@ -4349,8 +4352,8 @@ class PPM:
                            (fc / 4. / self.dx - 2. / self.N / self.dx) ** 2)
         x_mask = x_mask.astype(float)
         y_mask = ((self.f_x) ** 2 + (self.f_y - fc / self.dx) ** 2) < (fc / 4 / self.dx) ** 2
-        y_mask = y_mask * (((self.f_x) ** 2 + (self.f_y - fc / self.dx) ** 2) >
-                           (fc / 4. / self.dx - 2. / self.N / self.dx) ** 2)
+        y_mask = y_mask * (((self.f_x) ** 2 + (self.f_y - fc / self.dy) ** 2) >
+                           (fc / 4. / self.dy - 2. / self.N / self.dy) ** 2)
         y_mask = y_mask.astype(float)
 
         # parameters for calculating Legendre coefficients
@@ -4650,11 +4653,11 @@ class PPM:
 
         # lineout boundaries in pixels (distance from center)
         x_lim = int(self.wx/self.dx)
-        y_lim = int(self.wy/self.dx)
+        y_lim = int(self.wy/self.dy)
 
         # calculated beam center in pixels
         x_center = Util.coordinate_to_pixel(self.cx, self.dx, self.N)
-        y_center = Util.coordinate_to_pixel(self.cy, self.dx, self.N)
+        y_center = Util.coordinate_to_pixel(self.cy, self.dy, self.N)
 
         # get lineouts from 2d profile
         lineout_x = Util.get_horizontal_lineout(self.profile, x_center=x_center, y_center=y_center,

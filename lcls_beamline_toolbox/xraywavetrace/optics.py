@@ -673,6 +673,12 @@ class Mirror:
         if not beam.focused_y:
             quadratic += np.pi / beam.lambda0 / beam.zy * (beam.y) ** 2
 
+        if figon:
+            plt.figure()
+            plt.plot(quadratic[:,int(beam.N/2)])
+            plt.plot(angle_in[:,int(beam.N/2)])
+            plt.title('quadratic phase and other phase')
+
         # add the quadratic phase to the input phase
         angle_in += quadratic
 
