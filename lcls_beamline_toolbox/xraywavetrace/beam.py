@@ -236,6 +236,9 @@ class Beam:
             self.global_z = (self.zx + self.zy) / 2
             self.z = self.global_z
 
+        self.global_x = np.copy(self.cx) + self.ax * (self.zx + self.zy) / 2
+        self.global_y = np.copy(self.cy) + self.ay * (self.zx + self.zy) / 2
+
         # initialize global angles
         # self.global_azimuth = np.copy(self.ax)
         # self.global_elevation = np.copy(self.ay)

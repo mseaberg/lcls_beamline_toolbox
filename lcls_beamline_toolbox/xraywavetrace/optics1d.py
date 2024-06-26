@@ -6704,6 +6704,9 @@ class Slit:
         self.yhat = None
         self.zhat = None
         self.suppress = suppress
+        self.x_intersect = 0.0
+        self.y_intersect = 0.0
+        self.z_intersect = 0.0
 
     def multiply(self, beam):
         """
@@ -6712,9 +6715,18 @@ class Slit:
             Beam object to propagate through slits. Beam is modified by this method.
         :return: None
         """
+
+        beam_shift = np.array([self.x_intersect - self.global_x,
+                               self.y_intersect - self.global_y,
+                               self.z_intersect - self.z])
+        x_shift = np.dot(beam_shift, self.xhat)
+        y_shift = np.dot(beam_shift, self.yhat)
+
         # define slit aperture in beam coordinates
-        aperture_x = (np.abs(beam.x - self.dx) < self.x_width / 2).astype(float)
-        aperture_y = (np.abs(beam.y - self.dy) < self.y_width / 2).astype(float)
+        # aperture_x = (np.abs(beam.x - self.dx) < self.x_width / 2).astype(float)
+        # aperture_y = (np.abs(beam.y - self.dy) < self.y_width / 2).astype(float)
+        aperture_x = (np.abs(beam.x + x_shift - self.dx) < self.x_width / 2).astype(float)
+        aperture_y = (np.abs(beam.y + y_shift - self.dy) < self.y_width / 2).astype(float)
 
         # multiply beam by aperture
         beam.wavex *= aperture_x
