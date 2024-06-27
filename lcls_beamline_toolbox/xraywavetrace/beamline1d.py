@@ -14,6 +14,7 @@ from .optics1d import Drift, Mono, Mirror, Grating, TransmissionGrating, PPM
 import copy
 import json
 import numpy as np
+import pandas as pd
 from lcls_beamline_toolbox.utility.util import Util
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -263,6 +264,24 @@ class Beamline:
                 f.write(',{:.10e},{:.10e},{:.10e}\n'.format(xhat[0],xhat[1],xhat[2]))
                 f.write(',,,,{:.10e},{:.10e},{:.10e}\n'.format(yhat[0],yhat[1],yhat[2]))
                 f.write(',,,,{:.10e},{:.10e},{:.10e}\n'.format(zhat[0],zhat[1],zhat[2]))
+
+    def read_RTD_file(self, filename):
+        df = pd.read_csv(filename)
+        device_list = []
+        for index, row in df.iterrows():
+            name = row['FC']
+            fungible = row['Fungible']
+            x_size = row['X_dim']
+            y_size = row['Y_dim']
+            z_size = row['Z_dim']
+            x = row['LCLS_X_loc']
+            y = row['LCLS_Y_loc']
+            z = row['LCLS_Z_loc']
+            roll = row['LCLS_Z_roll']
+            pitch = row['LCLS_X_pitch']
+            yaw = row['LCLS_Y_yaw']
+            if name[:2]=='IM':
+                device_list.append(PPM(name),FOV=x_size,z=z)
 
     def load_beamline(self,filename):
         with open(filename,'r') as f:

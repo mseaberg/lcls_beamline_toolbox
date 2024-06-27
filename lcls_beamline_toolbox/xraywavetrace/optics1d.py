@@ -270,6 +270,7 @@ class Mirror:
         # return delta_k
         return delta_k
 
+    # Note: deprecated in favor of trace_surface
     def reflect(self, beam):
         """
         Method to reflect a beam from a flat mirror.
