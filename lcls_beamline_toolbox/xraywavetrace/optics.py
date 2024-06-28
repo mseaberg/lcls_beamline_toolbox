@@ -92,7 +92,7 @@ class Mirror:
     motor_list: list of strings
         Mirror degrees of freedom available as motorized axes
     projectWidth: float
-        Mirror length projected onto transverse beam plane (meters)
+        Mirror length projected onto tangential beam plane (meters)
     """
 
     def __init__(self, name, **kwargs):
@@ -128,7 +128,7 @@ class Mirror:
         self.global_alpha = 0
         self.azimuth = 0
         self.elevation = 0
-        self.transverse = None
+        self.tangential = None
         self.sagittal = None
         self.normal = None
         self.correction = 0
@@ -208,7 +208,7 @@ class Mirror:
         # are unchanged
         mirror_x = self.normal
         mirror_y = self.sagittal
-        mirror_z = self.transverse
+        mirror_z = self.tangential
 
         central_ray = np.reshape(beam.zhat, (3,1))
 
@@ -345,7 +345,7 @@ class Mirror:
         # unit vectors for ellipse coordinates, written in global coordinates
         mirror_x = self.normal
         mirror_y = self.sagittal
-        mirror_z = self.transverse
+        mirror_z = self.tangential
 
         # define beam rays up to second order (assume that linear term is not needed and is
         # already captured in the k-vector
@@ -1111,7 +1111,7 @@ class FlatMirror(Mirror):
     motor_list: list of strings
         Mirror degrees of freedom available as motorized axes
     projectWidth: float
-        Mirror length projected onto transverse beam plane (meters)
+        Mirror length projected onto tangential beam plane (meters)
     """
 
     def __init__(self, name, **kwargs):
@@ -1274,7 +1274,7 @@ class Crystal(Mirror):
         # unit vectors for ellipse coordinates, written in global coordinates
         mirror_x = self.normal
         mirror_y = self.sagittal
-        mirror_z = self.transverse
+        mirror_z = self.tangential
 
         # define beam rays up to second order (assume that linear term is not needed and is
         # already captured in the k-vector
@@ -2316,14 +2316,14 @@ class Crystal(Mirror):
         #
         # ##### figure out crystal curvature, and find effective focal lengths
         #
-        # # transverse (z-direction)
+        # # tangential (z-direction)
         # R_t = 1 / (2 * second_order_z * 1e-9)
         # print(R_t)
         #
         # # use equation for curved grating imaging condition. Works great!
         # f_t = np.sin(self.beta0) ** 2 / (
         #         (np.sin(self.alpha) + np.sin(self.beta0)) / R_t - np.sin(self.alpha) ** 2 / beamz)
-        # print('Calculated distance to transverse focus: %.6f' % f_t)
+        # print('Calculated distance to tangential focus: %.6f' % f_t)
         #
         # #### Sagittal focusing (y-direction)
         #
@@ -2629,7 +2629,7 @@ class CurvedMirror(Mirror):
     motor_list: list of strings
         Mirror degrees of freedom available as motorized axes
     projectWidth: float
-        Mirror length projected onto transverse beam plane (meters)
+        Mirror length projected onto tangential beam plane (meters)
     """
 
     def __init__(self, name, p=100, q=1, dF1=0, dF2=0, **kwargs):
@@ -3457,7 +3457,7 @@ class CurvedMirror(Mirror):
         # initialize x position of upstream focus (beam x- or y-coordinates)
         xs = 0
 
-        # figure out transverse offset from upstream ellipse focus
+        # figure out tangential offset from upstream ellipse focus
         # This is a combination of:
         #   - beam offset (beam.cx)
         #   - beam angle multiplied by lever arm (beam.ax*zs)
@@ -3554,7 +3554,7 @@ class CurvedMirror(Mirror):
 
         ellipse_x = np.matmul(Re, self.normal)
         ellipse_y = self.sagittal
-        ellipse_z = np.matmul(Re, self.transverse)
+        ellipse_z = np.matmul(Re, self.tangential)
 
         central_ray = np.reshape(beam.zhat, (3,1))
 
@@ -3646,7 +3646,7 @@ class CurvedMirror(Mirror):
         # unit vectors for ellipse coordinates, written in global coordinates
         ellipse_x = np.matmul(Re, self.normal)
         ellipse_y = self.sagittal
-        ellipse_z = np.matmul(Re, self.transverse)
+        ellipse_z = np.matmul(Re, self.tangential)
 
         print('ellipse unit vectors')
         print(self.normal)
@@ -3684,7 +3684,7 @@ class CurvedMirror(Mirror):
         # mirror vectors written in ellipse coordinates
         mirror_x_ellipse = np.tensordot(transform_matrix, np.reshape(self.normal,(3,1,1)),axes=(1,0))
         mirror_y_ellipse = np.tensordot(transform_matrix, np.reshape(self.sagittal,(3,1,1)),axes=(1,0))
-        mirror_z_ellipse = np.tensordot(transform_matrix, np.reshape(self.transverse,(3,1,1)),axes=(1,0))
+        mirror_z_ellipse = np.tensordot(transform_matrix, np.reshape(self.tangential,(3,1,1)),axes=(1,0))
 
         # calculate z component of rays (enforcing unit vector)
         rays_z = np.sqrt(np.ones_like(rays_x) - rays_x ** 2 - rays_y ** 2)
@@ -4503,7 +4503,7 @@ class Mono:
         #         np.cos(self.delta_mirror + delta_mirror) - 1))
         # pre-mirror angle adjustment
 
-        point = Mono.get_pos(self.m2) + self.m2.transverse * 0.68
+        point = Mono.get_pos(self.m2) + self.m2.tangential * 0.68
         new_pos = Mono.rotate_about_point(self.m2, point, self.m2.sagittal * delta_mirror)
 
         self.m2.alpha = mirror0
@@ -4543,7 +4543,7 @@ class Mono:
         if issubclass(type(device), Mirror):
             device.normal = np.matmul(Re, device.normal)
             device.sagittal = np.matmul(Re, device.sagittal)
-            device.transverse = np.matmul(Re, device.transverse)
+            device.tangential = np.matmul(Re, device.tangential)
         else:
             device.xhat = np.matmul(Re, device.xhat)
             device.yhat = np.matmul(Re, device.yhat)
@@ -4829,7 +4829,7 @@ class Grating(Mirror):
         # unit vectors for ellipse coordinates, written in global coordinates
         mirror_x = self.normal
         mirror_y = self.sagittal
-        mirror_z = self.transverse
+        mirror_z = self.tangential
 
         print('alpha: {}'.format(np.arccos(np.dot(mirror_z,beam.zhat))))
 
