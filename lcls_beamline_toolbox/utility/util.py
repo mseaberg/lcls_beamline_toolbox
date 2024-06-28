@@ -1075,6 +1075,38 @@ class Util:
         return xhat, yhat, zhat
 
     @staticmethod
+    def rotate_about_point(device, point, rot_vec):
+        re = transform.Rotation.from_rotvec(rot_vec)
+        Re = re.as_matrix()
+
+        device_pos = Util.get_pos(device)
+        new_pos = np.matmul(Re, device_pos - point) + point
+
+        if hasattr(device,'normal'):
+            device.normal = np.matmul(Re, device.normal)
+            device.sagittal = np.matmul(Re, device.sagittal)
+            device.tangential = np.matmul(Re, device.tangential)
+        else:
+            device.xhat = np.matmul(Re, device.xhat)
+            device.yhat = np.matmul(Re, device.yhat)
+            device.zhat = np.matmul(Re, device.zhat)
+
+        device.global_x = new_pos[0]
+        device.global_y = new_pos[1]
+        device.z = new_pos[2]
+
+        return new_pos
+
+    @staticmethod
+    def get_pos(device):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = device.global_x
+        pos_vec[1] = device.global_y
+        pos_vec[2] = device.z
+
+        return pos_vec
+
+    @staticmethod
     def plan_checkerboard(wfs_obj=None, ppm_obj=None, photon_energy=None, f0=None,
                           zT=None, fraction=1):
 

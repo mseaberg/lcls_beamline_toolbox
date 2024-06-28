@@ -73,7 +73,7 @@ class Mirror:
     motor_list: list of strings
         Mirror degrees of freedom available as motorized axes
     projectWidth: float
-        Mirror length projected onto transverse beam plane (meters)
+        Mirror length projected onto tangential beam plane (meters)
     """
 
     def __init__(self, name, **kwargs):
@@ -109,7 +109,7 @@ class Mirror:
         self.global_alpha = 0
         self.azimuth = 0
         self.elevation = 0
-        self.transverse = None
+        self.tangential = None
         self.sagittal = None
         self.normal = None
         self.correction = 0
@@ -159,7 +159,7 @@ class Mirror:
 
         mirror_x = np.matmul(Re, self.normal)
         mirror_y = self.sagittal
-        mirror_z = np.matmul(Re, self.transverse)
+        mirror_z = np.matmul(Re, self.tangential)
 
         central_ray = np.reshape(beam.zhat, (3,1))
 
@@ -535,7 +535,7 @@ class Mirror:
 
         mirror_x = self.normal
         mirror_y = self.sagittal
-        mirror_z = self.transverse
+        mirror_z = self.tangential
 
         focused = False
 
@@ -549,7 +549,7 @@ class Mirror:
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates, but with beam centered at zero
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -564,7 +564,7 @@ class Mirror:
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -577,7 +577,7 @@ class Mirror:
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -590,7 +590,7 @@ class Mirror:
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -1159,13 +1159,13 @@ class Mirror:
             # beam.x += beam.cx
             beam.zx += 2*delta_z
 
-        if self.orientation==0 or self.orientation==2:
-            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
-            beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
-        else:
-
-            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
-            beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
+        # if self.orientation==0 or self.orientation==2:
+        #     # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+        #     beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
+        # else:
+        #
+        #     # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+        #     beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
 
         beam.new_fx()
         if not self.suppress:
@@ -1236,7 +1236,7 @@ class FlatMirror(Mirror):
     motor_list: list of strings
         Mirror degrees of freedom available as motorized axes
     projectWidth: float
-        Mirror length projected onto transverse beam plane (meters)
+        Mirror length projected onto tangential beam plane (meters)
     """
 
     def __init__(self, name, **kwargs):
@@ -1288,7 +1288,7 @@ class CurvedMirror(Mirror):
     motor_list: list of strings
         Mirror degrees of freedom available as motorized axes
     projectWidth: float
-        Mirror length projected onto transverse beam plane (meters)
+        Mirror length projected onto tangential beam plane (meters)
     """
 
     def __init__(self, name, p=100, q=1, dF1=0, dF2=0, **kwargs):
@@ -2122,7 +2122,7 @@ class CurvedMirror(Mirror):
         # initialize x position of upstream focus (beam x- or y-coordinates)
         xs = 0
 
-        # figure out transverse offset from upstream ellipse focus
+        # figure out tangential offset from upstream ellipse focus
         # This is a combination of:
         #   - beam offset (beam.cx)
         #   - beam angle multiplied by lever arm (beam.ax*zs)
@@ -2224,7 +2224,7 @@ class CurvedMirror(Mirror):
 
         ellipse_x = np.matmul(Re, self.normal)
         ellipse_y = self.sagittal
-        ellipse_z = np.matmul(Re, self.transverse)
+        ellipse_z = np.matmul(Re, self.tangential)
 
         central_ray = np.reshape(beam.zhat, (3,1))
 
@@ -2321,7 +2321,7 @@ class CurvedMirror(Mirror):
 
         ellipse_x = np.matmul(Re, self.normal)
         ellipse_y = self.sagittal
-        ellipse_z = np.matmul(Re, self.transverse)
+        ellipse_z = np.matmul(Re, self.tangential)
 
         if not self.suppress:
             print('ellipse unit vectors')
@@ -2333,7 +2333,7 @@ class CurvedMirror(Mirror):
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates, but with beam centered at zero
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -2347,7 +2347,7 @@ class CurvedMirror(Mirror):
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -2360,7 +2360,7 @@ class CurvedMirror(Mirror):
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -2373,7 +2373,7 @@ class CurvedMirror(Mirror):
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -2402,7 +2402,7 @@ class CurvedMirror(Mirror):
                                         np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
         coords_ellipse = np.tensordot(transform_matrix, coords, axes=(1, 0))
 
-        mirror_z_ellipse = np.tensordot(transform_matrix, np.reshape(self.transverse, (3, 1, 1)), axes=(1, 0))
+        mirror_z_ellipse = np.tensordot(transform_matrix, np.reshape(self.tangential, (3, 1, 1)), axes=(1, 0))
 
         # calculate z component of rays (enforcing unit vector)
         rays_z = np.sqrt(np.ones_like(rays_x) - rays_x ** 2)
@@ -3506,7 +3506,7 @@ class Mono:
         #         np.cos(self.delta_mirror + delta_mirror) - 1))
         # pre-mirror angle adjustment
 
-        point = Mono.get_pos(self.m2) + self.m2.transverse * 0.68
+        point = Mono.get_pos(self.m2) + self.m2.tangential * 0.68
         new_pos = Mono.rotate_about_point(self.m2, point, self.m2.sagittal * delta_mirror)
 
         self.m2.alpha = mirror0
@@ -3546,7 +3546,7 @@ class Mono:
         if issubclass(type(device), Mirror):
             device.normal = np.matmul(Re, device.normal)
             device.sagittal = np.matmul(Re, device.sagittal)
-            device.transverse = np.matmul(Re, device.transverse)
+            device.tangential = np.matmul(Re, device.tangential)
         else:
             device.xhat = np.matmul(Re, device.xhat)
             device.yhat = np.matmul(Re, device.yhat)
@@ -4026,7 +4026,7 @@ class Grating(Mirror):
 
         crystal_x = self.normal
         crystal_y = self.sagittal
-        crystal_z = self.transverse
+        crystal_z = self.tangential
 
         focused = False
 
@@ -4040,7 +4040,7 @@ class Grating(Mirror):
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates, but with beam centered at zero
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -4055,7 +4055,7 @@ class Grating(Mirror):
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -4068,7 +4068,7 @@ class Grating(Mirror):
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -4081,7 +4081,7 @@ class Grating(Mirror):
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -5340,7 +5340,7 @@ class Crystal(Mirror):
 
         crystal_x = self.normal
         crystal_y = self.sagittal
-        crystal_z = self.transverse
+        crystal_z = self.tangential
 
         focused = False
 
@@ -5354,7 +5354,7 @@ class Crystal(Mirror):
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates, but with beam centered at zero
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -5369,7 +5369,7 @@ class Crystal(Mirror):
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -5382,7 +5382,7 @@ class Crystal(Mirror):
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -5395,7 +5395,7 @@ class Crystal(Mirror):
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -8108,7 +8108,7 @@ class TransmissionGrating:
         if self.orientation==0:
             # calculate beam "rays" in beam local coordinates
             # rays_x = beam.x/beam.zx
-            # # transverse unit vector
+            # # tangential unit vector
             # t_hat = beam.xhat
             #
             # # project beam x-axis into grating xz-plane
@@ -8121,7 +8121,7 @@ class TransmissionGrating:
         elif self.orientation==1:
             # calculate beam "rays" in beam local coordinates
             # rays_x = beam.y/beam.zy
-            # # transverse unit vector
+            # # tangential unit vector
             # t_hat = beam.yhat
             grating_vec = 2*np.pi/self.pitch * self.order * self.yhat
             beam.wavey *= np.sqrt(efficiency)

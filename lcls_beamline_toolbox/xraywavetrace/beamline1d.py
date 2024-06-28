@@ -10,6 +10,8 @@ Beamline: stores list of optics devices, and interfaces with Beam to propagate t
 """
 
 from .optics1d import Drift, Mono, Mirror, Grating, TransmissionGrating, PPM
+from . import optics1d as optics
+from ..utility import util
 # import matplotlib.pyplot as plt
 import copy
 import json
@@ -34,35 +36,37 @@ class Beamline:
         A list of all the devices contained along a given beamline (including Drifts).
     """
 
-    def __init__(self, device_list, ordered=False, suppress=True, x_offset=0.0, y_offset=0.0):
+    def __init__(self, device_list=[], RTD_filename=None, photon_source='L0', ordered=False, suppress=True, x_offset=0.0, y_offset=0.0):
         """
         Initialize a Beamline object.
         :param device_list: list of optics objects (see optics module)
             A list of all the devices contained along a given beamline (excluding Drifts).
         """
 
-        # set device_list as an attribute
-        self.device_list = device_list
-
+        self.suppress = suppress
         # set attribute for whether devices are in correct order
         self.ordered = ordered
-
-        self.suppress = suppress
-
         self.x_offset = x_offset
         self.y_offset = y_offset
 
-        # initialize full array without drifts
-        self.full_list = self.device_list.copy()
+        if RTD_filename is not None:
+            self.device_list = self.read_RTD_file(RTD_filename, photon_source)
+            # initialize full array without drifts
+            self.full_list = self.device_list.copy()
+            self.add_drifts_RTD()
+        else:
+            # set device_list as an attribute
+            self.device_list = device_list
 
-        # calculate drifts and add them to full_list
-        self.add_drifts()
+            # initialize full array without drifts
+            self.full_list = self.device_list.copy()
+
+            # calculate drifts and add them to full_list
+            self.add_drifts()
 
         # set devices to attributes of self
         for device in self.device_list:
             setattr(self, device.name, device)
-
-        self.dummy_device = None
 
     def add_drifts(self):
         """
@@ -77,7 +81,7 @@ class Beamline:
         # initialize drift list
         drift_list = []
 
-        self.dummy_device = PPM('dummy', z=self.device_list[0].z-1, N=1)
+        dummy_device = PPM('dummy', z=self.device_list[0].z-1, N=1)
 
         # initialize coordinates
         x = np.copy(self.x_offset)
@@ -85,10 +89,10 @@ class Beamline:
         # x = 0
         # y = 0
 
-        self.dummy_device.global_x = np.copy(x)
-        self.dummy_device.global_y = np.copy(y)
+        dummy_device.global_x = np.copy(x)
+        dummy_device.global_y = np.copy(y)
 
-        self.device_list.insert(0, self.dummy_device)
+        self.device_list.insert(0, dummy_device)
 
         # initialize angles
         elevation = 0
@@ -141,7 +145,7 @@ class Beamline:
             if issubclass(type(device), Mirror):
                 # update global alpha
                 if device.orientation == 0:
-                    device.normal, device.sagittal, device.transverse = Util.rotate_3d_trace(xhat,yhat,zhat,
+                    device.normal, device.sagittal, device.tangential = Util.rotate_3d_trace(xhat,yhat,zhat,
                                                                                        delta=device.alpha+device.delta)
 
                     xhat,yhat,zhat = Util.rotate_3d_trace(xhat,yhat,zhat,delta=device.alpha+device.beta0)
@@ -149,22 +153,22 @@ class Beamline:
                     # azimuth += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, azimuth))
                 elif device.orientation == 1:
-                    sagittal, normal, transverse = Util.rotate_3d_trace(xhat,yhat,zhat,
+                    sagittal, normal, tangential = Util.rotate_3d_trace(xhat,yhat,zhat,
                                                                                        delta=-device.alpha-device.delta,
                                                                                        dir='elevation')
                     device.sagittal = -sagittal
                     device.normal = normal
-                    device.transverse = transverse
+                    device.tangential = tangential
                     xhat,yhat,zhat = Util.rotate_3d_trace(xhat,yhat,zhat,delta=-device.alpha-device.beta0,dir='elevation')
                     # device.global_alpha = device.alpha + elevation
                     # elevation += device.alpha + device.beta0
                     # print('after %s: %.4f' % (device.name, elevation))
                 elif device.orientation == 2:
-                    normal, sagittal, transverse = Util.rotate_3d_trace(xhat, yhat, zhat,
+                    normal, sagittal, tangential = Util.rotate_3d_trace(xhat, yhat, zhat,
                                                                                        delta=-device.alpha-device.delta)
                     device.normal = -normal
                     device.sagittal = -sagittal
-                    device.transverse = transverse
+                    device.tangential = tangential
 
                     xhat, yhat, zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=-device.alpha - device.beta0)
 
@@ -173,12 +177,12 @@ class Beamline:
                     # print('after %s: %.4f' % (device.name, azimuth))
 
                 elif device.orientation == 3:
-                    sagittal, normal, transverse = Util.rotate_3d_trace(xhat, yhat, zhat,
+                    sagittal, normal, tangential = Util.rotate_3d_trace(xhat, yhat, zhat,
                                                                                        delta=device.alpha+device.delta,
                                                                                        dir='elevation')
                     device.sagittal = sagittal
                     device.normal = -normal
-                    device.transverse = transverse
+                    device.tangential = tangential
                     xhat, yhat, zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=device.alpha + device.beta0,
                                                       dir='elevation')
 
@@ -207,7 +211,7 @@ class Beamline:
             # increment drift number
             i += 1
 
-        self.full_list.insert(0, self.dummy_device)
+        self.full_list.insert(0, dummy_device)
 
         if not self.ordered:
             # add drifts to full_list
@@ -226,7 +230,7 @@ class Beamline:
             if issubclass(type(device), Mirror):
                 xhat = device.normal
                 yhat = device.sagittal
-                zhat = device.transverse
+                zhat = device.tangential
 
             else:
                 xhat = device.xhat
@@ -252,7 +256,7 @@ class Beamline:
                 if issubclass(type(device), Mirror):
                     xhat = device.normal
                     yhat = device.sagittal
-                    zhat = device.transverse
+                    zhat = device.tangential
 
                 else:
                     xhat = device.xhat
@@ -265,12 +269,76 @@ class Beamline:
                 f.write(',,,,{:.10e},{:.10e},{:.10e}\n'.format(yhat[0],yhat[1],yhat[2]))
                 f.write(',,,,{:.10e},{:.10e},{:.10e}\n'.format(zhat[0],zhat[1],zhat[2]))
 
-    def read_RTD_file(self, filename):
+    def add_drifts_RTD(self):
+        """
+        Method to calculate drift sections. Creates a bunch of Drift objects and adds them to self.full_list.
+        :return: None
+        """
+
+        if not self.ordered:
+            # sort device list based on z
+            self.device_list.sort(key=lambda device: device.z)
+
+        # initialize drift list
+        drift_list = []
+
+        dummy_device = PPM('dummy', z=self.device_list[0].z-1, N=1)
+
+        dummy_device.global_x = np.copy(self.device_list[0].global_x)
+        dummy_device.global_y = np.copy(self.device_list[0].global_y)
+        dummy_device.xhat = np.copy(self.device_list[0].xhat)
+        dummy_device.yhat = np.copy(self.device_list[0].yhat)
+        dummy_device.zhat = np.copy(self.device_list[0].zhat)
+
+        self.device_list.insert(0, dummy_device)
+
+        # initialize drift number
+        i = 0
+        # initialize previous device
+        prev_device = None
+        for device in self.device_list:
+            # don't need any drifts upstream of first device
+            if i > 0:
+
+                # set drift name
+                name = 'drift%d' % i
+                if isinstance(prev_device, Mono):
+                    prev_device = prev_device.grating
+                drift_list.append(Drift(name, upstream_component=prev_device,
+                                        downstream_component=device))
+
+            # update previous device
+            prev_device = device
+            # increment drift number
+            i += 1
+
+        self.full_list.insert(0, dummy_device)
+
+        if not self.ordered:
+            # add drifts to full_list
+            self.full_list.extend(drift_list)
+
+            # sort list based on z
+            self.full_list.sort(key=lambda device: device.z)
+        else:
+            # keep everything in the same order, interleave drifts in between devices
+            for num, drift in enumerate(drift_list):
+                self.full_list.insert(2 * num + 1, drift)
+
+    def read_RTD_file(self, filename, photon_source):
+
+        ux = np.array([1,0,0])
+        uy = np.array([0,1,0])
+        uz = np.array([0,0,1])
+
         df = pd.read_csv(filename)
+        df = df[df['FC'].astype(str).str.contains(photon_source)]
+
         device_list = []
+
         for index, row in df.iterrows():
-            name = row['FC']
-            fungible = row['Fungible']
+            name = str(row['FC'])
+            fungible = str(row['Fungible'])
             x_size = row['X_dim']
             y_size = row['Y_dim']
             z_size = row['Z_dim']
@@ -280,8 +348,80 @@ class Beamline:
             roll = row['LCLS_Z_roll']
             pitch = row['LCLS_X_pitch']
             yaw = row['LCLS_Y_yaw']
-            if name[:2]=='IM':
-                device_list.append(PPM(name),FOV=x_size,z=z)
+            inc_angle = row['inc_angle']
+
+            xhat = np.copy(ux)
+            yhat = np.copy(uy)
+            zhat = np.copy(uz)
+
+            xhat,yhat,zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=pitch, dir='elevation')
+            xhat,yhat,zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=yaw, dir='azimuth')
+
+            device = None
+
+            if (name[:2] == 'IM') or ('IP' in name):
+                if 'PPM' in fungible or 'profile' in fungible.lower() or 'IP' in fungible:
+                    print('found PPM {}'.format(name))
+                    device = PPM(name, FOV=x_size, z=z, aspect_ratio=y_size/x_size)
+            elif name[:2] == 'MR':
+
+                orientation = int(roll/(np.pi/2))+1
+                if orientation > 3:
+                    orientation = 0
+
+                if 'KB' in fungible:
+                    print('found mirror {}'.format(name))
+                    p = row['p']
+                    q = row['q']
+                    device = optics.CurvedMirror(name, p=p, q=q, length=z_size, orientation=orientation,
+                                            alpha=inc_angle, z=z)
+                elif 'HOMS' in fungible:
+                    print('found mirror {}'.format(name))
+                    device = optics.Mirror(name, length=z_size, orientation=orientation, alpha=inc_angle,
+                                      z=z)
+
+            # elif name[:2] == 'PC':
+            #     print('found collimator {}'.format(name))
+            #     device = optics.Collimator(name, diameter=x_size, z=z)
+            elif name[:2]=='SL' and 'slit' in fungible.lower():
+                print('found slit {}'.format(name))
+                device = optics.Slit(name, x_width=x_size, y_width=y_size, z=z)
+
+            if issubclass(type(device), Mirror):
+                if device.orientation==0:
+                    normal = np.copy(ux)
+                    sagittal = np.copy(uy)
+                    tangential = np.copy(uz)
+                elif device.orientation==1:
+                    normal = np.copy(uy)
+                    sagittal = -np.copy(ux)
+                    tangential = np.copy(uz)
+                elif device.orientation==2:
+                    normal = -np.copy(ux)
+                    sagittal = -np.copy(uy)
+                    tangential = np.copy(uz)
+                elif device.orientation==3:
+                    normal = -np.copy(uy)
+                    sagittal = np.copy(ux)
+                    tangential = np.copy(uz)
+                device.normal = normal
+                device.sagittal = sagittal
+                device.tangential = tangential
+                device.global_x = x
+                device.global_y = y
+                Util.rotate_about_point(device, Util.get_pos(device), pitch * ux)
+                Util.rotate_about_point(device, Util.get_pos(device), yaw * uy)
+            elif device is not None:
+                device.global_x = x
+                device.global_y = y
+                device.xhat = xhat
+                device.yhat = yhat
+                device.zhat = zhat
+
+            if device is not None:
+                device_list.append(device)
+
+        return device_list
 
     def load_beamline(self,filename):
         with open(filename,'r') as f:
@@ -295,7 +435,7 @@ class Beamline:
             if issubclass(type(device), Mirror):
                 device.normal = np.array(device_data['xhat'])
                 device.sagittal = np.array(device_data['yhat'])
-                device.transverse = np.array(device_data['zhat'])
+                device.tangential = np.array(device_data['zhat'])
             else:
                 device.xhat = np.array(device_data['xhat'])
                 device.yhat = np.array(device_data['yhat'])
@@ -369,7 +509,7 @@ class Beamline:
                 #     verts.append([(x1, y1, z1), (x2, y1, z2), (x2, y2, z2), (x1, y2, z1)])
 
                 s = np.array([device.sagittal[2],device.sagittal[0],device.sagittal[1]])
-                t = np.array([device.transverse[2],device.transverse[0],device.transverse[1]])
+                t = np.array([device.tangential[2],device.tangential[0],device.tangential[1]])
 
                 point = np.array([device.z,device.global_x,device.global_y])
                 verts.append([tuple(point+t*device.length/2+s*device.width/2),
@@ -483,6 +623,11 @@ class Beamline:
             Beam output from beamline section.
         """
 
+        beam_in = copy.deepcopy(beam_in)
+        # distance between source and first device
+        dz = self.full_list[0].z - beam_in.z_source
+        beam_in.reinitialize(dz)
+
         # save a few lines of code by using more general propagate_between method
         beam = self.propagate_between(beam_in, self.first_device().name, last_device,
                                       include_first=True, include_last=include_last)
@@ -541,12 +686,18 @@ class Beamline:
         # return a partial list between the two devices, including the last device but not the first
         partial_list = self.full_list[index1:index2+1]
 
+
+
         # loop through devices
         for device in partial_list:
             # propagate through current device and print the name
+            if not self.suppress:
+                print('\033[1m' +device.name+'\033[0m')
             device.propagate(beam)
             if not self.suppress:
-                print(device.name)
+                print('zx: %.6f' % beam.zx)
+                print('zy: %.6f' % beam.zy)
+                print('azimuth %.2f mrad' % (beam.global_azimuth * 1e3))
 
         return beam
 
