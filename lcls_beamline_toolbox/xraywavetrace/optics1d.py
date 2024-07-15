@@ -190,6 +190,19 @@ class Mirror:
 
         return intersect_global
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
     def enable_motors(self, *axes):
         """
         Method to add additional motors
@@ -6644,6 +6657,19 @@ class Collimator:
         print('not implemented in 1D')
         return False
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
     def propagate(self, beam):
         """
         Method that all optics need to have, just calls multiply here.
@@ -6754,6 +6780,19 @@ class Slit:
         if not self.suppress:
             print('set width')
         self.y_width = width
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
 
 class Drift:
@@ -6948,6 +6987,19 @@ class Drift:
         beam.beam_prop(self.dz)
         # beam.beam_prop(old_z)
         return True
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
 class PPM:
     """
@@ -7369,6 +7421,19 @@ class PPM:
         """
         success = self.calc_profile(beam)
         return success
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
     def view_vertical(self, ax_y=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
         """
@@ -8148,6 +8213,19 @@ class TransmissionGrating:
 
         return True
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
 class CRL:
     """
     Class to represent parabolic compound refractive lenses (CRLs). This is a 1D implementation so the CRLs are square.
@@ -8336,6 +8414,19 @@ class CRL:
         success = self.multiply(beam)
         return success
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
 
 class Prism:
     """
@@ -8474,6 +8565,19 @@ class Prism:
         """
         success = self.multiply(beam)
         return success
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
 
 class WFS:
@@ -8670,6 +8774,19 @@ class WFS:
 
         return True
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
 
 class PhasePlate:
     """
@@ -8819,3 +8936,16 @@ class PhasePlate:
         else:
             success = True
         return success
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]

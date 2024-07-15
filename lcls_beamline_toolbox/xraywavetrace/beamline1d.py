@@ -332,7 +332,7 @@ class Beamline:
         uz = np.array([0,0,1])
 
         df = pd.read_csv(filename)
-        df = df[df['FC'].astype(str).str.contains(photon_source)]
+        df = df[df['Beamlines'].astype(str).str.contains(photon_source)]
 
         device_list = []
 
@@ -371,8 +371,8 @@ class Beamline:
 
                 if 'KB' in fungible:
                     print('found mirror {}'.format(name))
-                    p = row['p']
-                    q = row['q']
+                    p = row['p nominal']
+                    q = row['q nominal']
                     device = optics.CurvedMirror(name, p=p, q=q, length=z_size, orientation=orientation,
                                             alpha=inc_angle, z=z)
                 elif 'HOMS' in fungible:
@@ -422,6 +422,9 @@ class Beamline:
                 device_list.append(device)
 
         return device_list
+
+    def write_RTD_file(self, filename):
+        pass
 
     def load_beamline(self,filename):
         with open(filename,'r') as f:

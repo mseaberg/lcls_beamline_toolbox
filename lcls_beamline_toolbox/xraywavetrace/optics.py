@@ -41,6 +41,7 @@ from ..polyprojection.legendre import LegendreFit2D
 from lcls_beamline_toolbox.xrayinteraction import interaction
 from lcls_beamline_toolbox.utility.util import Util
 from scipy.interpolate import interp2d, RectBivariateSpline
+from . import motion
 import xraydb
 try:
     from epics import PV
