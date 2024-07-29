@@ -32,6 +32,12 @@ class MotionAxis:
     def set_high_limit(self, limit):
         self.high_limit = limit
 
+    def set_current_position(self, new_position):
+        diff = new_position - self.position
+        self.position = new_position
+        self.set_low_limit(self.get_low_limit()+diff)
+        self.set_high_limit(self.get_high_limit()+diff)
+
 
 class TranslationAxis(MotionAxis):
     """
