@@ -1600,7 +1600,7 @@ class Pulse:
 
         plt.tight_layout()
 
-        return ax_profile, ax_x, ax_y
+        return ax_profile, ax_x, ax_y, profile
 
     def imshow_energy_slice(self, image_name, dim='x', slice_pos=0, image_type='intensity'):
         """
