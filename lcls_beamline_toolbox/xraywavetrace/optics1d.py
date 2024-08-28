@@ -88,7 +88,7 @@ class Mirror:
         """
 
         # set mirror name
-        self.name = name
+        self._name = name
         # set default parameters
         self.motor_list = ['dx', 'delta']
         self.length = 1.
