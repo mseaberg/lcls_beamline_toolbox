@@ -2312,7 +2312,7 @@ class Pulse:
 
         # get gaussian stats
         centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
-        fwhm = int(sx * 2.355)
+        fwhm = sx * 2.355
 
         return centroid, fwhm
 

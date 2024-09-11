@@ -88,7 +88,7 @@ class Mirror:
         """
 
         # set mirror name
-        self._name = name
+        self.name = name
         # set default parameters
         self.motor_list = ['dx', 'delta']
         self.length = 1.
@@ -139,6 +139,9 @@ class Mirror:
 
         # set some calculated attributes
         self.projectWidth = np.abs(self.length * (self.alpha + self.delta))
+
+        mirror_material = interaction.Mirror(name=name, range='HXR', material=self.material)
+        self.density = mirror_material.density
 
     def find_intersection(self, beam):
 
@@ -899,6 +902,8 @@ class Mirror:
         mask = coords_crystal[0,:]>intersect_coords[0,:]
 
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :]) < self.length / 2)
+        incidence_angle = (rays_out[0, :] - rays_crystal[0, :]) / 2
+        reflectivity = xraydb.mirror_reflectivity(self.material, incidence_angle, beam.photonEnergy, self.density)
 
         if np.sum(mask)==0:
             # beam does not intersect optic
@@ -935,6 +940,17 @@ class Mirror:
         angle_out = Util.interp_flip(x_out, x_eff[mask], np.unwrap(np.angle(wave[mask])))
 
         angle_in = np.unwrap(np.angle(wave))
+
+        dx1 = np.gradient(x_out)
+        dx2 = np.gradient(x_eff[mask])
+        dx2_interp = Util.interp_flip(x_out, x_eff[mask], dx2)
+        dx2_interp[dx2_interp == 0] = 1
+        dx1[dx1 == 0] = 1
+        ratio = dx1 / dx2_interp
+
+        ratio[np.isnan(ratio)] = 0
+
+        abs_out *= np.sqrt(np.abs(ratio))
 
         # plt.figure()
         # plt.plot(angle_out*mask2)
@@ -1029,7 +1045,12 @@ class Mirror:
 
         # total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
 
+        reflectivity_interp = Util.interp_flip(x_out, x_eff, reflectivity)
+
         wave = abs_out * np.exp(1j * phase_interp)
+
+        if self.use_reflectivity:
+            wave *= np.sqrt(reflectivity_interp)
 
         ### where did this come from??!!
         # wave *= mask2
