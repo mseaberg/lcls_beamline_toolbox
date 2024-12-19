@@ -2264,7 +2264,8 @@ class Crystal(Mirror):
         if self.material == 'Si':
             self.crystal = materials.CrystalSi(hkl=self.hkl)
         elif self.material == 'diamond':
-            self.crystal = materials.CrystalDiamond(hkl=self.hkl,d=0.8917,elements='C')
+            d = 3.5668 / (sum(i ** 2 for i in self.hkl)) ** 0.5
+            self.crystal = materials.CrystalDiamond(hkl=self.hkl,d=d,elements='C')
 
         # lattice spacing
         self.d = self.crystal.d * 1e-10
@@ -3904,6 +3905,13 @@ class PPM:
         # add linear phase (centered on beam)
         self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x - beam.cx)
         self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y - beam.cy)
+
+        # remove constant phase
+        x_constant_phase = np.interp(beam.cx,self.x,self.x_phase)
+        y_constant_phase = np.interp(beam.cy,self.y,self.y_phase)
+
+        self.x_phase -= x_constant_phase
+        self.y_phase -= y_constant_phase
 
         # self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x)
         # self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y)

@@ -177,7 +177,7 @@ class Beam:
         # if initial_beam not provided, create GaussianSource from beam parameters
         else:
             # pass in parameters to GaussianSource
-            b1 = GaussianSource(beam_params)
+            b1 = GaussianSource(beam_params,suppress=suppress)
             # initialize relevant parameters from GaussianSource b1
             self.wavex = b1.source_x.astype(complex)
             self.wavey = b1.source_y.astype(complex)
@@ -2540,3 +2540,8 @@ class GaussianSource:
         # beam amplitude
         self.source_x = np.exp(-((self.x / self.wx) ** 2))
         self.source_y = np.exp(-((self.y / self.wy) ** 2))
+
+        # profile = np.reshape(np.abs(self.source_y)**2, (self.N, 1)) * np.reshape(np.abs(self.source_x)**2, (1, self.N))
+        # norm2 = np.sum(profile)
+        # self.source_x/=norm2**(1/4)
+        # self.source_y/=norm2**(1/4)

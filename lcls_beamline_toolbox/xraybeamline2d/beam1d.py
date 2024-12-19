@@ -904,7 +904,7 @@ class Pulse:
     """
 
     def __init__(self, beam_params=None, tau=None, time_window=None, SASE=False, num_spikes=3, unit_spectrum=False,
-                 spectral_width=0, N=0, GDD=0):
+                 spectral_width=None, N=None, GDD=0):
         """
         Create a Pulse object
         :param beam_params: same parameters as given for Beam
@@ -948,6 +948,8 @@ class Pulse:
             # define energy range 6 times the bandwidth
             if SASE:
                 E_range = 6 * self.bandwidth * self.num_spikes
+            elif spectral_width is not None:
+                E_range = spectral_width
             else:
                 E_range = 6 * self.bandwidth
 
@@ -959,6 +961,7 @@ class Pulse:
 
             # calculate number of samples needed
             self.N = int(self.time_window / self.deltaT)
+
 
             # define pulse energies and envelope
             self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
@@ -1231,6 +1234,8 @@ class Pulse:
                 y_phase = np.pi/self.wavelength[num]*(qy)*(self.yy[screen]-cy)**2
                 y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
                 self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
+
+                # subtract phase at center of beam since this is handled with the group delay?
 
             omega = 2*np.pi*self.f*1e15
             omega0 = 2*np.pi*self.f0*1e15
@@ -2383,6 +2388,10 @@ class Pulse:
         # get gaussian stats
         centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
         fwhm = int(sx * 2.355)
+        time_label = 'fs'
+        if fwhm==0:
+            fwhm = int(sx * 2.355*1000)
+            time_label = 'attosec'
 
         # gaussian fit to plot
         gauss_plot = Util.fit_gaussian(self.t_axis, centroid, sx)
@@ -2390,7 +2399,7 @@ class Pulse:
         # plotting
         plt.figure()
         plt.plot(self.t_axis, y_data / np.max(y_data), label='Simulated')
-        plt.plot(self.t_axis, gauss_plot, label=u'Gaussian Fit: %d fs FWHM' % fwhm)
+        plt.plot(self.t_axis, gauss_plot, label=u'Gaussian Fit: %d %s FWHM' % (fwhm,time_label))
         plt.ylim(-.05, 1.3)
         plt.xlabel('Time (fs)')
         plt.ylabel('Intensity (normalized)')

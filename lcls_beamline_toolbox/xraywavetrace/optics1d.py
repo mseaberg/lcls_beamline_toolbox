@@ -5129,10 +5129,11 @@ class Crystal(Mirror):
             else:
                 self.crystal = materials.CrystalSi(hkl=self.hkl, t=self.thickness*1e3)
         elif self.material == 'diamond':
+            d = 3.5668/(sum(i**2 for i in self.hkl))**0.5
             if self.thickness is None:
-                self.crystal = materials.CrystalDiamond(hkl=self.hkl)
+                self.crystal = materials.CrystalDiamond(hkl=self.hkl,d=d,elements='C')
             else:
-                self.crystal = materials.CrystalDiamond(hkl=self.hkl, t=self.thickness*1e3)
+                self.crystal = materials.CrystalDiamond(hkl=self.hkl, t=self.thickness*1e3,d=d,elements='C')
 
         # lattice spacing
         self.d = self.crystal.d * 1e-10
@@ -5645,28 +5646,32 @@ class Crystal(Mirror):
             print('dk: {}'.format(delta_k))
 
         # project onto xz plane
-        k_i_xz = k_i-np.dot(k_i,uy)*np.transpose(uy)
-        k_f_xz = k_f_global-np.dot(k_f_global,uy)*np.transpose(uy)
-
-        k_i_yz = k_i-np.dot(k_i,ux)*np.transpose(ux)
-        k_f_yz = k_f_global-np.dot(k_f_global,ux)*np.transpose(ux)
-
-        # try:
-        #     cos_ax = (np.dot(k_i_xz,k_f_xz)/
-        #               np.sqrt(np.dot(k_i_xz,k_i_xz))/
-        #               np.sqrt(np.dot(k_f_xz,k_f_xz)))
-        #     delta_ax = np.arccos(cos_ax)
-        # except:
-        #     # print('exception')
-        #     delta_ax = 0
+        # This didn't work because it was in global coordinates, not the local
+        # beam coordinates
+        # k_i_xz = k_i-np.dot(k_i,uy)*np.transpose(uy)
+        # k_f_xz = k_f_global-np.dot(k_f_global,uy)*np.transpose(uy)
         #
-        # try:
-        #     cos_ay = (np.dot(k_i_yz, k_f_yz) /
-        #               np.sqrt(np.dot(k_i_yz, k_i_yz)) /
-        #               np.sqrt(np.dot(k_f_yz, k_f_yz)))
-        #     delta_ay = np.arccos(cos_ay)
-        # except:
-        #     delta_ay = 0
+        # k_i_yz = k_i-np.dot(k_i,ux)*np.transpose(ux)
+        # k_f_yz = k_f_global-np.dot(k_f_global,ux)*np.transpose(ux)
+
+        # this is using projections in the local beam coordinate system,
+        # should be valid beyond small angle approximation. Exceptions shouldn't
+        # happen since the denominator should always be >= the numerator for the
+        # cosine calculations.
+        try:
+            cos_ax = (k_f_beam[2] /
+                      np.sqrt(k_f_beam[0]**2+k_f_beam[2]**2))
+            delta_ax = np.arccos(cos_ax)
+        except:
+            # print('exception')
+            delta_ax = 0
+
+        try:
+            cos_ay = (k_f_beam[2] /
+                      np.sqrt(k_f_beam[1]**2+k_f_beam[2]**2))
+            delta_ay = np.arccos(cos_ay)
+        except:
+            delta_ay = 0
 
 
         # test = (np.dot(k_i,k_f_global)/
@@ -5680,10 +5685,10 @@ class Crystal(Mirror):
         # have checked the following with a diagram and it is correct
         # delta_ax = np.arcsin(np.sqrt(delta_k[0]**2+delta_k[2]**2))
         # delta_ax = np.arcsin(delta_k[0]/np.cos(self.beta0))
-        delta_ax = np.arcsin(delta_k[0])
+        # delta_ax = np.arcsin(delta_k[0])
         x_sign = np.sign(np.dot(np.cross(k_i, k_f_global), beam.yhat))
         # delta_ay = -np.arcsin(np.sqrt(delta_k[1]**2+delta_k[2]**2))
-        delta_ay = -np.arcsin(delta_k[1])
+        # delta_ay = -np.arcsin(delta_k[1])
         y_sign = np.sign(-np.dot(np.cross(k_i, k_f_global), beam.xhat))
         beam.rotate_beam(delta_ax=x_sign * np.abs(delta_ax), delta_ay=y_sign * np.abs(delta_ay))
 
@@ -8327,14 +8332,20 @@ class CRL:
             beam.rotate_beam(delta_ax=delta_ax)
             # beam.ax += p1_x * beam.lambda0 / 2 / np.pi
             # multiply beam by CRL transmission function and any high order phase
+
             beam.wavex *= transmission
+
         else:
             beam.change_z(new_zy=new_zx)
             delta_ay = p1_x * beam.lambda0 / 2 / np.pi
             beam.rotate_beam(delta_ay=delta_ay)
             # beam.ay += p1_x * beam.lambda0 / 2 / np.pi
             # multiply beam by CRL transmission function and any high order phase
+
             beam.wavey *= transmission
+
+
+
 
         if not self.suppress:
             print('focal length: %.2f' % (-1/(p2*beam.lambda0/np.pi)))
