@@ -47,7 +47,7 @@ class Metrology:
         return y
 
     @staticmethod
-    def calc_ellipse(x_in, p, q, alpha):
+    def calc_ellipse(x_in, p, q, alpha,adjustment=0):
         """
         Method to calculate the shape of an ellipse based on mirror specifications. See Ellipse reference documentation.
         :param p: float
@@ -96,7 +96,7 @@ class Metrology:
 
             x1 = -np.sqrt(b2) * np.sqrt(1 - z1 ** 2 / a2) * np.sign(alpha)
 
-            x1m = -np.sin(delta) * (z1 - z0) + np.cos(delta) * (x1 - x0) + x0
+            x1m = -np.sin(delta+adjustment) * (z1 - z0) + np.cos(delta+adjustment) * (x1 - x0) + x0
             #     x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0) + x0
 
             x1m -= np.min(x1m)
