@@ -5164,10 +5164,11 @@ class Crystal(Mirror):
             else:
                 self.crystal = materials.CrystalSi(hkl=self.hkl, t=self.thickness*1e3)
         elif self.material == 'diamond':
+            d = 3.5668/(sum(i**2 for i in self.hkl))**0.5
             if self.thickness is None:
-                self.crystal = materials.CrystalDiamond(hkl=self.hkl)
+                self.crystal = materials.CrystalDiamond(hkl=self.hkl,d=d,elements='C')
             else:
-                self.crystal = materials.CrystalDiamond(hkl=self.hkl, t=self.thickness*1e3)
+                self.crystal = materials.CrystalDiamond(hkl=self.hkl, t=self.thickness*1e3,d=d,elements='C')
 
         # lattice spacing
         self.d = self.crystal.d * 1e-10
@@ -5657,8 +5658,21 @@ class Crystal(Mirror):
         # get initial k-vector for central ray in global coordinates
         k_i = np.copy(beam.zhat)
 
+        # get transformation from global coordinates into local beam coordinates (at exit plane)
+        beam_transform_matrix = np.tensordot(np.reshape([beam.xhat, beam.yhat, beam.zhat], (3, 3)),
+                                        np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+
         # find the change in the k-vector in global coordinates
-        delta_k = k_f_global - k_i
+        # delta_k = k_f_global - k_i
+
+        # print(k_f_global)
+        # calculate beam unit vectors in local beam coordinate system
+        k_f_beam = np.tensordot(beam_transform_matrix, k_f_global, axes=(1,0))
+        # print(k_f_beam)
+        # print(uz)
+        # perturbation to local beam axis
+        delta_k = k_f_beam - np.reshape(uz,3)
+        # print(delta_k)
 
         if not self.suppress:
             print('xhat: {}'.format(beam.xhat))
@@ -5667,28 +5681,32 @@ class Crystal(Mirror):
             print('dk: {}'.format(delta_k))
 
         # project onto xz plane
-        k_i_xz = k_i-np.dot(k_i,uy)*np.transpose(uy)
-        k_f_xz = k_f_global-np.dot(k_f_global,uy)*np.transpose(uy)
-
-        k_i_yz = k_i-np.dot(k_i,ux)*np.transpose(ux)
-        k_f_yz = k_f_global-np.dot(k_f_global,ux)*np.transpose(ux)
-
-        # try:
-        # cos_ax = (np.dot(k_i_xz,k_f_xz)/
-        #           np.sqrt(np.dot(k_i_xz,k_i_xz))/
-        #           np.sqrt(np.dot(k_f_xz,k_f_xz)))
-        # delta_ax = np.arccos(cos_ax)
-        # # except:
-        # #     print('exception')
-        # #     delta_ax = 0
+        # This didn't work because it was in global coordinates, not the local
+        # beam coordinates
+        # k_i_xz = k_i-np.dot(k_i,uy)*np.transpose(uy)
+        # k_f_xz = k_f_global-np.dot(k_f_global,uy)*np.transpose(uy)
         #
-        # try:
-        #     cos_ay = (np.dot(k_i_yz, k_f_yz) /
-        #               np.sqrt(np.dot(k_i_yz, k_i_yz)) /
-        #               np.sqrt(np.dot(k_f_yz, k_f_yz)))
-        #     delta_ax = np.arccos(cos_ax)
-        # except:
-        #     delta_ay = 0
+        # k_i_yz = k_i-np.dot(k_i,ux)*np.transpose(ux)
+        # k_f_yz = k_f_global-np.dot(k_f_global,ux)*np.transpose(ux)
+
+        # this is using projections in the local beam coordinate system,
+        # should be valid beyond small angle approximation. Exceptions shouldn't
+        # happen since the denominator should always be >= the numerator for the
+        # cosine calculations.
+        try:
+            cos_ax = (k_f_beam[2] /
+                      np.sqrt(k_f_beam[0]**2+k_f_beam[2]**2))
+            delta_ax = np.arccos(cos_ax)
+        except:
+            # print('exception')
+            delta_ax = 0
+
+        try:
+            cos_ay = (k_f_beam[2] /
+                      np.sqrt(k_f_beam[1]**2+k_f_beam[2]**2))
+            delta_ay = np.arccos(cos_ay)
+        except:
+            delta_ay = 0
 
 
         # test = (np.dot(k_i,k_f_global)/
@@ -5700,10 +5718,12 @@ class Crystal(Mirror):
         # might want to do one axis at a time or change the order. Or could change the rotation
         # to rotate about the "unrotated" axes.
         # have checked the following with a diagram and it is correct
-        delta_ax = np.arcsin(np.sqrt(delta_k[0]**2+delta_k[2]**2))
+        # delta_ax = np.arcsin(np.sqrt(delta_k[0]**2+delta_k[2]**2))
         # delta_ax = np.arcsin(delta_k[0]/np.cos(self.beta0))
+        # delta_ax = np.arcsin(delta_k[0])
         x_sign = np.sign(np.dot(np.cross(k_i, k_f_global), beam.yhat))
-        delta_ay = -np.arcsin(np.sqrt(delta_k[1]**2+delta_k[2]**2))
+        # delta_ay = -np.arcsin(np.sqrt(delta_k[1]**2+delta_k[2]**2))
+        # delta_ay = -np.arcsin(delta_k[1])
         y_sign = np.sign(-np.dot(np.cross(k_i, k_f_global), beam.xhat))
         beam.rotate_beam(delta_ax=x_sign * np.abs(delta_ax), delta_ay=y_sign * np.abs(delta_ay))
 
@@ -5926,7 +5946,8 @@ class Crystal(Mirror):
             if not self.suppress:
                 print('is beam in the correct direction?')
                 print(np.arccos(np.dot(beam.zhat, k_f)))
-                print(np.arccos(np.dot(beam.zhat, k_f_global[:,0])))
+                # print(np.arccos(np.dot(beam.zhat, k_f_global[:,0])))
+                print(np.dot(beam.zhat, k_f_global[:,0]))
                 print(k_f)
                 print(k_f_global)
 
