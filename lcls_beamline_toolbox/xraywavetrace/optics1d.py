@@ -5456,6 +5456,12 @@ class Crystal(Mirror):
         beam_slope_error = np.gradient(np.unwrap(np.angle(wave)),
                                        beamx) * beam.lambda0 / 2 / np.pi
 
+
+        plt.figure()
+        plt.plot(beam_slope_error)
+
+        plt.figure()
+        plt.plot(np.abs(wave))
         # linear slope error (quadratic wavefront) needs to be subtracted if the
         # beam is "focused", since this is already accounted for.
         if focused:
@@ -5463,6 +5469,9 @@ class Crystal(Mirror):
             linear = np.polyfit(beamx,beam_slope_error,1,w=np.abs(wave)**2)
             beam_slope_error -= np.polyval(linear, beamx)
             # beam_slope_p[0:2] = 0
+
+        plt.figure()
+        plt.plot(beam_slope_error)
 
         # rays_x_full = rays_x - beam_slope_error
         rays_x_full = np.copy(rays_x) + beam_slope_error
@@ -6045,13 +6054,15 @@ class Crystal(Mirror):
             # beam.x += beam.cx
             beam.zx += 2*delta_z
 
-        if self.orientation==0 or self.orientation==2:
-            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
-            beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
-        else:
-
-            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
-            beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
+        # below few lines currently causing problems when beam is focused - can't remember if this is important
+        # so maybe put it back in later and run only if beam is not focused??
+        # if self.orientation==0 or self.orientation==2:
+        #     # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+        #     beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
+        # else:
+        #
+        #     # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+        #     beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
 
         beam.new_fx()
         if not self.suppress:
