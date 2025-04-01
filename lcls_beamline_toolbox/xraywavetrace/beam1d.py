@@ -1098,7 +1098,11 @@ class Pulse:
             self.deltaT = 1 / f_range
 
             # calculate number of samples needed
-            self.N = int(self.time_window / self.deltaT)
+            if N==0:
+                self.N = int(self.time_window / self.deltaT)
+            else:
+                self.N = N
+                self.deltaT = self.time_window / self.N
 
             # define pulse energies and envelope
             self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
