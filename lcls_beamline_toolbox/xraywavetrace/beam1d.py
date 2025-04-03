@@ -1088,6 +1088,8 @@ class Pulse:
             # define energy range 6 times the bandwidth
             if SASE:
                 E_range = 6 * self.bandwidth * self.num_spikes
+            elif spectral_width is not None:
+                E_range = spectral_width
             else:
                 E_range = 6 * self.bandwidth
 
@@ -1178,7 +1180,7 @@ class Pulse:
         return envelope
 
     @staticmethod
-    def beam_analysis(x, y, line_x, line_y, threshold=0.1):
+    def beam_analysis(x, y, line_x, line_y, threshold=0.1, suppress=True):
         """
         Method for analyzing image of the beam.
         :param line_x: (N,) ndarray
@@ -1268,11 +1270,11 @@ class Pulse:
             sx = px[1]
         except ValueError:
             fit_validity = 0
-            if not self.suppress:
+            if not suppress:
                 print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
             fit_validity = 0
-            if not self.suppress:
+            if not suppress:
                 print('Least squares minimization failed. Using second moment for width.')
 
         try:
@@ -1284,11 +1286,11 @@ class Pulse:
             sy = py[1]
         except ValueError:
             fit_validity = 0
-            if not self.suppress:
+            if not suppress:
                 print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
             fit_validity = 0
-            if not self.suppress:
+            if not suppress:
                 print('Least squares minimization failed. Using second moment for width.')
 
         # conversion factor from sigma to FWHM. Also convert back to meters.
@@ -1575,7 +1577,7 @@ class Pulse:
         y_lineout = np.sum(profile, axis=1)
 
         cx, cy, wx, wy, fwx_guess, fwy_guess = Pulse.beam_analysis(self.x[image_name], self.y[image_name],
-                                                                   x_lineout, y_lineout)
+                                                                   x_lineout, y_lineout, suppress=self.suppress)
 
         # show the 2D profile
         ax_profile.imshow(np.flipud(profile),
@@ -2360,6 +2362,10 @@ class Pulse:
         # get gaussian stats
         centroid, sx = Util.gaussian_stats(self.t_axis, y_data)
         fwhm = int(sx * 2.355)
+        time_label = 'fs'
+        if fwhm == 0:
+            fwhm = int(sx * 2.355 * 1000)
+            time_label = 'attosec'
 
         # gaussian fit to plot
         gauss_plot = Util.fit_gaussian(self.t_axis, centroid, sx)
@@ -2367,7 +2373,7 @@ class Pulse:
         # plotting
         plt.figure()
         plt.plot(self.t_axis, y_data / np.max(y_data), label='Simulated')
-        plt.plot(self.t_axis, gauss_plot, label=u'Gaussian Fit: %d fs FWHM' % fwhm)
+        plt.plot(self.t_axis, gauss_plot, label=u'Gaussian Fit: %d %s FWHM' % (fwhm,time_label))
         plt.ylim(-.05, 1.3)
         plt.xlabel('Time (fs)')
         plt.ylabel('Intensity (normalized)')
