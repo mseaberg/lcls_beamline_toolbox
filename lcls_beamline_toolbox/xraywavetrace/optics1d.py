@@ -5457,11 +5457,11 @@ class Crystal(Mirror):
                                        beamx) * beam.lambda0 / 2 / np.pi
 
 
-        plt.figure()
-        plt.plot(beam_slope_error)
-
-        plt.figure()
-        plt.plot(np.abs(wave))
+        # plt.figure()
+        # plt.plot(beam_slope_error)
+        #
+        # plt.figure()
+        # plt.plot(np.abs(wave))
         # linear slope error (quadratic wavefront) needs to be subtracted if the
         # beam is "focused", since this is already accounted for.
         if focused:
@@ -5470,8 +5470,8 @@ class Crystal(Mirror):
             beam_slope_error -= np.polyval(linear, beamx)
             # beam_slope_p[0:2] = 0
 
-        plt.figure()
-        plt.plot(beam_slope_error)
+        # plt.figure()
+        # plt.plot(beam_slope_error)
 
         # rays_x_full = rays_x - beam_slope_error
         rays_x_full = np.copy(rays_x) + beam_slope_error

@@ -444,13 +444,14 @@ class Beamline:
                 device.yhat = np.array(device_data['yhat'])
                 device.zhat = np.array(device_data['zhat'])
 
-    def draw_beamline(self,figsize=None,ax=None,scatter=True):
+    def draw_beamline(self,figsize=None,ax=None,scatter=True,fig=None):
 
         if ax is None:
-            if figsize is not None:
-                fig = plt.figure(figsize=figsize)
-            else:
-                fig = plt.figure()
+            if fig is None:
+                if figsize is not None:
+                    fig = plt.figure(figsize=figsize)
+                else:
+                    fig = plt.figure()
             ax = fig.add_subplot(111, projection='3d')
 
         # collect vertices
@@ -462,7 +463,7 @@ class Beamline:
             ys[num] = device.global_y
             zs[num] = device.z
 
-        ax.plot(zs,xs,zs=ys)
+        vertices = ax.plot(zs,xs,zs=ys)
         if scatter:
             ax.scatter(zs,xs,zs=ys)
 
@@ -475,7 +476,7 @@ class Beamline:
             yb[num] = device.y_intersect
             zb[num] = device.z_intersect
 
-        ax.plot(zb, xb, zs=yb)
+        devices = ax.plot(zb, xb, zs=yb)
         if scatter:
             ax.scatter(zb, xb, zs=yb)
 
@@ -531,7 +532,9 @@ class Beamline:
         # coll = PatchCollection([patches[0]])
         ax.add_collection3d(col)
 
-        return ax, zs
+        artists = [col,vertices,devices]
+
+        return ax, zs, artists
 
     def update_devices(self):
         """
