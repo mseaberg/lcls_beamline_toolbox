@@ -1059,6 +1059,7 @@ class Pulse:
         self.E0 = beam_params['photonEnergy']
         self.suppress = suppress
         self.spectral_width = spectral_width
+        self.SASE=SASE
 
         # ----- energy range
         # 1/e^2 in intensity bandwidth (radius) for transform-limited pulse
@@ -1128,6 +1129,7 @@ class Pulse:
 
         # time axis in fs
         self.t_axis = np.linspace(-self.N/2, self.N/2-1, self.N) * self.deltaT
+        # self.time_window = np.max(self.t_axis)-np.min(self.t_axis)
 
         # initialize energy stacks with dictionary. Keys are profile monitor names
         self.energy_stacks = {}
@@ -1428,8 +1430,11 @@ class Pulse:
         beam_params = self.beam_params
         tau = self.tau
         time_window = self.time_window
+        SASE = self.SASE
+        num_spikes = self.num_spikes
         if self.tau is not None:
-            new_pulse = Pulse(beam_params=beam_params, tau=tau, time_window=time_window)
+            new_pulse = Pulse(beam_params=beam_params, tau=tau, SASE=SASE,
+                              time_window=time_window, num_spikes=num_spikes)
         else:
             new_pulse = Pulse(beam_params=beam_params, unit_spectrum=True, N=self.N, spectral_width=self.spectral_width)
 

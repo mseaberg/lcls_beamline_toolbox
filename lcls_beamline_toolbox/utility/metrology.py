@@ -137,10 +137,11 @@ class Metrology:
                 # mirror x-coordinates (taking into account small mirror angle relative to x-axis)
                 # z1 = np.linspace(z0 - self.length / 2 * np.cos(delta), z0 + self.length /2 * np.cos(delta), N)
                 z1 = x_in * np.cos(delta) + z0
+
                 # hyperbola equation (using center of hyperbola as origin)
                 x1 = np.sqrt(b2) * np.sqrt(z1**2 / a2 - 1) * np.sign(alpha)
 
-                x1m = -np.sin(delta) * (z1 - z0) + np.cos(delta) * (x1 - x0) + x0
+                x1m = -np.sin(delta+adjustment) * (z1 - z0) + np.cos(delta+adjustment) * (x1 - x0) + x0
                 #     x1m = np.cos(-delta) * (x1 - x0) + np.sin(-delta) * (y1 - y0) + x0
 
                 x1m -= np.min(x1m)
