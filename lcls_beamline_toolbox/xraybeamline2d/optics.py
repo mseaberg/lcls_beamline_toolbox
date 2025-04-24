@@ -5073,6 +5073,20 @@ class PPM_Device(PPM):
         self.y_lineout = xp.zeros(self.N)
         self.projection_x = xp.zeros(self.M)
         self.projection_y = xp.zeros(self.N)
+
+        if use_gpu:
+            self.np_profile = xp.asnumpy(self.profile)
+            self.np_lineout_x = xp.asnumpy(self.x_lineout)
+            self.np_lineout_y = xp.asnumpy(self.y_lineout)
+            self.np_projection_x = xp.asnumpy(self.projection_x)
+            self.np_projection_y = xp.asnumpy(self.projection_y)
+        else:
+            self.np_profile = np.copy(self.profile)
+            self.np_lineout_x = np.copy(self.x_lineout)
+            self.np_lineout_y = np.copy(self.y_lineout)
+            self.np_projection_x = np.copy(self.projection_x)
+            self.np_projection_y = np.copy(self.projection_y)
+
         if 'K' in self.epics_name:
             self.photon_energy = PV('PMPS:KFE:PE:UND:CurrentPhotonEnergy_RBV').get()
         else:
@@ -6301,9 +6315,15 @@ class EXS_Device(PPM):
 
             temp_profile = Util.threshold_array(self.profile, self.threshold)
 
-            self.intensity = np.mean(temp_profile)
-            self.projection_x = np.mean(temp_profile, axis=0)
-            self.projection_y = np.mean(temp_profile, axis=1)
+            self.intensity = xp.mean(temp_profile)
+            self.projection_x = xp.mean(temp_profile, axis=0)
+            self.projection_y = xp.mean(temp_profile, axis=1)
+            if use_gpu:
+                self.np_projection_x = xp.asnumpy(self.projection_x)
+                self.np_projection_y = xp.asnumpy(self.projection_y)
+            else:
+                self.np_projection_x = np.copy(self.projection_x)
+                self.np_projection_y = np.copy(self.projection_y)
 
             # get beam statistics
             self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
@@ -6333,14 +6353,26 @@ class EXS_Device(PPM):
             except RuntimeWarning:
                 fit_y = xp.zeros_like(self.lineout_y)
 
-            self.fit_x = fit_x
-            self.fit_y = fit_y
+            if use_gpu:
+                self.fit_x = xp.asnumpy(fit_x)
+                self.fit_y = xp.asnumpy(fit_y)
+            else:
+                self.fit_x = fit_x
+                self.fit_y = fit_y
 
             self.time_stamp = time_stamp
+
+            if use_gpu:
+                self.np_lineout_x = xp.asnumpy(self.lineout_x)
+                self.np_lineout_y = xp.asnumpy(self.lineout_y)
+            else:
+                self.np_lineout_x = np.copy(self.lineout_x)
+                self.np_lineout_y = np.copy(self.lineout_y)
+
             return img, time_stamp
         except:
-            self.lineout_x = xp.zeros_like(self.x_lineout)
-            self.lineout_y = xp.zeros_like(self.y_lineout)
+            self.np_lineout_x = np.zeros_like(self.x_lineout)
+            self.np_lineout_y = np.zeros_like(self.y_lineout)
             print('no image')
             return xp.zeros((2048, 2048))
 
