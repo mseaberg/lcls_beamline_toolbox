@@ -2416,7 +2416,7 @@ class PPM:
         fwhm_y = sy * 2.355 / 1e6
 
         # check validity
-        validity = ((self.amp_x > 0) and (self.amp_y > 0) and fit_validity and
+        validity = ((self.amp_x > 50) and (self.amp_y > 0) and fit_validity and
                     (fwhm_x < np.max(2*self.x)) and (fwhm_y < np.max(2*self.y)))
 
         self.centroid_is_valid = validity
@@ -3521,6 +3521,7 @@ class PPM_Device(PPM):
                 image_data = self.image_pv.get_with_metadata()
             except:
                 image_data = np.zeros((self.ysize, self.xsize))
+            #if 'value' in image_data.keys():
             img = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
             if numImages > 1:
                 for i in range(numImages-1):
