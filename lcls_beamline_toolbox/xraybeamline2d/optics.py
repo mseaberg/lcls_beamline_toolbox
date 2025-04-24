@@ -5441,7 +5441,7 @@ class PPM_Device(PPM):
                     img += imgTemp
 
 
-            img = img/numImages
+            img = xp.asarray(img/numImages)
 
             time_stamp = image_data['timestamp']
         # time_stamp = image_data.time_stamp
