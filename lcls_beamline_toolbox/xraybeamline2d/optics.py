@@ -5282,29 +5282,54 @@ class PPM_Device(PPM):
         # rms_y = np.std(y_res)
 
         # output. See method docstring for descriptions.
-        wfs_data = {
-                'x_res': x_res,
-                'x_prime': x_prime,
-                'y_res': y_res,
-                'y_prime': y_prime,
-                'z_x': zf_x,
-                'z_y': zf_y,
-                'rms_x': rms_x,
-                'rms_y': rms_y,
-                'coma_x': coma_x,
-                'coma_y': coma_y,
-                'F0': F0,
-                'focus': focus,
-                #'xf': x_interp*1e6,
-                'xf': xf,
+        if use_gpu:
+            wfs_data = {
+                'x_res': xp.asnumpy(x_res),
+                'x_prime': xp.asnumpy(x_prime),
+                'y_res': xp.asnumpy(y_res),
+                'y_prime': xp.asnumpy(y_prime),
+                'z_x': xp.asnumpy(zf_x),
+                'z_y': xp.asnumpy(zf_y),
+                'rms_x': xp.asnumpy(rms_x),
+                'rms_y': xp.asnumpy(rms_y),
+                'coma_x': xp.asnumpy(coma_x),
+                'coma_y': xp.asnumpy(coma_y),
+                'F0': xp.asnumpy(F0),
+                'focus': xp.asnumpy(focus),
+                # 'xf': x_interp*1e6,
+                'xf': xp.asnumpy(xf),
                 'focus_fwhm_horizontal': focus_fwhm_horizontal,
                 'focus_fwhm_vertical': focus_fwhm_vertical,
-                'focus_horizontal': focus_horizontal,
-                'focus_vertical': focus_vertical,
-                'wave': wave,
+                'focus_horizontal': xp.asnumpy(focus_horizontal),
+                'focus_vertical': xp.asnumpy(focus_vertical),
+                'wave': xp.asnumpy(wave),
                 'dxf': dx_focus,
                 'dyf': dy_focus
-                }
+            }
+        else:
+            wfs_data = {
+                    'x_res': x_res,
+                    'x_prime': x_prime,
+                    'y_res': y_res,
+                    'y_prime': y_prime,
+                    'z_x': zf_x,
+                    'z_y': zf_y,
+                    'rms_x': rms_x,
+                    'rms_y': rms_y,
+                    'coma_x': coma_x,
+                    'coma_y': coma_y,
+                    'F0': F0,
+                    'focus': focus,
+                    #'xf': x_interp*1e6,
+                    'xf': xf,
+                    'focus_fwhm_horizontal': focus_fwhm_horizontal,
+                    'focus_fwhm_vertical': focus_fwhm_vertical,
+                    'focus_horizontal': focus_horizontal,
+                    'focus_vertical': focus_vertical,
+                    'wave': wave,
+                    'dxf': dx_focus,
+                    'dyf': dy_focus
+                    }
 
         return wfs_data, wfs_param_out
 
