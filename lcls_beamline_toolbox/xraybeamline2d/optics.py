@@ -5590,12 +5590,23 @@ class PPM_Device(PPM):
         except RuntimeWarning:
             fit_y = xp.zeros_like(self.lineout_y)
 
-
-
-        self.fit_x = fit_x
-        self.fit_y = fit_y
+        if use_gpu:
+            self.fit_x = xp.asnumpy(fit_x)
+            self.fit_y = xp.asnumpy(fit_y)
+        else:
+            self.fit_x = fit_x
+            self.fit_y = fit_y
 
         self.time_stamp = time_stamp
+
+        if use_gpu:
+            self.np_lineout_x = xp.asnumpy(self.lineout_x)
+            self.np_lineout_y = xp.asnumpy(self.lineout_y)
+            self.np_profile = xp.asnumpy(self.profile)
+        else:
+            self.np_lineout_x = np.copy(self.lineout_x)
+            self.np_lineout_y = np.copy(self.lineout_y)
+            self.np_profile = np.copy(self.profile)
 
         return img, time_stamp
         #except:
