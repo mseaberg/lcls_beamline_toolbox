@@ -5055,6 +5055,7 @@ class PPM_Device(PPM):
 
         self.x *= self.dx
         self.y *= self.dx
+
         self.xx, self.yy = np.meshgrid(self.x, self.y)
 
         self.x0 = np.copy(self.x)
@@ -5075,12 +5076,16 @@ class PPM_Device(PPM):
         self.projection_y = xp.zeros(self.N)
 
         if use_gpu:
+            self.np_x = xp.asnumpy(self.x)
+            self.np_y = xp.asnumpy(self.y)
             self.np_profile = xp.asnumpy(self.profile)
             self.np_lineout_x = xp.asnumpy(self.x_lineout)
             self.np_lineout_y = xp.asnumpy(self.y_lineout)
             self.np_projection_x = xp.asnumpy(self.projection_x)
             self.np_projection_y = xp.asnumpy(self.projection_y)
         else:
+            self.np_x = np.copy(self.x)
+            self.np_y = np.copy(self.y)
             self.np_profile = np.copy(self.profile)
             self.np_lineout_x = np.copy(self.x_lineout)
             self.np_lineout_y = np.copy(self.y_lineout)
