@@ -641,6 +641,33 @@ class Util:
         return array_out
 
     @staticmethod
+    def np_threshold_array(array_in, frac):
+        """Method for thresholding an array, useful for calculating center of mass
+        :param array_in: array-like
+            can be any shape array
+        :param frac: float
+            threshold fraction of image maximum
+        :return array_out: array-like
+            thresholded array, same shape as array_in
+        """
+        # xp = cp.get_array_module(array_in)
+
+        # make sure the image is not complex
+        array_out = np.abs(array_in)
+
+        # subtract minimum/background
+        array_out -= np.min(array_out)
+
+        # get thresholding level
+        thresh = np.max(array_out) * frac
+        # subtract threshold level
+        array_out = array_out - thresh
+        # set anything below threshold (now 0) to zero
+        array_out[array_out < 0] = 0
+
+        return array_out
+
+    @staticmethod
     def coordinate_to_pixel(coord, dx, N):
         """
         Method to convert coordinate to pixel. Assumes zero is at the center of the array.
@@ -787,11 +814,11 @@ class Util:
         coord_list = []
 
         for dimension in array_shape:
-            c = xp.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * dx
+            c = np.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * dx
             coord_list.append(c)
 
         # make grid of spatial frequencies
-        coord_tuple = xp.meshgrid(*coord_list)
+        coord_tuple = np.meshgrid(*coord_list)
 
         return coord_tuple
 
@@ -822,11 +849,11 @@ class Util:
 
         for dimension in array_shape:
             df = 2 * fx_max / dimension
-            f = xp.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * df
+            f = np.linspace(-dimension / 2., dimension / 2. - 1, dimension, dtype=float) * df
             f_list.append(f)
 
         # make grid of spatial frequencies
-        fx_tuple = xp.meshgrid(*f_list)
+        fx_tuple = np.meshgrid(*f_list)
 
         return fx_tuple
 
@@ -853,10 +880,10 @@ class Util:
 
         # check if frequencies is a tuple
         if type(frequencies) is tuple:
-            array_size = xp.shape(frequencies[0])
+            array_size = np.shape(frequencies[0])
             num_arrays = len(frequencies)
         else:
-            array_size = xp.shape(frequencies)
+            array_size = np.shape(frequencies)
             num_arrays = 1
 
         # check size of locations tuple
@@ -886,7 +913,7 @@ class Util:
             radii = [first_width] * num_coords
 
         # initialize left hand side of inequality
-        lhs = xp.zeros(array_size)
+        lhs = np.zeros(array_size)
 
         # loop through coordinates
         for f, c, r in zip(frequencies, coordinates, radii):
@@ -898,7 +925,7 @@ class Util:
         # add cosine filter if desired
         if cosine_mask:
             for f, c, r in zip(frequencies, coordinates, radii):
-                mask *= xp.cos(np.pi/2*(f-c)/r)
+                mask *= np.cos(np.pi/2*(f-c)/r)
 
         return mask
 

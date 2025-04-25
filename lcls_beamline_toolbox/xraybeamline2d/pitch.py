@@ -681,6 +681,7 @@ class TalbotImage:
 
         # fourier transform
         fourier_plane = Util.nfft(self.image)
+        np_fourier_plane = xp.asnumpy(fourier_plane)
 
         # spatial frequency of grating (m^-1)
         fG = 1.0 / dg
@@ -691,83 +692,84 @@ class TalbotImage:
         zero_mask = Util.fourier_mask((fx, fy), (0, 0), fG/mag/4, cosine_mask=False)
 
         # apply masks to isolate peaks
-        h_masked = fourier_plane * h_mask
-        v_masked = fourier_plane * v_mask
-        zero_masked = fourier_plane * zero_mask
+        h_masked = np_fourier_plane * h_mask
+        v_masked = np_fourier_plane * v_mask
+        zero_masked = np_fourier_plane * zero_mask
 
         # find peak location for both horizontal and vertical
         # project along each dimension
         # thresholding of masked Fourier peaks to calculate peak location
-        h_thresh = Util.threshold_array(h_masked, .2)
-        v_thresh = Util.threshold_array(v_masked, .2)
+        h_thresh = Util.np_threshold_array(h_masked, .2)
+        v_thresh = Util.np_threshold_array(v_masked, .2)
 
         # initialize centroids for finding if the image is at an angle
         h_peak_y = 0
         v_peak_x = 0
 
         # find peaks in Fourier space
-        if xp.sum(xp.abs(h_thresh)) > 0 and xp.sum(xp.abs(v_thresh)) > 0:
-            h_peak = xp.sum(h_thresh * fx) / xp.sum(xp.abs(h_thresh))
-            v_peak = xp.sum(v_thresh * fy) / xp.sum(xp.abs(v_thresh))
+        if np.sum(np.abs(h_thresh)) > 0 and np.sum(np.abs(v_thresh)) > 0:
+            h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
+            v_peak = np.sum(v_thresh * fy) / xp.sum(np.abs(v_thresh))
 
             # find centroid off-axis
-            h_peak_y = xp.sum(h_thresh * fy) / xp.sum(xp.abs(h_thresh))
-            v_peak_x = xp.sum(v_thresh * fx) / xp.sum(xp.abs(v_thresh))
+            h_peak_y = np.sum(h_thresh * fy) / np.sum(np.abs(h_thresh))
+            v_peak_x = np.sum(v_thresh * fx) / np.sum(np.abs(v_thresh))
         else:
             h_peak = fG/mag
             v_peak = fG/mag
 
-        angle_h = xp.arctan(h_peak_y/h_peak)
-        angle_v = xp.arctan(-v_peak_x/v_peak)
+        angle_h = np.arctan(h_peak_y/h_peak)
+        angle_v = np.arctan(-v_peak_x/v_peak)
 
         # calculate tilt angle in degrees
         tilt_angle = (angle_h+angle_v)/2*180/np.pi
 
         if np.abs(tilt_angle) > 0.05:
             fourier_plane = Util.nfft(ndimage.rotate(self.image,tilt_angle,reshape=False))
+            np_fourier_plane = xp.asnumpy(fourier_plane)
 
         # define new masks centered on calculated peaks
         h_mask = Util.fourier_mask((fx, fy), (h_peak, 0), fG/mag/4, cosine_mask=True)
         v_mask = Util.fourier_mask((fx, fy), (0, v_peak), fG/mag/4, cosine_mask=True)
 
         # apply masks to isolate peaks
-        h_masked = fourier_plane * h_mask
-        v_masked = fourier_plane * v_mask
+        h_masked = np_fourier_plane * h_mask
+        v_masked = np_fourier_plane * v_mask
 
         #plt.figure()
         #plt.imshow(np.abs(h_masked))
 
         # thresholding of masked Fourier peaks to calculate peak location
-        h_thresh = Util.threshold_array(h_masked, .2)
-        v_thresh = Util.threshold_array(v_masked, .2)
+        h_thresh = Util.np_threshold_array(h_masked, .2)
+        v_thresh = Util.np_threshold_array(v_masked, .2)
 
         # find peaks in Fourier space (centroid)
-        if xp.sum(xp.abs(h_thresh)) > 0 and xp.sum(xp.abs(v_thresh)) > 0:
-            h_peak = xp.sum(h_thresh * fx) / xp.sum(xp.abs(h_thresh))
-            v_peak = xp.sum(v_thresh * fy) / xp.sum(xp.abs(v_thresh))
+        if xp.sum(np.abs(h_thresh)) > 0 and np.sum(np.abs(v_thresh)) > 0:
+            h_peak = np.sum(h_thresh * fx) / np.sum(np.abs(h_thresh))
+            v_peak = np.sum(v_thresh * fy) / np.sum(np.abs(v_thresh))
 
         print('h_angle: %.3f' % (angle_h*180/np.pi))
         print('v_angle: %.3f' % (angle_v*180/np.pi))
 
         # find peak widths in Fourier space (second moments centered on centroids)
-        if use_gpu:
-            h_width = xp.asnumpy(xp.sqrt(xp.sum(h_thresh * (fx - h_peak) ** 2) / xp.sum(xp.abs(h_thresh))))
-            v_width = xp.asnumpy(xp.sqrt(xp.sum(v_thresh * (fy - v_peak) ** 2) / xp.sum(np.abs(v_thresh))))
-            # calculate average position of horizontal/vertical peaks
-            mid_peak = xp.asnumpy((v_peak + h_peak) / 2.)
+        # if use_gpu:
+        #     h_width = xp.asnumpy(xp.sqrt(xp.sum(h_thresh * (fx - h_peak) ** 2) / xp.sum(xp.abs(h_thresh))))
+        #     v_width = xp.asnumpy(xp.sqrt(xp.sum(v_thresh * (fy - v_peak) ** 2) / xp.sum(np.abs(v_thresh))))
+        #     # calculate average position of horizontal/vertical peaks
+        #     mid_peak = xp.asnumpy((v_peak + h_peak) / 2.)
+        #
+        #     # second order coefficients
+        #     p0x = -np.pi / lambda0 / zT * dg * xp.asnumpy(h_peak)
+        #     p0y = -np.pi / lambda0 / zT * dg * xp.asnumpy(v_peak)
+        # else:
+        h_width = (np.sqrt(np.sum(h_thresh * (fx - h_peak) ** 2) / np.sum(np.abs(h_thresh))))
+        v_width = (np.sqrt(np.sum(v_thresh * (fy - v_peak) ** 2) / np.sum(np.abs(v_thresh))))
+        # calculate average position of horizontal/vertical peaks
+        mid_peak = ((v_peak + h_peak) / 2.)
 
-            # second order coefficients
-            p0x = -np.pi / lambda0 / zT * dg * xp.asnumpy(h_peak)
-            p0y = -np.pi / lambda0 / zT * dg * xp.asnumpy(v_peak)
-        else:
-            h_width = (xp.sqrt(xp.sum(h_thresh * (fx - h_peak) ** 2) / xp.sum(xp.abs(h_thresh))))
-            v_width = (xp.sqrt(xp.sum(v_thresh * (fy - v_peak) ** 2) / xp.sum(np.abs(v_thresh))))
-            # calculate average position of horizontal/vertical peaks
-            mid_peak = ((v_peak + h_peak) / 2.)
-
-            # second order coefficients
-            p0x = -np.pi / lambda0 / zT * dg * (h_peak)
-            p0y = -np.pi / lambda0 / zT * dg * (v_peak)
+        # second order coefficients
+        p0x = -np.pi / lambda0 / zT * dg * (h_peak)
+        p0y = -np.pi / lambda0 / zT * dg * (v_peak)
 
 
 
@@ -777,12 +779,12 @@ class TalbotImage:
         p0 = np.pi / lambda0 / R2
 
         # define linear phase related to approximate peak location
-        h_linear = xp.exp(-1j * 2. * np.pi * h_peak * x1)
-        v_linear = xp.exp(-1j * 2. * np.pi * v_peak * y1)
+        h_linear = np.exp(-1j * 2. * np.pi * h_peak * x1)
+        v_linear = np.exp(-1j * 2. * np.pi * v_peak * y1)
 
         # Fourier transform back to real space, and multiply by linear phase
-        h_grad = xp.conj(Util.infft(h_masked) * h_linear)
-        v_grad = xp.conj(Util.infft(v_masked) * v_linear)
+        h_grad = xp.conj(Util.infft(xp.asarray(h_masked)) * xp.asarray(h_linear))
+        v_grad = xp.conj(Util.infft(xp.asarray(v_masked)) * xp.asarray(v_linear))
 
         # downsampling amount
         down = (2 ** downsample)
@@ -792,7 +794,7 @@ class TalbotImage:
         v_grad = Util.fourier_downsampling(v_grad, down)
 
         # avoid an extra fourier transform by handling zero order a bit differently
-        zero_fourier = Util.crop_center(zero_masked, M/down, N/down)
+        zero_fourier = Util.crop_center(xp.asarray(zero_masked), M/down, N/down)
         zero_order = xp.abs(Util.infft(zero_fourier))
 
         # downsampled array size
