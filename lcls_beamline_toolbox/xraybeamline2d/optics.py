@@ -5220,7 +5220,7 @@ class PPM_Device(PPM):
         # for now require that centroid data is also valid
         self.wavefront_is_valid = self.centroid_is_valid and validity and target_in
 
-        wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
+        wave = xp.asarray(self.fit_object.wavefront_fit(wfs_param_out['coeff']))
         mask = xp.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
                       256 - int(self.Md / 2):256 + int(self.Md / 2)]) > 0
         wave *= mask
