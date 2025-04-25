@@ -5211,8 +5211,8 @@ class PPM_Device(PPM):
 
         # check validity
         # right now this is requiring that the peak is within half of the masked radius in the Fourier plane
-        validity = ((np.abs(wfs_param_out['h_peak'] - peak) < (peak/8)) and
-                    (np.abs(wfs_param_out['v_peak'] - peak) < (peak/8)))
+        validity = ((xp.abs(wfs_param_out['h_peak'] - peak) < (peak/8)) and
+                    (xp.abs(wfs_param_out['v_peak'] - peak) < (peak/8)))
 
         # check target is in
         target_in = 'TARGET' in wfs.check_state()
@@ -5221,7 +5221,7 @@ class PPM_Device(PPM):
         self.wavefront_is_valid = self.centroid_is_valid and validity and target_in
 
         wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
-        mask = np.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
+        mask = xp.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
                       256 - int(self.Md / 2):256 + int(self.Md / 2)]) > 0
         wave *= mask
 
@@ -5238,8 +5238,8 @@ class PPM_Device(PPM):
 
         # going to try getting the third order Legendre polynomial here and try to get it to zero using benders
         try:
-            leg_x = np.polynomial.legendre.legfit(x_prime*1e-6, x_res, 3)
-            leg_y = np.polynomial.legendre.legfit(y_prime*1e-6, y_res, 3)
+            leg_x = np.polynomial.legendre.legfit(xp.asnumpy(x_prime)*1e-6, xp.asnumpy(x_res), 3)
+            leg_y = np.polynomial.legendre.legfit(xp.asnumpy(y_prime)*1e-6, xp.asnumpy(y_res), 3)
             coma_x = leg_x[3]
             coma_y = leg_y[3]
         except:
@@ -5248,17 +5248,17 @@ class PPM_Device(PPM):
             coma_y = 0
 
         # setting rms_x/rms_y to third order Legendre coefficient for now.
-        rms_x = np.std(x_res)
-        rms_y = np.std(y_res)
+        rms_x = xp.std(x_res)
+        rms_y = xp.std(y_res)
 
-        x_width = np.std(x_res)
-        y_width = np.std(y_res)
+        x_width = xp.std(x_res)
+        y_width = xp.std(y_res)
 
         zf_x = -(recovered_beam.zx - zT - f0) * 1e3
         zf_y = -(recovered_beam.zy - zT - f0) * 1e3
 
         # annotated Fourier transform
-        F0 = np.abs(wfs_param_out['F0'])
+        F0 = xp.abs(wfs_param_out['F0'])
 
         F0 = F0 / np.max(F0)
         F0 += x_mask + y_mask
@@ -5279,9 +5279,9 @@ class PPM_Device(PPM):
         focus_PPM.propagate(recovered_beam)
         
        
-        focus = focus_PPM.profile/np.max(focus_PPM.profile)
-        focus_horizontal = focus_PPM.x_lineout/np.max(focus_PPM.x_lineout)
-        focus_vertical = focus_PPM.y_lineout/np.max(focus_PPM.y_lineout)
+        focus = focus_PPM.profile/xp.max(focus_PPM.profile)
+        focus_horizontal = focus_PPM.x_lineout/xp.max(focus_PPM.x_lineout)
+        focus_vertical = focus_PPM.y_lineout/xp.max(focus_PPM.y_lineout)
         focus_fwhm_horizontal = focus_PPM.wx
         focus_fwhm_vertical = focus_PPM.wy
 
