@@ -5484,7 +5484,6 @@ class PPM_Device(PPM):
                     imgTemp = np.reshape(image_data['value'], (self.ysize, self.xsize)).astype(float)
                     img += imgTemp
 
-
             img = xp.asarray(img/numImages)
 
             time_stamp = image_data['timestamp']
