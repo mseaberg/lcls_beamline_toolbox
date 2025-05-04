@@ -818,7 +818,7 @@ class Util:
             coord_list.append(c)
 
         # make grid of spatial frequencies
-        coord_tuple = np.meshgrid(*coord_list)
+        coord_tuple = np.meshgrid(*coord_list,indexing='ij')
 
         return coord_tuple
 
@@ -853,7 +853,7 @@ class Util:
             f_list.append(f)
 
         # make grid of spatial frequencies
-        fx_tuple = np.meshgrid(*f_list)
+        fx_tuple = np.meshgrid(*f_list,indexing='ij')
 
         return fx_tuple
 

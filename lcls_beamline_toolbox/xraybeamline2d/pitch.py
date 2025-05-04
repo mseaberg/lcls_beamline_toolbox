@@ -674,10 +674,10 @@ class TalbotImage:
         N, M = xp.shape(self.image)
 
         # set up coordinates (Talbot image plane)
-        x1, y1 = Util.get_coordinates(self.image, dx)
+        y1, x1 = Util.get_coordinates(self.image, dx)
 
         # get spatial frequencies
-        fx, fy = Util.get_spatial_frequencies(self.image, dx)
+        fy, fx = Util.get_spatial_frequencies(self.image, dx)
 
         # fourier transform
         fourier_plane = Util.nfft(self.image)
@@ -804,7 +804,7 @@ class TalbotImage:
         dx_down = dx * M / M2
 
         # downsampled image coordinates
-        x1, y1 = Util.get_coordinates(h_grad, dx_down)
+        y1, x1 = Util.get_coordinates(h_grad, dx_down)
 
         params = {'zero_order': zero_order,
                   'x1': x1,
@@ -923,8 +923,12 @@ class TalbotImage:
 
         N,M = np.shape(recovered)        
 
-        recovered2 = xp.zeros((512,512),dtype=complex)
-        recovered2[int(256-N/2):int(256+N/2),int(256-M/2):int(256+M/2)] = recovered
+        if N<512:
+
+            recovered2 = xp.zeros((512,512),dtype=complex)
+            recovered2[int(256-N/2):int(256+N/2),int(256-M/2):int(256+M/2)] = recovered
+        else:
+            recovered2 = recovered
 
         recovered_beam = Beam(initial_beam=recovered2, beam_params=beam_parameters)
 

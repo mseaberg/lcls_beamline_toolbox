@@ -5114,7 +5114,7 @@ class PPM_Device(PPM):
 
         self.f_x, self.f_y = np.meshgrid(f_x, f_y)
 
-        self.downsample = 3
+        self.downsample = 4
 
         self.Nd = int(self.N / (2 ** self.downsample))
         self.Md = int(self.M / (2 ** self.downsample))
@@ -5202,7 +5202,7 @@ class PPM_Device(PPM):
                 "dx": self.dxm,  # PPM pixel size
                 "zT": zT,  # distance between WFS and PPM
                 "lambda0": self.lambda0,  # beam wavelength
-                "downsample": 3, # Fourier downsampling power of 2
+                "downsample": 4, # Fourier downsampling power of 2
                 "zf": f0  # nominal distance from focus to grating
                 }
 
