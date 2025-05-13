@@ -1473,7 +1473,7 @@ class Mono:
         position along the beamline of the monochromator (taken as pre-mirror position)
     """
 
-    def __init__(self, name, M2=None, grating=None, YAG=None, CFF=3, delta=0, f=None, E0=1150):
+    def __init__(self, name, M2=None, grating=None, YAG=None, CFF=3, delta=0, f=None, E0=1150, order=1):
         """
         Monochromator initialization
         :param name: str
@@ -1504,6 +1504,9 @@ class Mono:
         self.cff = CFF
         self.grating.z = self.m2.z + .68
         self.e0 = E0
+        self.order = order
+
+        self.grating.order = order
 
         # set grating focal length
         self.grating.f = self.f
@@ -1525,6 +1528,11 @@ class Mono:
         # calculate grating angle of incidence and diffraction angle for energy E0
         alpha0 = self.calc_alpha()
         beta0 = self.calc_beta(alpha0)
+
+        if order==0:
+            avgAlpha = (alpha0+beta0)/2
+            alpha0 = avgAlpha
+            beta0 = avgAlpha
 
         # actual pre-mirror angle of incidence based on grating orientation
         mirror0 = (85.52e-3 - alpha0 - beta0) / 2.
