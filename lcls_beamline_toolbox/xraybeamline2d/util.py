@@ -1150,3 +1150,95 @@ class LegendreUtil:
     def linear_coeff(self):
 
         return self.c[1] / (self.scale)
+
+
+class GratingCalc:
+
+    def __init__(self, E0, fraction, g_dist, d_dist, pitch=None, travel=.02, name=None):
+        self.E0 = E0
+        self.fraction = fraction
+        self.lambda0 = 1239.8 / self.E0 * 1e-9
+        self.g_dist = g_dist
+        self.d_dist = d_dist
+        self.name = name
+        if pitch is None:
+            self.pitch = self.calc_pitch()
+        else:
+            self.pitch = pitch
+        self.fractions = np.array([1 / 6, 1 / 4, 1 / 3, 1 / 2, 2 / 3, 3 / 4, 5 / 6, 1])
+        self.mags = np.array([3, 2, 3, 1, 3, 2, 3, 1])
+
+        self.lows = np.zeros(np.shape(self.fractions))
+        self.centers = np.zeros(np.shape(self.fractions))
+        self.highs = np.zeros(np.shape(self.fractions))
+        self.travel = travel
+
+        for i in range(np.size(self.fractions)):
+            self.lows[i], self.centers[i], self.highs[i] = self.calc_range(self.fractions[i])
+
+        self.widths = self.highs - self.lows
+
+    def calc_pitch(self):
+
+        pitch = np.sqrt(self.g_dist * self.lambda0 * (self.d_dist - self.g_dist) / self.fraction / self.d_dist / 2)
+        return pitch
+
+    def calc_range(self, fraction):
+        low = 1239.8 / (2 * fraction * self.pitch ** 2 * self.d_dist / (self.g_dist + self.travel) /
+                        (self.d_dist - (self.g_dist + self.travel))) * 1e-9
+        center = 1239.8 / (
+                    2 * fraction * self.pitch ** 2 * self.d_dist / (self.g_dist) / (self.d_dist - (self.g_dist))) * 1e-9
+        high = 1239.8 / (2 * fraction * self.pitch ** 2 * self.d_dist / (self.g_dist - self.travel) /
+                         (self.d_dist - (self.g_dist - self.travel))) * 1e-9
+        return low, center, high
+
+
+class GratingCalcCollection:
+    def __init__(self, *gratings):
+
+        for grating in gratings:
+            setattr(self, grating.name, grating)
+
+        self.grating_tuple = gratings
+
+        self.num_energies = 0
+        for grating in gratings:
+            self.num_energies += len(grating.fractions) * 3
+        self.energy_list = np.zeros(self.num_energies)
+        num = 0
+        for grating in gratings:
+            self.energy_list[num:num + 8] = grating.lows
+            num += 8
+            self.energy_list[num:num + 8] = grating.centers
+            num += 8
+            self.energy_list[num:num + 8] = grating.highs
+            num += 8
+
+    def find_configuration(self, energy):
+        # find closest energy
+        i1 = np.argmin(np.abs(energy - self.energy_list))
+        # figure out which grating this is
+        ig = int(i1 / 24)
+        # figure out if low, center or high
+        i_w = int((i1 - ig * 24) / 8)
+        # figure out which fraction
+        i_f = np.mod((i1 - ig * 24), 8)
+
+        grating = self.grating_tuple[ig]
+        print(grating.name)
+
+        return_dict = {}
+
+        if i_w == 0:
+            print('closest energy: {:.0f}'.format(grating.lows[i_f]))
+            print('low: move z to 30')
+            print(grating.mags[i_f])
+            #return_dict['message'] =
+        elif i_w == 1:
+            print('closest energy: {:.0f}'.format(grating.centers[i_f]))
+            print('center: move z to 10')
+            print(grating.mags[i_f])
+        else:
+            print('closest energy: {:.0f}'.format(grating.highs[i_f]))
+            print('high: move z to -10')
+            print(grating.mags[i_f])

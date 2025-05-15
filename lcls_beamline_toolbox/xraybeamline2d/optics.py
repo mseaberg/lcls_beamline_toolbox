@@ -37,7 +37,7 @@ import time
 import os
 import pickle
 from ..polyprojection.legendre import LegendreFit2D
-from .util import Util, LegendreUtil
+from .util import Util, LegendreUtil, GratingCalc, GratingCalcCollection
 try:
     from epics import PV
     from pcdsdevices.areadetector.detectors import PCDSAreaDetector
@@ -6866,6 +6866,13 @@ class WFS_Data(WFS):
             #'PF1K4': 763.66694-.0093 - 761.89013,
             'PF2K4': 0.996,
             'PF1K2': 1.668
+        }
+
+        R2_dict = {
+            'PF1K0': 100.75,
+            'PF1L0': 100.83,
+            'PF1K4': 2.566,
+            'PF2K4':
         }
 
         #state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()
