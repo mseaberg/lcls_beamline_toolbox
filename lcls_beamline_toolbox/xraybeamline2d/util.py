@@ -1154,7 +1154,7 @@ class LegendreUtil:
 
 class GratingCalc:
 
-    def __init__(self, E0, fraction, g_dist, d_dist, pitch=None, travel=.02, name=None):
+    def __init__(self, g_dist, d_dist, E0=None, fraction=None, pitch=None, travel=.02, name=None):
         self.E0 = E0
         self.fraction = fraction
         self.lambda0 = 1239.8 / self.E0 * 1e-9
@@ -1194,19 +1194,19 @@ class GratingCalc:
 
 
 class GratingCalcCollection:
-    def __init__(self, *gratings):
+    def __init__(self, grating_list):
 
-        for grating in gratings:
+        for grating in grating_list:
             setattr(self, grating.name, grating)
 
-        self.grating_tuple = gratings
+        self.grating_list = grating_list
 
         self.num_energies = 0
-        for grating in gratings:
+        for grating in grating_list:
             self.num_energies += len(grating.fractions) * 3
         self.energy_list = np.zeros(self.num_energies)
         num = 0
-        for grating in gratings:
+        for grating in grating_list:
             self.energy_list[num:num + 8] = grating.lows
             num += 8
             self.energy_list[num:num + 8] = grating.centers
@@ -1224,7 +1224,7 @@ class GratingCalcCollection:
         # figure out which fraction
         i_f = np.mod((i1 - ig * 24), 8)
 
-        grating = self.grating_tuple[ig]
+        grating = self.grating_list[ig]
         print(grating.name)
 
         return_dict = {}

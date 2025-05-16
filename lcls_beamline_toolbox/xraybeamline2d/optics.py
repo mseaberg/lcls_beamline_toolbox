@@ -6594,6 +6594,44 @@ class WFS:
 
 
 class WFS_Device(WFS):
+
+    pitch_dict = {
+        'PF1K0': [39.6, 41, 41, 41, 39.6],
+        'PF1L0': [28.4, 29.9, 31.7, 33.9, 36.6],
+        'PF1K4': [None, None, None, 35.8, 34.6],
+        'PF2K4': [33.3, 33.3, 33.3, 33.3, 33.3],
+        'PF2K2': [36.4, 36.4, 36.4, 36.4, 32.0]
+    }
+
+    z_dict = {
+        'PF1K0': 731.5855078,
+        'PF1L0': 735.6817413,
+        'PF1K4': 763.515,
+        # 'PF1K4': 763.66694 - .0093,
+        'PF2K4': 768.583 - .0093,
+        # 'PF2K2': 792.319 - .0093,
+        'PF2K2': 792.319 - .0093
+    }
+
+    f0_dict = {
+        'PF1K0': 100,
+        'PF1L0': 100,
+        # 'PF1K4': 1.772,
+        'PF1K4': 1.768,
+        # 'PF1K4': 763.66694-.0093 - 761.89013,
+        'PF2K4': 0.996,
+        # 'PF2K2': 2.3097
+        'PF2K2': 2.319 - .0093
+    }
+
+    R2_dict = {
+        'PF1K0': 100.75,
+        'PF1L0': 100.83,
+        'PF1K4': 2.566,
+        'PF2K4': 1.4533,
+        'PF2K2': 2.7888
+    }
+
     def __init__(self, name, **kwargs):
         super().__init__(name, **kwargs)
 
@@ -6614,35 +6652,6 @@ class WFS_Device(WFS):
         # define z offset (in mm)
         self.z_offset = 31.0
 
-        pitch_dict = {
-            'PF1K0': [39.6, 41, 41, 41, 39.6],
-            'PF1L0': [28.4, 29.9, 31.7, 33.9, 36.6],
-            'PF1K4': [35.8, 35.8, 35.8, 35.8, 34.6],
-            'PF2K4': [33.3, 33.3, 33.3, 33.3, 33.3],
-            'PF2K2': [36.4, 36.4, 36.4, 36.4, 32.0]
-        }
-
-        z_dict = {
-            'PF1K0': 731.5855078,
-            'PF1L0': 735.6817413,
-            'PF1K4': 763.515,
-            #'PF1K4': 763.66694 - .0093,
-            'PF2K4': 768.583 - .0093,
-            #'PF2K2': 792.319 - .0093,
-            'PF2K2': 792.319 - .0093
-        }
-
-        f0_dict = {
-            'PF1K0': 100,
-            'PF1L0': 100,
-            #'PF1K4': 1.772,
-            'PF1K4': 1.768,
-            #'PF1K4': 763.66694-.0093 - 761.89013,
-            'PF2K4': 0.996,
-            #'PF2K2': 2.3097
-            'PF2K2': 2.319 - .0093
-        }
-
         #state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()
         #self.z_pv = EpicsSignalRO(self.epics_name+'MMS:Z', name='omitted')
 
@@ -6656,16 +6665,26 @@ class WFS_Device(WFS):
 
         try:
             # account for Talbot fraction here
-            self.pitch = pitch_dict[self.name][state] * 1.e-6
+            self.pitch = WFS_Device.pitch_dict[self.name][state] * 1.e-6
             print(self.pitch)
             self.pitch *= 1/self.fraction
-            self.z = z_dict[self.name]
-            self.f0 = f0_dict[self.name]
+            self.z = WFS_Device.z_dict[self.name]
+            self.f0 = WFS_Device.f0_dict[self.name]
+            self.R2 = WFS_Device.R2_dict[self.name]
             print('pitch: %.4e' % self.pitch)
         except:
-            self.pitch = 30.0
-            self.z = z_dict['PF1L0']
-            self.f0 = 100
+            # self.pitch = 30.0
+            # self.z = z_dict['PF1L0']
+            # self.f0 = 100
+            print('Problem with wavefront sensor database. Need to fix.')
+
+        # grating calc for auto-configure
+        grating_list = []
+        for num, pitch in WFS_Device.pitch_dict[self.name]:
+            if pitch is not None:
+                grating_list.append(GratingCalc(self.f0, self.R2, pitch=pitch, name=self.name))
+
+        self.grating_calc = GratingCalcCollection(grating_list)
 
     def check_state(self):
 
@@ -6866,13 +6885,6 @@ class WFS_Data(WFS):
             #'PF1K4': 763.66694-.0093 - 761.89013,
             'PF2K4': 0.996,
             'PF1K2': 1.668
-        }
-
-        R2_dict = {
-            'PF1K0': 100.75,
-            'PF1L0': 100.83,
-            'PF1K4': 2.566,
-            'PF2K4':
         }
 
         #state_rbv = PV(self.epics_name + 'MMS:STATE:GET_RBV').get()
