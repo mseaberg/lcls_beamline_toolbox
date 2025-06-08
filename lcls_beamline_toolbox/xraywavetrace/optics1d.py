@@ -7828,11 +7828,14 @@ class PPM:
         x_width = np.std(x_res)
         y_width = np.std(y_res)
 
-        # zf_x = -(recovered_beam.zx - zT - f0) * 1e3
-        # zf_y = -(recovered_beam_y.zy - zT - f0) * 1e3
+        zf_x = -(recovered_beam.zx - zT - f0) * 1e3
+        zf_y = -(recovered_beam_y.zy - zT - f0) * 1e3
 
-        zf_x = -(recovered_beam.zx)
-        zf_y = -(recovered_beam_y.zy)
+        # zf_x = -(recovered_beam.zx)
+        # zf_y = -(recovered_beam_y.zy)
+
+        # zf_x = -(recovered_beam.zx - zT - f0) * 1e3
+        # zf_y = -(recovered_beam.zy - zT - f0) * 1e3
 
         # annotated Fourier transform
         F0 = np.abs(wfs_param_out['F0'])

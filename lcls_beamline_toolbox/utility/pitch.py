@@ -661,13 +661,15 @@ class TalbotImage:
         zT = param['zT']
         lambda0 = param['lambda0']
         downsample = param['downsample']
+        f0 = param['zf']
 
         # calculate second order coefficient corresponding to peak shift that will be applied
         # R2 is the distance from focus to detector corresponding to this peak
         R2 = zT / (1 - dg * self.fc / dx)
 
         # calculate expected magnification
-        mag = R2 / (R2 - zT)
+        # mag = R2 / (R2 - zT)
+        mag = (zT+f0)/f0
 
         #print('magnification: %.1f' % mag)
 
@@ -689,10 +691,12 @@ class TalbotImage:
         # spatial frequency of grating (m^-1)
         fG = 1.0 / dg
 
+        # peak = 1/mag/dg*fraction
+
         # mask off peaks in Fourier space
-        h_mask = Util.fourier_mask((fx, fy), (fG/mag, 0), fG/mag/4, cosine_mask=False)
-        v_mask = Util.fourier_mask((fx, fy), (0, fG/mag), fG/mag/4, cosine_mask=False)
-        zero_mask = Util.fourier_mask((fx, fy), (0, 0), fG/mag/4, cosine_mask=False)
+        h_mask = Util.fourier_mask((fx, fy), (fG/mag*fraction, 0), fG/mag/4*fraction, cosine_mask=False)
+        v_mask = Util.fourier_mask((fx, fy), (0, fG/mag*fraction), fG/mag/4*fraction, cosine_mask=False)
+        zero_mask = Util.fourier_mask((fx, fy), (0, 0), fG/mag/4*fraction, cosine_mask=False)
 
         # .48 seconds to here (would probably get some speed-up if I used 
         # less general code for the fourier masks
@@ -739,8 +743,8 @@ class TalbotImage:
         # 1.8 seconds to here: rotation costs almost 1 second
 
         # define new masks centered on calculated peaks
-        h_mask = Util.fourier_mask((fx, fy), (h_peak, 0), fG/mag/4, cosine_mask=True)
-        v_mask = Util.fourier_mask((fx, fy), (0, v_peak), fG/mag/4, cosine_mask=True)
+        h_mask = Util.fourier_mask((fx, fy), (h_peak, 0), fG/mag/4*fraction, cosine_mask=True)
+        v_mask = Util.fourier_mask((fx, fy), (0, v_peak), fG/mag/4*fraction, cosine_mask=True)
 
         # 2.47 seconds to here. Again, not sure if this is from generating
         # new large arrays
@@ -783,8 +787,8 @@ class TalbotImage:
             mid_peak = ((v_peak + h_peak) / 2.)
 
             # second order coefficients
-            p0x = -np.pi / lambda0 / zT * dg * (h_peak)
-            p0y = -np.pi / lambda0 / zT * dg * (v_peak)
+            p0x = -np.pi / lambda0 / zT * dg * (h_peak)/fraction
+            p0y = -np.pi / lambda0 / zT * dg * (v_peak)/fraction
 
 
 
