@@ -778,8 +778,8 @@ class TalbotImage:
             mid_peak = xp.asnumpy((v_peak + h_peak) / 2.)
 
             # second order coefficients
-            p0x = -np.pi / lambda0 / zT * dg * xp.asnumpy(h_peak)
-            p0y = -np.pi / lambda0 / zT * dg * xp.asnumpy(v_peak)
+            p0x = -np.pi / lambda0 / zT * dg * xp.asnumpy(h_peak)/fraction
+            p0y = -np.pi / lambda0 / zT * dg * xp.asnumpy(v_peak)/fraction
         else:
             h_width = (xp.sqrt(xp.sum(h_thresh * (fx - h_peak) ** 2) / xp.sum(xp.abs(h_thresh))))
             v_width = (xp.sqrt(xp.sum(v_thresh * (fy - v_peak) ** 2) / xp.sum(np.abs(v_thresh))))
