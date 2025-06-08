@@ -5217,6 +5217,9 @@ class WFS:
         x_width = int(self.x_pitch/2*self.duty_cycle)
         y_width = int(self.y_pitch/2*self.duty_cycle)
 
+        self.x_pitch = int(x_width*2/self.duty_cycle)
+        self.y_pitch = int(y_width*2/self.duty_cycle)
+
         # loop through periods in the horizontal grating
         for i in range(int(Mg)):
             # each step defines one period

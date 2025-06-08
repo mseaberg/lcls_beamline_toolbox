@@ -7632,19 +7632,38 @@ class PPM:
         # get Talbot fraction that we're using (fractional Talbot effect)
         fraction = wfs.fraction
 
+        zT = self.z - wfs.z
+
+        # include correction to f0 (distance between focus and grating)
+        # based on z stage
+        f0 = wfs.f0
+        if not self.suppress:
+            print('f0: %.3f' % f0)
+        # print('zT: %.2f' % zT)
+
+        # magnification of Talbot pattern
+        mag = (zT + f0) / f0
+        # expected spatial frequency of Talbot pattern (1/m)
+        peak = 1. / mag / wfs.pitch * fraction
+
+        fc = peak * self.dx
+
         # Talbot image processing
         # load basis
         with open(basis_file, 'rb') as f:
             fit_object = pickle.load(f)
 
         # initialize Talbot image processing
-        image_calc = TalbotImage(self.profile, wfs_param['fc'], fraction)
+        image_calc = TalbotImage(self.profile, fc, fraction)
 
         # add parameters for calculating Legendre coefficients
         wfs_param['downsample'] = 3
         wfs_param['zf'] = wfs.f0
-        wfs_param['dg'] = wfs.x_pitch_sim
+        wfs_param['dg'] = wfs.x_pitch_units
         wfs_param['fraction'] = fraction
+        wfs_param['zT'] = zT
+        wfs_param["lambda0"]= self.lambda0  # beam wavelength
+        wfs_param['dx'] = self.dx  # PPM pixel size
 
         # calculate 2D legendre coefficients
         if not self.suppress:
@@ -8666,8 +8685,13 @@ class WFS:
         x_width = int(self.x_pitch/2*self.duty_cycle)
         y_width = int(self.y_pitch/2*self.duty_cycle)
 
-        self.x_pitch_units = x_width*2/self.duty_cycle*beam.dx
-        self.y_pitch_units = y_width*2/self.duty_cycle*beam.dy
+        self.x_pitch = int(x_width * 2 / self.duty_cycle)
+        self.y_pitch = int(y_width * 2 / self.duty_cycle)
+
+        # self.x_pitch_units = x_width*2/self.duty_cycle*beam.dx
+        # self.y_pitch_units = y_width*2/self.duty_cycle*beam.dy
+        self.x_pitch_units = self.x_pitch*beam.dx
+        self.y_pitch_units = self.y_pitch*beam.dy
 
         # loop through periods in the horizontal grating
         for i in range(int(Mg)):
