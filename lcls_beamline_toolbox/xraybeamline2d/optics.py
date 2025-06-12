@@ -29,6 +29,7 @@ import json
 from time import sleep
 from .pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolation
+from cupyx.scipy.interpolate import RegularGridInterpolator
 
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
@@ -5019,9 +5020,11 @@ class PPM_Device(PPM):
         self.image_pv = PV(self.epics_name + 'ArrayData')
 
         # get ROI info
-        xmin = PV(self.epics_name + 'ROI:MinX_RBV').get()
+        #xmin = PV(self.epics_name + 'ROI:MinX_RBV').get()
+        xmin = 0
         xmax = xmin + PV(self.epics_name + 'ROI:SizeX_RBV').get() - 1
-        ymin = PV(self.epics_name + 'ROI:MinY_RBV').get()
+        #ymin = PV(self.epics_name + 'ROI:MinY_RBV').get()
+        ymin = 0
         ymax = ymin + PV(self.epics_name + 'ROI:SizeY_RBV').get() - 1
         # get binning
         self.xbin = PV(self.epics_name + 'ROI:BinX_RBV').get()
@@ -5457,7 +5460,7 @@ class PPM_Device(PPM):
     def get_dummy_image(self):
         return self.dummy_image
 
-    def get_image(self, angle=0, demo=False):
+    def get_image(self, angle=0, demo=False, distortion_coords=None):
         #try:
     # do averaging
         if hasattr(self, 'average'):
@@ -5485,6 +5488,16 @@ class PPM_Device(PPM):
                     img += imgTemp
 
             img = xp.asarray(img/numImages)
+            if distortion_coords is not None:
+                x0 = xp.asarray(distortion_coords['x0'])
+                y0 = xp.asarray(distortion_coords['y0'])
+                xI = xp.asarray(distortion_coords['xI'])
+                yI = xp.asarray(distortion_coords['yI'])
+                print('accounting for distortion...')
+                N,M = xp.shape(x0)
+                f = RegularGridInterpolator((y0[int(N/2)-2048:int(N/2)+2048,0],x0[0,int(M/2)-2048:int(M/2)+2048]),img,bounds_error=False,fill_value=None)
+                img = f((yI[int(N/2)-2048:int(N/2)+2048,int(M/2)-2048:int(M/2)+2048],xI[int(N/2)-2048:int(N/2)+2048,int(M/2)-2048:int(M/2)+2048]))
+                print('distortion corrected')
 
             time_stamp = image_data['timestamp']
         # time_stamp = image_data.time_stamp
@@ -6281,7 +6294,7 @@ class EXS_Device(PPM):
     def get_dummy_image(self):
         return self.dummy_image
 
-    def get_image(self, angle=0):
+    def get_image(self, angle=0, distortion_coords=None):
         try:
             # do averaging
             if hasattr(self, 'average'):
@@ -6301,6 +6314,18 @@ class EXS_Device(PPM):
                     img += imgTemp
 
             img = img / numImages
+
+            if distortion_coords is not None:
+                x0 = xp.asarray(distortion_coords['x0'])
+                y0 = xp.asarray(distortion_coords['y0'])
+                xI = xp.asarray(distortion_coords['xI'])
+                yI = xp.asarray(distortion_coords['yI'])
+                print('accounting for distortion...')
+                N,M = xp.shape(x0)
+                f = RegularGridInterpolator((y0[int(N/2)-2048:int(N/2)+2048,0],x0[0,int(M/2)-2048:int(M/2)+2048]),img,bounds_error=False,fill_value=None)
+                img = f((yI[int(N/2)-2048:int(N/2)+2048,int(M/2)-2048:int(M/2)+2048],xI[int(N/2)-2048:int(N/2)+2048,int(M/2)-2048:int(M/2)+2048]))
+                print('distortion corrected')
+
 
             time_stamp = image_data['timestamp']
             # time_stamp = image_data.time_stamp
