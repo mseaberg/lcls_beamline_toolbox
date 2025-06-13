@@ -26,6 +26,7 @@ import pickle
 import os
 from lcls_beamline_toolbox.utility.util import Util, LegendreUtil
 from lcls_beamline_toolbox.utility.pitch import TalbotLineout, TalbotImage
+from lcls_beamline_toolbox.xraybeamline2d.optics import PPM as PPM_2D
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
 import xraydb
@@ -7261,7 +7262,7 @@ class PPM:
         self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
 
 
-    def calc_profile(self, beam):
+    def calc_profile(self, beam, shift=True):
         """
         Method to calculate the beam profile at the PPM screen.
         :param beam: Beam
@@ -7269,11 +7270,15 @@ class PPM:
         :return: None
         """
 
-        beam_shift = np.array([self.x_intersect-self.global_x,
-                               self.y_intersect-self.global_y,
-                               self.z_intersect-self.z])
-        x_shift = np.dot(beam_shift,self.xhat)
-        y_shift = np.dot(beam_shift,self.yhat)
+        if shift:
+            beam_shift = np.array([self.x_intersect-self.global_x,
+                                   self.y_intersect-self.global_y,
+                                   self.z_intersect-self.z])
+            x_shift = np.dot(beam_shift,self.xhat)
+            y_shift = np.dot(beam_shift,self.yhat)
+        else:
+            x_shift = 0
+            y_shift = 0
 
         # Calculate intensity from complex beam
         profilex = np.abs(beam.wavex) ** 2
@@ -7703,7 +7708,7 @@ class PPM:
         return wfs_data
 
 
-    def retrieve_wavefront2(self, wfs, focusFOV=10, focus_z=0):
+    def retrieve_wavefront2(self, wfs, focusFOV=10, focus_z=0, focus_estimate=None):
         """
         Method to calculate wavefront in the case where there is a wavefront sensor upstream of the PPM.
         :param wfs: WFS object
@@ -7779,12 +7784,14 @@ class PPM:
         }
 
         talbot_image_x = TalbotImage(im1, fc, fraction)
-        recovered_beam, wfs_param_out = talbot_image_x.get_legendre(self.fit_object, wfs_param, threshold=.1)
+        recovered_beam, wfs_param_out = talbot_image_x.get_legendre(self.fit_object, wfs_param,
+                                                                    focus_estimate=focus_estimate)
 
         wfs_param['dg'] = wfs.y_pitch_units
 
         talbot_image_y = TalbotImage(im1, fc, fraction)
-        recovered_beam_y, wfs_param_out_y = talbot_image_y.get_legendre(self.fit_object, wfs_param, threshold=.1)
+        recovered_beam_y, wfs_param_out_y = talbot_image_y.get_legendre(self.fit_object, wfs_param,
+                                                                        focus_estimate=focus_estimate)
 
         # check validity
         # right now this is requiring that the peak is within half of the masked radius in the Fourier plane
@@ -7794,7 +7801,10 @@ class PPM:
         # for now require that centroid data is also valid
         self.wavefront_is_valid = validity
 
-        wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
+        center = int(self.N / 2 ** 3)
+        # wave = self.fit_object.wavefront_fit(wfs_param_out['coeff'])
+        wave = np.angle(recovered_beam.wave)[center - int(self.Nd / 2):center + int(self.Nd / 2),
+               center - int(self.Md / 2):center + int(self.Md / 2)]
         mask = np.abs(recovered_beam.wave[256 - int(self.Nd / 2):256 + int(self.Nd / 2),
                       256 - int(self.Md / 2):256 + int(self.Md / 2)]) > 0
         wave *= mask
@@ -7847,35 +7857,32 @@ class PPM:
         z_plane = focus_z * 1e-3
 
         # propagate to focus
-        # recovered_beam.beam_prop(-zT - f0 + z_plane)
-        # focus = recovered_beam.wave
-        # dx_focus = recovered_beam.dx
-        # dy_focus = recovered_beam.dy
-        # print('dx: %.2e' % dx_focus)
-        # print('dy: %.2e' % dy_focus)
-        # focus = np.abs(focus)**2/np.max(np.abs(focus)**2)
+        recovered_beam.beam_prop(-zT - f0 + z_plane)
+        focus = recovered_beam.wave
+        dx_focus = recovered_beam.dx
+        dy_focus = recovered_beam.dy
+        print('dx: %.2e' % dx_focus)
+        print('dy: %.2e' % dy_focus)
+        focus = np.abs(focus)**2/np.max(np.abs(focus)**2)
 
-        # focus_PPM = PPM('focus', FOV=focusFOV * 1e-6, N=256)
-        # focus_PPM.propagate(recovered_beam)
-        #
-        # focus = focus_PPM.profile / np.max(focus_PPM.profile)
-        # focus_horizontal = focus_PPM.x_lineout / np.max(focus_PPM.x_lineout)
-        # focus_vertical = focus_PPM.y_lineout / np.max(focus_PPM.y_lineout)
-        # focus_fwhm_horizontal = focus_PPM.wx
-        # focus_fwhm_vertical = focus_PPM.wy
-        #
-        # xf = focus_PPM.x * 1e6
+        focus_PPM = PPM_2D('focus', FOV=focusFOV * 1e-6, N=256)
+        focus_PPM.calc_profile(recovered_beam)
 
-        # x_focus = recovered_beam.x[0, :]
-        # y_focus = recovered_beam.y[:, 0]
+        focus = focus_PPM.profile / np.max(focus_PPM.profile)
+        focus_horizontal = focus_PPM.x_lineout / np.max(focus_PPM.x_lineout)
+        focus_vertical = focus_PPM.y_lineout / np.max(focus_PPM.y_lineout)
+        focus_fwhm_horizontal = focus_PPM.wx
+        focus_fwhm_vertical = focus_PPM.wy
+
+        xf = focus_PPM.x * 1e6
+
+        # x_focus = recovered_beam.x
+        # y_focus = recovered_beam.y
         # x_interp = np.linspace(-256, 255, 512, dtype=float)*focusFOV*1e-6/512
         # f = interpolation.interp2d(x_focus, y_focus, focus, fill_value=0)
         # focus = f(x_interp, x_interp)
         # focus_horizontal = np.sum(focus, axis=0)
         # focus_vertical = np.sum(focus, axis=1)
-
-        # rms_x = np.std(x_res)
-        # rms_y = np.std(y_res)
 
         # output. See method docstring for descriptions.
         wfs_data = {
@@ -7889,17 +7896,18 @@ class PPM:
             'rms_y': rms_y,
             'coma_x': coma_x,
             'coma_y': coma_y,
-            'F0': F0,
+            'F0': F0
             # 'focus': focus,
-            # 'xf': x_interp*1e6,
+            # # 'xf': x_interp*1e6,
             # 'xf': xf,
             # 'focus_fwhm_horizontal': focus_fwhm_horizontal,
             # 'focus_fwhm_vertical': focus_fwhm_vertical,
             # 'focus_horizontal': focus_horizontal,
             # 'focus_vertical': focus_vertical,
-            'wave': wave,
+            # 'wave': wave,
             # 'dxf': dx_focus,
-            # 'dyf': dy_focus
+            # 'dyf': dy_focus,
+            # 'beam': recovered_beam
         }
 
         return wfs_data, wfs_param_out

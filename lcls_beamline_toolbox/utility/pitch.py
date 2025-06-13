@@ -848,7 +848,7 @@ class TalbotImage:
         # output
         return h_grad, v_grad, params
 
-    def get_legendre(self, fit_object, param, threshold=.01, method='projection'):
+    def get_legendre(self, fit_object, param, threshold=.01, method='projection', focus_estimate=None):
 
         # options for method are 'CG' (conjugate gradient) or 'projection'. If neither of these is provided,
         # 'projection' will be selected.
@@ -944,6 +944,8 @@ class TalbotImage:
             'z0y': np.pi/lambda0/py,
             'photonEnergy': 1239.8/(lambda0*1e9)
         }
+        if focus_estimate is not None:
+            beam_parameters['sigma_x'] = focus_estimate
 
         #print(beam_parameters['z0x'])
         #print(beam_parameters['z0y'])

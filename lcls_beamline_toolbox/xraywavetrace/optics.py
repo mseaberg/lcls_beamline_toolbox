@@ -6899,7 +6899,7 @@ class PPM:
 
         return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
 
-    def calc_profile(self, beam):
+    def calc_profile(self, beam, shift=True):
         """
         Method to calculate the beam profile at the PPM screen.
         :param beam: Beam
@@ -6907,11 +6907,15 @@ class PPM:
         :return: None
         """
 
-        beam_shift = np.array([self.x_intersect - self.global_x,
+        if shift:
+            beam_shift = np.array([self.x_intersect - self.global_x,
                                self.y_intersect - self.global_y,
                                self.z_intersect - self.z])
-        x_shift = np.dot(beam_shift, self.xhat)
-        y_shift = np.dot(beam_shift, self.yhat)
+            x_shift = np.dot(beam_shift, self.xhat)
+            y_shift = np.dot(beam_shift, self.yhat)
+        else:
+            x_shift = 0
+            y_shift = 0
 
         # Calculate intensity from complex beam
         profile = np.abs(beam.wave) ** 2
