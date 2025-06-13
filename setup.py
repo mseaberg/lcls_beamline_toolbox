@@ -4,7 +4,7 @@ with open("README.md", "r") as readme_file:
     readme = readme_file.read()
 
 requirements = ["numpy>=1.17", "scipy>=1.4.1", "matplotlib>=3.2.1", "jupyter>=1.0.0", "scikit-image>=0.16.2",
-                "xrt"]
+                "xrt","xraydb","pandas"]
 
 setup(
     name="lcls_beamline_toolbox",
