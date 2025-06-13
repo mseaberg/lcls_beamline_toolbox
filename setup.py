@@ -17,6 +17,7 @@ setup(
     url="https://github.com/mseaberg/lcls_beamline_toolbox/",
     packages=find_packages(),
     install_requires=requirements,
+    include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3.7",
     ],
