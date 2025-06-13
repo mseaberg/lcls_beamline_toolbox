@@ -6416,7 +6416,7 @@ class Crystal(Mirror):
         # print(p_recentered)
 
         # high_order_temp = np.polyval(p_int, z_c)
-        high_order_temp = integration.cumtrapz(slope_error, z_c, initial=0)
+        high_order_temp = integration.cumulative_trapezoid(slope_error, z_c, initial=0)
         high_order_temp[mask] -= shapePoly.legval(2)
 
 

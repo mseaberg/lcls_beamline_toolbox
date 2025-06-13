@@ -13,7 +13,7 @@ import scipy as sp
 import scipy.special
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 
 
 class Util:
@@ -1162,9 +1162,9 @@ class Util:
 
         # integrate the gradient (average mixed partial derivatives since these are
         # supposed to be equal)
-        f = (cumtrapz(g, axis=1, dx=dx, initial=0) +
-             cumtrapz(h, axis=0, dx=dy, initial=0) -
-            cumtrapz(cumtrapz(.5*(dg_dy+dh_dx), axis=0, dx=dy, initial=0),
+        f = (cumulative_trapezoid(g, axis=1, dx=dx, initial=0) +
+             cumulative_trapezoid(h, axis=0, dx=dy, initial=0) -
+            cumulative_trapezoid(cumulative_trapezoid(.5*(dg_dy+dh_dx), axis=0, dx=dy, initial=0),
                      axis=1, dx=dx, initial=0))
 
         return f

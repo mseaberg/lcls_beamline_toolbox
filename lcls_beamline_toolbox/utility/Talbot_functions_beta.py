@@ -1,6 +1,6 @@
 import numpy as np
 from beam import Beam
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 import time
 
@@ -479,7 +479,7 @@ def get_coeffs(line1,x1,zT,lambda0,dg,num):
     x1 = np.linspace(-N/2,N/2-1,N)*dx
 
     # cumulative sum to get wavefront (1d)
-    int1 = cumtrapz(line1*dg/lambda0/zT,initial=0)*dx
+    int1 = cumulative_trapezoid(line1*dg/lambda0/zT,initial=0)*dx
 
     # polynomial fit to wavefront
     p = np.polyfit(x1,int1,num)
