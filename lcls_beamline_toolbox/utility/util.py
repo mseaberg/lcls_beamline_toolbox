@@ -13,7 +13,7 @@ import scipy as sp
 import scipy.special
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 
 
 class Util:
@@ -1075,6 +1075,38 @@ class Util:
         return xhat, yhat, zhat
 
     @staticmethod
+    def rotate_about_point(device, point, rot_vec):
+        re = transform.Rotation.from_rotvec(rot_vec)
+        Re = re.as_matrix()
+
+        device_pos = Util.get_pos(device)
+        new_pos = np.matmul(Re, device_pos - point) + point
+
+        if hasattr(device,'normal'):
+            device.normal = np.matmul(Re, device.normal)
+            device.sagittal = np.matmul(Re, device.sagittal)
+            device.tangential = np.matmul(Re, device.tangential)
+        else:
+            device.xhat = np.matmul(Re, device.xhat)
+            device.yhat = np.matmul(Re, device.yhat)
+            device.zhat = np.matmul(Re, device.zhat)
+
+        device.global_x = new_pos[0]
+        device.global_y = new_pos[1]
+        device.z = new_pos[2]
+
+        return new_pos
+
+    @staticmethod
+    def get_pos(device):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = device.global_x
+        pos_vec[1] = device.global_y
+        pos_vec[2] = device.z
+
+        return pos_vec
+
+    @staticmethod
     def plan_checkerboard(wfs_obj=None, ppm_obj=None, photon_energy=None, f0=None,
                           zT=None, fraction=1):
 
@@ -1130,9 +1162,9 @@ class Util:
 
         # integrate the gradient (average mixed partial derivatives since these are
         # supposed to be equal)
-        f = (cumtrapz(g, axis=1, dx=dx, initial=0) +
-             cumtrapz(h, axis=0, dx=dy, initial=0) -
-            cumtrapz(cumtrapz(.5*(dg_dy+dh_dx), axis=0, dx=dy, initial=0),
+        f = (cumulative_trapezoid(g, axis=1, dx=dx, initial=0) +
+             cumulative_trapezoid(h, axis=0, dx=dy, initial=0) -
+            cumulative_trapezoid(cumulative_trapezoid(.5*(dg_dy+dh_dx), axis=0, dx=dy, initial=0),
                      axis=1, dx=dx, initial=0))
 
         return f

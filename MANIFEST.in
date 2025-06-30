@@ -1,0 +1,6 @@
+include lcls_beamline_toolbox/xraybeamline2d/cxro_data/*.csv
+include lcls_beamline_toolbox/xraybeamline2d/device_info/*.json
+include lcls_beamline_toolbox/xraybeamline2d/source_parameters/*.csv
+include lcls_beamline_toolbox/xrayinteraction/data/*.csv
+include lcls_beamline_toolbox/xraywavetrace/cxro_data/*.csv
+include README.md

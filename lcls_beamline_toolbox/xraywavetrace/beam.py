@@ -78,7 +78,7 @@ class Beam:
         Multiplier to Rayleigh range for calculating zRx and zRy. zRx = Rayleigh_x * rangeFactor and ditto for y.
     """
 
-    def __init__(self, initial_beam=None, beam_params=None, use_gpu=False):
+    def __init__(self, initial_beam=None, beam_params=None, use_gpu=False,suppress=True):
         """
         Method to initialize a Beam object.
         :param initial_beam: (N,M) ndarray
@@ -219,10 +219,6 @@ class Beam:
         y = np.linspace(-self.N / 2.0 * self.dy, (self.N / 2.0 - 1) * self.dy, self.N, dtype=float)
         self.x, self.y = np.meshgrid(x, y)
 
-        # offset coordinates by beam center
-        self.x = self.x + self.cx
-        self.y = self.y + self.cy
-
         self.global_x = np.copy(self.cx)
         self.global_y = np.copy(self.cy)
 
@@ -267,9 +263,9 @@ class Beam:
         # propagation to work properly.
         if initial_beam is None:
             if self.focused_x:
-                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x - self.cx)**2)
+                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zx * (self.x)**2)
             if self.focused_y:
-                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y - self.cy)**2)
+                self.wave *= np.exp(1j * np.pi / self.lambda0 / self.zy * (self.y)**2)
 
         self.beam_params = beam_params
 
@@ -278,12 +274,12 @@ class Beam:
         self.yhat = np.array([0, 1, 0])
         self.zhat = np.array([0, 0, 1])
 
-        self.rotate_nominal(delta_azimuth=self.ax, delta_elevation=self.ay)
-
         # define LCLS unit vectors
         self.x_nom = np.copy(self.xhat)
         self.y_nom = np.copy(self.yhat)
         self.z_nom = np.copy(self.zhat)
+
+        self.rotate_nominal(delta_azimuth=self.ax, delta_elevation=self.ay)
 
     def reinitialize(self, dz):
         self.beam_params['z0x'] = dz

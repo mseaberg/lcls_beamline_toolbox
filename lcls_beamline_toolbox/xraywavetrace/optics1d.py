@@ -74,7 +74,7 @@ class Mirror:
     motor_list: list of strings
         Mirror degrees of freedom available as motorized axes
     projectWidth: float
-        Mirror length projected onto transverse beam plane (meters)
+        Mirror length projected onto tangential beam plane (meters)
     """
 
     def __init__(self, name, **kwargs):
@@ -110,7 +110,7 @@ class Mirror:
         self.global_alpha = 0
         self.azimuth = 0
         self.elevation = 0
-        self.transverse = None
+        self.tangential = None
         self.sagittal = None
         self.normal = None
         self.correction = 0
@@ -141,6 +141,9 @@ class Mirror:
         # set some calculated attributes
         self.projectWidth = np.abs(self.length * (self.alpha + self.delta))
 
+        mirror_material = interaction.Mirror(name=name, range='HXR', material=self.material)
+        self.density = mirror_material.density
+
     def find_intersection(self, beam):
 
         ux = np.reshape(np.array([1, 0, 0]), (3, 1))
@@ -160,7 +163,7 @@ class Mirror:
 
         mirror_x = np.matmul(Re, self.normal)
         mirror_y = self.sagittal
-        mirror_z = np.matmul(Re, self.transverse)
+        mirror_z = np.matmul(Re, self.tangential)
 
         central_ray = np.reshape(beam.zhat, (3,1))
 
@@ -190,6 +193,19 @@ class Mirror:
         intersect_global += np.reshape(mirror_center, (3, 1))
 
         return intersect_global
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
     def enable_motors(self, *axes):
         """
@@ -271,6 +287,7 @@ class Mirror:
         # return delta_k
         return delta_k
 
+    # Note: deprecated in favor of trace_surface
     def reflect(self, beam):
         """
         Method to reflect a beam from a flat mirror.
@@ -535,7 +552,7 @@ class Mirror:
 
         mirror_x = self.normal
         mirror_y = self.sagittal
-        mirror_z = self.transverse
+        mirror_z = self.tangential
 
         focused = False
 
@@ -549,7 +566,7 @@ class Mirror:
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates, but with beam centered at zero
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -564,7 +581,7 @@ class Mirror:
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -577,7 +594,7 @@ class Mirror:
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -590,7 +607,7 @@ class Mirror:
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -886,6 +903,8 @@ class Mirror:
         mask = coords_crystal[0,:]>intersect_coords[0,:]
 
         mask = np.logical_and(mask, np.abs(intersect_coords[2, :]) < self.length / 2)
+        incidence_angle = (rays_out[0, :] - rays_crystal[0, :]) / 2
+        reflectivity = xraydb.mirror_reflectivity(self.material, incidence_angle, beam.photonEnergy, self.density)
 
         if np.sum(mask)==0:
             # beam does not intersect optic
@@ -922,6 +941,17 @@ class Mirror:
         angle_out = Util.interp_flip(x_out, x_eff[mask], np.unwrap(np.angle(wave[mask])))
 
         angle_in = np.unwrap(np.angle(wave))
+
+        dx1 = np.gradient(x_out)
+        dx2 = np.gradient(x_eff[mask])
+        dx2_interp = Util.interp_flip(x_out, x_eff[mask], dx2)
+        dx2_interp[dx2_interp == 0] = 1
+        dx1[dx1 == 0] = 1
+        ratio = dx1 / dx2_interp
+
+        ratio[np.isnan(ratio)] = 0
+
+        abs_out *= np.sqrt(np.abs(ratio))
 
         # plt.figure()
         # plt.plot(angle_out*mask2)
@@ -1016,7 +1046,12 @@ class Mirror:
 
         # total_phase = angle_out + 2 * np.pi / beam.lambda0 * distance_interp
 
+        reflectivity_interp = Util.interp_flip(x_out, x_eff, reflectivity)
+
         wave = abs_out * np.exp(1j * phase_interp)
+
+        if self.use_reflectivity:
+            wave *= np.sqrt(reflectivity_interp)
 
         ### where did this come from??!!
         # wave *= mask2
@@ -1159,13 +1194,13 @@ class Mirror:
             # beam.x += beam.cx
             beam.zx += 2*delta_z
 
-        if self.orientation==0 or self.orientation==2:
-            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
-            beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
-        else:
-
-            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
-            beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
+        # if self.orientation==0 or self.orientation==2:
+        #     # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+        #     beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
+        # else:
+        #
+        #     # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+        #     beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
 
         beam.new_fx()
         if not self.suppress:
@@ -1236,7 +1271,7 @@ class FlatMirror(Mirror):
     motor_list: list of strings
         Mirror degrees of freedom available as motorized axes
     projectWidth: float
-        Mirror length projected onto transverse beam plane (meters)
+        Mirror length projected onto tangential beam plane (meters)
     """
 
     def __init__(self, name, **kwargs):
@@ -1288,7 +1323,7 @@ class CurvedMirror(Mirror):
     motor_list: list of strings
         Mirror degrees of freedom available as motorized axes
     projectWidth: float
-        Mirror length projected onto transverse beam plane (meters)
+        Mirror length projected onto tangential beam plane (meters)
     """
 
     def __init__(self, name, p=100, q=1, dF1=0, dF2=0, **kwargs):
@@ -2122,7 +2157,7 @@ class CurvedMirror(Mirror):
         # initialize x position of upstream focus (beam x- or y-coordinates)
         xs = 0
 
-        # figure out transverse offset from upstream ellipse focus
+        # figure out tangential offset from upstream ellipse focus
         # This is a combination of:
         #   - beam offset (beam.cx)
         #   - beam angle multiplied by lever arm (beam.ax*zs)
@@ -2224,7 +2259,7 @@ class CurvedMirror(Mirror):
 
         ellipse_x = np.matmul(Re, self.normal)
         ellipse_y = self.sagittal
-        ellipse_z = np.matmul(Re, self.transverse)
+        ellipse_z = np.matmul(Re, self.tangential)
 
         central_ray = np.reshape(beam.zhat, (3,1))
 
@@ -2321,7 +2356,7 @@ class CurvedMirror(Mirror):
 
         ellipse_x = np.matmul(Re, self.normal)
         ellipse_y = self.sagittal
-        ellipse_z = np.matmul(Re, self.transverse)
+        ellipse_z = np.matmul(Re, self.tangential)
 
         if not self.suppress:
             print('ellipse unit vectors')
@@ -2333,7 +2368,7 @@ class CurvedMirror(Mirror):
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates, but with beam centered at zero
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -2347,7 +2382,7 @@ class CurvedMirror(Mirror):
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -2360,7 +2395,7 @@ class CurvedMirror(Mirror):
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -2373,7 +2408,7 @@ class CurvedMirror(Mirror):
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -2402,7 +2437,7 @@ class CurvedMirror(Mirror):
                                         np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
         coords_ellipse = np.tensordot(transform_matrix, coords, axes=(1, 0))
 
-        mirror_z_ellipse = np.tensordot(transform_matrix, np.reshape(self.transverse, (3, 1, 1)), axes=(1, 0))
+        mirror_z_ellipse = np.tensordot(transform_matrix, np.reshape(self.tangential, (3, 1, 1)), axes=(1, 0))
 
         # calculate z component of rays (enforcing unit vector)
         rays_z = np.sqrt(np.ones_like(rays_x) - rays_x ** 2)
@@ -3506,7 +3541,7 @@ class Mono:
         #         np.cos(self.delta_mirror + delta_mirror) - 1))
         # pre-mirror angle adjustment
 
-        point = Mono.get_pos(self.m2) + self.m2.transverse * 0.68
+        point = Mono.get_pos(self.m2) + self.m2.tangential * 0.68
         new_pos = Mono.rotate_about_point(self.m2, point, self.m2.sagittal * delta_mirror)
 
         self.m2.alpha = mirror0
@@ -3546,7 +3581,7 @@ class Mono:
         if issubclass(type(device), Mirror):
             device.normal = np.matmul(Re, device.normal)
             device.sagittal = np.matmul(Re, device.sagittal)
-            device.transverse = np.matmul(Re, device.transverse)
+            device.tangential = np.matmul(Re, device.tangential)
         else:
             device.xhat = np.matmul(Re, device.xhat)
             device.yhat = np.matmul(Re, device.yhat)
@@ -4026,7 +4061,7 @@ class Grating(Mirror):
 
         crystal_x = self.normal
         crystal_y = self.sagittal
-        crystal_z = self.transverse
+        crystal_z = self.tangential
 
         focused = False
 
@@ -4040,7 +4075,7 @@ class Grating(Mirror):
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates, but with beam centered at zero
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -4055,7 +4090,7 @@ class Grating(Mirror):
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -4068,7 +4103,7 @@ class Grating(Mirror):
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -4081,7 +4116,7 @@ class Grating(Mirror):
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -5341,7 +5376,7 @@ class Crystal(Mirror):
 
         crystal_x = self.normal
         crystal_y = self.sagittal
-        crystal_z = self.transverse
+        crystal_z = self.tangential
 
         focused = False
 
@@ -5355,7 +5390,7 @@ class Crystal(Mirror):
         if self.orientation==0:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates, but with beam centered at zero
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -5370,7 +5405,7 @@ class Crystal(Mirror):
         elif self.orientation==1:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -5383,7 +5418,7 @@ class Crystal(Mirror):
         elif self.orientation==2:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.x/beam.zx
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.xhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.xhat, beam.x)
@@ -5396,7 +5431,7 @@ class Crystal(Mirror):
         elif self.orientation==3:
             # calculate beam "rays", in beam local coordinates
             rays_x = beam.y/beam.zy
-            # transverse unit vector (in global coordinates)
+            # tangential unit vector (in global coordinates)
             t_hat = beam.yhat
             # beam plane coordinates in global coordinates (but centered at origin)
             coords = np.multiply.outer(beam.yhat, beam.y)
@@ -5422,6 +5457,12 @@ class Crystal(Mirror):
         beam_slope_error = np.gradient(np.unwrap(np.angle(wave)),
                                        beamx) * beam.lambda0 / 2 / np.pi
 
+
+        # plt.figure()
+        # plt.plot(beam_slope_error)
+        #
+        # plt.figure()
+        # plt.plot(np.abs(wave))
         # linear slope error (quadratic wavefront) needs to be subtracted if the
         # beam is "focused", since this is already accounted for.
         if focused:
@@ -5429,6 +5470,9 @@ class Crystal(Mirror):
             linear = np.polyfit(beamx,beam_slope_error,1,w=np.abs(wave)**2)
             beam_slope_error -= np.polyval(linear, beamx)
             # beam_slope_p[0:2] = 0
+
+        # plt.figure()
+        # plt.plot(beam_slope_error)
 
         # rays_x_full = rays_x - beam_slope_error
         rays_x_full = np.copy(rays_x) + beam_slope_error
@@ -6011,13 +6055,15 @@ class Crystal(Mirror):
             # beam.x += beam.cx
             beam.zx += 2*delta_z
 
-        if self.orientation==0 or self.orientation==2:
-            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
-            beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
-        else:
-
-            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
-            beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
+        # below few lines currently causing problems when beam is focused - can't remember if this is important
+        # so maybe put it back in later and run only if beam is not focused??
+        # if self.orientation==0 or self.orientation==2:
+        #     # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+        #     beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
+        # else:
+        #
+        #     # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+        #     beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
 
         beam.new_fx()
         if not self.suppress:
@@ -6371,7 +6417,7 @@ class Crystal(Mirror):
         # print(p_recentered)
 
         # high_order_temp = np.polyval(p_int, z_c)
-        high_order_temp = integration.cumtrapz(slope_error, z_c, initial=0)
+        high_order_temp = integration.cumulative_trapezoid(slope_error, z_c, initial=0)
         high_order_temp[mask] -= shapePoly.legval(2)
 
 
@@ -6665,6 +6711,19 @@ class Collimator:
         print('not implemented in 1D')
         return False
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
     def propagate(self, beam):
         """
         Method that all optics need to have, just calls multiply here.
@@ -6775,6 +6834,19 @@ class Slit:
         if not self.suppress:
             print('set width')
         self.y_width = width
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
 
 class Drift:
@@ -6969,6 +7041,19 @@ class Drift:
         beam.beam_prop(self.dz)
         # beam.beam_prop(old_z)
         return True
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
 class PPM:
     """
@@ -7394,6 +7479,19 @@ class PPM:
         """
         success = self.calc_profile(beam)
         return success
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
     def view_vertical(self, ax_y=None, normalized=True, log=False, show_fit=True, legend=False, label='Lineout'):
         """
@@ -8158,7 +8256,7 @@ class TransmissionGrating:
         if self.orientation==0:
             # calculate beam "rays" in beam local coordinates
             # rays_x = beam.x/beam.zx
-            # # transverse unit vector
+            # # tangential unit vector
             # t_hat = beam.xhat
             #
             # # project beam x-axis into grating xz-plane
@@ -8171,7 +8269,7 @@ class TransmissionGrating:
         elif self.orientation==1:
             # calculate beam "rays" in beam local coordinates
             # rays_x = beam.y/beam.zy
-            # # transverse unit vector
+            # # tangential unit vector
             # t_hat = beam.yhat
             grating_vec = 2*np.pi/self.pitch * self.order * self.yhat
             beam.wavey *= np.sqrt(efficiency)
@@ -8197,6 +8295,19 @@ class TransmissionGrating:
         beam.rotate_beam(delta_ax=x_sign * np.abs(delta_ax), delta_ay=y_sign * np.abs(delta_ay))
 
         return True
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
 class CRL:
     """
@@ -8392,6 +8503,19 @@ class CRL:
         success = self.multiply(beam)
         return success
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
 
 class Prism:
     """
@@ -8530,6 +8654,19 @@ class Prism:
         """
         success = self.multiply(beam)
         return success
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
 
 class WFS:
@@ -8731,6 +8868,19 @@ class WFS:
 
         return True
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
 
 class PhasePlate:
     """
@@ -8880,3 +9030,16 @@ class PhasePlate:
         else:
             success = True
         return success
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]

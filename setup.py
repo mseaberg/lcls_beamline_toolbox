@@ -3,8 +3,8 @@ from setuptools import setup, find_packages
 with open("README.md", "r") as readme_file:
     readme = readme_file.read()
 
-requirements = ["numpy>=1.17", "scipy>=1.4.1", "matplotlib>=3.2.1", "jupyter>=1.0.0", "scikit-image>=0.16.2",
-                "xrt"]
+requirements = ["numpy>=1.17", "scipy>=1.4.1", "matplotlib>=3.2.1", "jupyterlab", "scikit-image>=0.16.2",
+                "xrt","xraydb","pandas","ipympl"]
 
 setup(
     name="lcls_beamline_toolbox",
@@ -17,6 +17,7 @@ setup(
     url="https://github.com/mseaberg/lcls_beamline_toolbox/",
     packages=find_packages(),
     install_requires=requirements,
+    include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3.7",
     ],
