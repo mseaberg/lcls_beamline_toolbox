@@ -6402,6 +6402,11 @@ class CRL:
             delta = np.interp(self.E0, self.energy, self.delta)
             self.f = self.roc / 2 / delta
 
+    def calc_f(self,E1):
+        delta = np.interp(E1, self.energy, self.delta)
+        f = self.roc / 2 / delta
+        return f
+
     def multiply(self, beam):
         """
         Method to propagate beam through CRL

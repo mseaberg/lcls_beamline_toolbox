@@ -1169,6 +1169,30 @@ class Util:
 
         return f
 
+    @staticmethod
+    def image_distance(s, p, q):
+        if p + q == 0:
+            i = -s
+        else:
+            f = p * q / (p + q)
+            i = 1 / (1 / f - 1 / s)
+
+        return i
+
+    @staticmethod
+    def lens_image_distance(s, f):
+        if f == 0:
+            i = -s
+        else:
+            i = 1 / (1 / f - 1 / s)
+
+        return i
+
+    @staticmethod
+    def effective_focus(p, q):
+        f = p * q / (p + q)
+        return f
+
 
 class LegendreUtil:
 
