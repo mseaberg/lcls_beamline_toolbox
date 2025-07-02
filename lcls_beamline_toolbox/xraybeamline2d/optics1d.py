@@ -4832,6 +4832,7 @@ class CRL:
         self.xhat = None
         self.yhat = None
         self.zhat = None
+        self.enabled = True
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -4927,7 +4928,10 @@ class CRL:
             Beam object to propagate through CRL. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        if self.enabled:
+            self.multiply(beam)
+        else:
+            pass
 
 
 class Prism:

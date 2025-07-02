@@ -6371,6 +6371,7 @@ class CRL:
         self.x_intersect = 0
         self.y_intersect = 0
         self.z_intersect = 0
+        self.enabled = True
 
         # set allowed kwargs
         allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError']
@@ -6501,7 +6502,16 @@ class CRL:
             Beam object to propagate through CRL. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        if self.enabled:
+            self.multiply(beam)
+        else:
+            pass
+
+    def disable(self):
+        self.enabled = False
+
+    def enable(self):
+        self.enabled = True
 
 
 class CRL1D(CRL):

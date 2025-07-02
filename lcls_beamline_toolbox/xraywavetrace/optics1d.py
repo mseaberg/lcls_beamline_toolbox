@@ -8389,6 +8389,7 @@ class CRL:
         self.z_intersect = 0.0
         self.absorbing = absorbing
         self.suppress = suppress
+        self.enabled = True
 
         # get file name of CXRO data
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
@@ -8500,8 +8501,17 @@ class CRL:
             Beam object to propagate through CRL. Beam is modified by this method.
         :return: None
         """
-        success = self.multiply(beam)
+        if self.enabled:
+            success = self.multiply(beam)
+        else:
+            success = True
         return success
+
+    def disable(self):
+        self.enabled = False
+
+    def enable(self):
+        self.enabled = True
 
     def get_pos(self):
         pos_vec = np.zeros((3))

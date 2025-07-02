@@ -3698,6 +3698,7 @@ class CRL:
         self.azimuth = 0
         self.elevation = 0
         self.web_thickness = 0
+        self.enabled = True
 
         # set allowed kwargs
         allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError', 'web_thickness']
@@ -3834,7 +3835,16 @@ class CRL:
             Beam object to propagate through CRL. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        if self.enabled:
+            self.multiply(beam)
+        else:
+            pass
+
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
 
 
 class CRL1D(CRL):
