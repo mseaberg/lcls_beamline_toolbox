@@ -22,6 +22,8 @@ except ImportError:
 from skimage.restoration import unwrap_phase
 import scipy.spatial.transform as transform
 import scipy.optimize as optimize
+from multiprocessing import Pool
+import copy
 
 
 class Beam:
@@ -1345,28 +1347,46 @@ class Pulse:
             screen_obj.calc_phase = True
             self.delay[screen] = np.zeros(self.N)
 
-        # loop through beams in the pulse
-        for num, energy in enumerate(self.energy):
-            # define beam for current energy
-            self.beam_params['photonEnergy'] = energy
-            if self.beams is not None:
-                b1 = Beam(initial_beam=self.beams[:,:,num], beam_params=self.beam_params)
-            else:
-                b1 = Beam(beam_params=self.beam_params)
-            beamline.propagate_beamline(b1)
 
+
+
+        with Pool(5) as p:
+            results = [p.apply_async(propagate_energy,(energy, self.beam_params, beamline, screen_names,envelope))
+                      for energy, envelope in zip(self.energy, self.envelope)]
+
+
+        for num, energy in enumerate(self.energy):
+            output = results[num].get()
             for screen in screen_names:
-                # put current photon energy into energy stack, multiply by spectral envelope
-                screen_obj = getattr(beamline, screen)
-                energy_slice, delay, zx, zy, cx, cy = screen_obj.complex_beam()
-                self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
-                if zx != 0:
-                    self.qx[screen][num] = 1/zx
-                if zy != 0:
-                    self.qy[screen][num] = 1/zy
-                self.cx[screen][num] = cx
-                self.cy[screen][num] = cy
-                self.delay[screen][num] = delay
+                self.energy_stacks[screen][:,:,num] = output[num]['energy_stacks']
+                self.qx[screen][:,:,num] = output[num]['qx']
+                self.qy[screen][:,:,num] = output[num]['qy']
+                self.cx[screen][:,:,num] = output[num]['cx']
+                self.cy[screen][:,:,num] = output[num]['cy']
+                self.delay[screen][:,:,num] = output[num]['delay']
+
+        # loop through beams in the pulse
+        # for num, energy in enumerate(self.energy):
+        #     # define beam for current energy
+        #     self.beam_params['photonEnergy'] = energy
+        #     if self.beams is not None:
+        #         b1 = Beam(initial_beam=self.beams[:,:,num], beam_params=self.beam_params)
+        #     else:
+        #         b1 = Beam(beam_params=self.beam_params)
+        #     beamline.propagate_beamline(b1)
+        #
+        #     for screen in screen_names:
+        #         # put current photon energy into energy stack, multiply by spectral envelope
+        #         screen_obj = getattr(beamline, screen)
+        #         energy_slice, delay, zx, zy, cx, cy = screen_obj.complex_beam()
+        #         self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
+        #         if zx != 0:
+        #             self.qx[screen][num] = 1/zx
+        #         if zy != 0:
+        #             self.qy[screen][num] = 1/zy
+        #         self.cx[screen][num] = cx
+        #         self.cy[screen][num] = cy
+        #         self.delay[screen][num] = delay
                 # self.energy_stacks[screen][:, :, num] = screen_obj.complex_beam() * self.envelope[num]
 
         # convert to time domain
@@ -2443,3 +2463,44 @@ class GaussianSource:
 
         # beam amplitude
         self.source = np.exp(-((self.x / self.wx) ** 2))*np.exp(-((self.y / self.wy) ** 2))
+
+def propagate_energy(energy, beam_params, beamline, screen_names, envelope, beams=None):
+
+    beam_params = copy.deepcopy(beam_params)
+    beam_params['photonEnergy'] = energy
+    if beams is not None:
+        b1 = Beam(initial_beam=beams, beam_params=beam_params)
+    else:
+        b1 = Beam(beam_params=beam_params)
+    beamline.propagate_beamline(b1)
+
+    energy_stacks = {}
+    qx = {}
+    qy = {}
+    cx = {}
+    cy = {}
+    delay = {}
+
+    for screen in screen_names:
+        # put current photon energy into energy stack, multiply by spectral envelope
+        screen_obj = getattr(beamline, screen)
+        energy_slice, delay, zx, zy, cx, cy = screen_obj.complex_beam()
+        energy_stacks[screen] = energy_slice * envelope
+        if zx != 0:
+            qx[screen] = 1/zx
+        if zy != 0:
+            qy[screen] = 1/zy
+        cx[screen] = cx
+        cy[screen] = cy
+        delay[screen] = delay
+
+    output = {
+        'energy_stacks': energy_stacks,
+        'qx': qx,
+        'qy': qy,
+        'cx': cx,
+        'cy': cy,
+        'delay': delay
+    }
+
+    return output
