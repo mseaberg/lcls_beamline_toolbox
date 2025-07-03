@@ -6,13 +6,13 @@ import lcls_beamline_toolbox.xraywavetrace.motion as motion
 import lcls_beamline_toolbox.utility.util as util
 
 class MFX:
-    def __init__(self, E0, ax=0, ay=0, cx=0, cy=0):
+    def __init__(self, E0, N=512, ax=0, ay=0, cx=0, cy=0):
 
         self.E0 = E0
         # parameter dictionary. z_source is in LCLS coordinates (20 meters upstream of undulator exit)
         self.beam_params = {
             'photonEnergy': E0,
-            'N': 512,
+            'N': N,
             'sigma_x': 30e-6,
             'sigma_y': 30e-6,
             'rangeFactor': 5,
@@ -26,6 +26,33 @@ class MFX:
         self.b1 = beam.Beam(beam_params=self.beam_params, suppress=True)
         self.beamline = self.define_beamline()
         self.prepare_tfs()
+
+        # define motion
+        self.mr1L4_pitch = motion.RotationAxis(self.beamline.MR1L4.sagittal,
+                                               device_list=[self.beamline.MR1L4],
+                                               rotation_center=self.beamline.MR1L4.get_pos(),
+                                               initial_position=-552e-6)
+        self.mr1l0_pitch = motion.RotationAxis(self.beamline.MR1L0.sagittal,
+                                               device_list=[self.beamline.MR1L0],
+                                               rotation_center=self.beamline.MR1L0.get_pos(),
+                                               initial_position=0)
+        self.mr2l0_pitch = motion.RotationAxis(self.beamline.MR2L0.sagittal,
+                                               device_list=[self.beamline.MR2L0],
+                                               rotation_center=self.beamline.MR2L0.get_pos(),
+                                               initial_position=0)
+        self.prefocus_y = motion.TranslationAxis(self.beamline.prefocus.yhat,
+                                                 device_list=[self.beamline.prefocus])
+        self.prefocus_x = motion.TranslationAxis(self.beamline.prefocus.xhat,
+                                                 device_list=[self.beamline.prefocus])
+
+        for crl in self.tfs_list:
+            temp_x = motion.TranslationAxis(crl.xhat,device_list=[crl])
+            temp_y = motion.TranslationAxis(crl.yhat,device_list=[crl])
+            setattr(self,crl.name+'_x',temp_x)
+            setattr(self,crl.name+'_y',temp_y)
+
+        self.tfs_z = motion.TranslationAxis(self.beamline.tfs_2.zhat,
+                                            device_list=self.tfs_list)
 
     def configure_tfs(self,tfs_config=0):
         # convert tfs_combination into binary

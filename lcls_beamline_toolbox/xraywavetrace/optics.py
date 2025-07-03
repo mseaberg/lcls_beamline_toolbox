@@ -819,6 +819,19 @@ class Mirror:
         print(np.shape(beam.x))
         print(np.shape(beam.y))
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
     def reflect(self, beam):
         """
         Method to reflect a beam from a flat mirror.
@@ -1250,6 +1263,19 @@ class Crystal(Mirror):
 
         # set diffraction order (not implemented yet)
         self.order = order
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
     def trace_surface(self, beam):
 
@@ -5830,6 +5856,19 @@ class Collimator:
         """
         self.multiply(beam)
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
 
 class Slit:
     """
@@ -5883,6 +5922,19 @@ class Slit:
         self.x_intersect = 0
         self.y_intersect = 0
         self.z_intersect = 0
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
     def multiply(self, beam):
         """
@@ -6035,6 +6087,19 @@ class Drift:
     #     print('delta z: %.2f' % ((self.dz - old_z)*1e6))
     #
     #     beam.beam_prop(self.dz)
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
     def propagate(self, beam):
         """
@@ -6245,6 +6310,19 @@ class Prism:
         self.delta = cxro_data[:, 1]
         self.beta = cxro_data[:, 2]
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
     def multiply(self, beam):
 
         # interpolate to find index of refraction at beam's energy
@@ -6401,6 +6479,19 @@ class CRL:
             # interpolate to find index of refraction at beam's energy
             delta = np.interp(self.E0, self.energy, self.delta)
             self.f = self.roc / 2 / delta
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
     def calc_f(self,E1):
         delta = np.interp(E1, self.energy, self.delta)
@@ -6813,6 +6904,19 @@ class PPM:
         self.centroid_is_valid = 0
         self.wavefront_is_valid = 0
         self.group_delay = 0
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
     def beam_analysis(self, line_x, line_y):
         """
@@ -8975,6 +9079,19 @@ class WFS:
         self.y_pitch_sim = 0
         self.grating = np.zeros(0)
 
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
+
     def propagate(self,beam):
         """
         Method to send the beam through
@@ -9232,6 +9349,19 @@ class PhasePlate:
         self.x_intersect = 0
         self.y_intersect = 0
         self.z_intersect = 0
+
+    def get_pos(self):
+        pos_vec = np.zeros((3))
+        pos_vec[0] = self.global_x
+        pos_vec[1] = self.global_y
+        pos_vec[2] = self.z
+
+        return pos_vec
+
+    def set_pos(self, pos):
+        self.global_x = pos[0]
+        self.global_y = pos[1]
+        self.z = pos[2]
 
     def multiply(self, beam):
         """
