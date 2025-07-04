@@ -128,6 +128,8 @@ class Beam:
             else:
                 setattr(self, key, 0.0)
 
+        self.suppress = suppress
+
         # set photon energy and calculate wavelength, wavenumber
         self.photonEnergy = beam_params['photonEnergy']
         self.lambda0 = 1239.8 / beam_params['photonEnergy'] * 1e-9
@@ -458,8 +460,9 @@ class Beam:
         # the beam_prop method will check anyway.
         x_focused = -self.zRx <= new_zx < self.zRx
         y_focused = -self.zRy <= new_zy < self.zRy
-        print('zRx: %.2e' % self.zRx)
-        print('zRy: %.2e' % self.zRy)
+        if not self.suppress:
+            print('zRx: %.2e' % self.zRx)
+            print('zRy: %.2e' % self.zRy)
 
         # check if transitioning to unfocused
         if self.focused_x:
@@ -467,14 +470,16 @@ class Beam:
             if x_focused:
                 self.wave *= np.exp(1j * np.pi / self.lambda0 * (self.x)**2 * (1/new_zx - 1/self.zx))
             else:
-                print('x becomes unfocused')
+                if not self.suppress:
+                    print('x becomes unfocused')
                 self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zx * (self.x) ** 2)
                 self.focused_x = False
         if self.focused_y:
             if y_focused:
                 self.wave *= np.exp(1j * np.pi / self.lambda0 * (self.y) ** 2 * (1 / new_zy - 1 / self.zy))
             else:
-                print('y becomes unfocused')
+                if not self.suppress:
+                    print('y becomes unfocused')
                 self.wave *= np.exp(-1j * np.pi / self.lambda0 / self.zy * (self.y) ** 2)
                 self.focused_y = False
 
@@ -550,8 +555,9 @@ class Beam:
         # the beam_prop method will check anyway.
         x_focused = -self.zRx <= new_zx < self.zRx
         y_focused = -self.zRy <= new_zy < self.zRy
-        print('zRx: %.2e' % self.zRx)
-        print('zRy: %.2e' % self.zRy)
+        if not self.suppress:
+            print('zRx: %.2e' % self.zRx)
+            print('zRy: %.2e' % self.zRy)
 
         # initialize
         new_x = self.x[0,:]
@@ -568,7 +574,8 @@ class Beam:
             if x_focused:
                 self.wave *= np.exp(1j * np.pi / self.lambda0 * (self.x)**2 * (1/new_zx - 1/old_zx))
             else:
-                print('x becomes unfocused')
+                if not self.suppress:
+                    print('x becomes unfocused')
                 self.wave *= np.exp(-1j * np.pi / self.lambda0 / old_zx * (self.x) ** 2)
                 self.focused_x = False
 
@@ -591,7 +598,8 @@ class Beam:
             if y_focused:
                 self.wave *= np.exp(1j * np.pi / self.lambda0 * (self.y) ** 2 * (1 / new_zy - 1 / old_zy))
             else:
-                print('y becomes unfocused')
+                if not self.suppress:
+                    print('y becomes unfocused')
                 self.wave *= np.exp(-1j * np.pi / self.lambda0 / old_zy * (self.y) ** 2)
                 self.focused_y = False
 
@@ -623,8 +631,9 @@ class Beam:
             self.dy = new_dy
             self.new_fx()
 
-        print('zRx: %.2e' % self.zRx)
-        print('zRy: %.2e' % self.zRy)
+        if not self.suppress:
+            print('zRx: %.2e' % self.zRx)
+            print('zRy: %.2e' % self.zRy)
         # update beam z
         self.zx = new_zx
         self.zy = new_zy
@@ -662,21 +671,20 @@ class Beam:
                 self.zRy = (self.scaleFactor ** 2 * self.lambda0 * (-self.zy) ** 2 / np.pi / ((yWidth / 2) ** 2) *
                             self.rangeFactor)
 
-            # print current focal ranges
-            print('zRx: %.2f microns' % (self.zRx*1e6))
-            print('zRy: %.2f microns' % (self.zRy*1e6))
-
             # calculate remaining distance and print it
             dz_remaining = dz - dz_progress
-            print('remaining distance: %.2f microns' % (dz_remaining*1e6))
 
             # calculate what the radius of curvature will be when we're finished
             zx_goal = self.zx + dz_remaining
             zy_goal = self.zy + dz_remaining
-            print('goal for zx: %.2f microns' % (zx_goal*1e6))
-            print('current zx: %.2f microns' % (self.zx*1e6))
-            print('goal for zy: %.2f microns' % (zy_goal*1e6))
-            print('current zy: %.2f microns' % (self.zy*1e6))
+            if not self.suppress:
+                print('zRx: %.2f microns' % (self.zRx * 1e6))
+                print('zRy: %.2f microns' % (self.zRy * 1e6))
+                print('remaining distance: %.2f microns' % (dz_remaining * 1e6))
+                print('goal for zx: %.2f microns' % (zx_goal*1e6))
+                print('current zx: %.2f microns' % (self.zx*1e6))
+                print('goal for zy: %.2f microns' % (zy_goal*1e6))
+                print('current zy: %.2f microns' % (self.zy*1e6))
 
             # check if we end up inside the focus range?
             x_focused = -self.zRx <= zx_goal < self.zRx
@@ -771,7 +779,8 @@ class Beam:
                 # prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
 
                 # print the current step size
-                print('current step size: %.2f microns' % (prop_step*1e6))
+                if not self.suppress:
+                    print('current step size: %.2f microns' % (prop_step*1e6))
 
                 # radii of curvature at the end of this propagation step
                 zx_goal = self.zx + prop_step
@@ -798,12 +807,14 @@ class Beam:
                     # x remains focused
                     if x_focused:
                         # no transition
-                        print('x remains focused')
+                        if not self.suppress:
+                            print('x remains focused')
                         # no magnification
                         z_eff_x = prop_step
                     # x becomes unfocused
                     else:
-                        print('x becomes unfocused')
+                        if not self.suppress:
+                            print('x becomes unfocused')
                         # no magnification
                         z_eff_x = prop_step
                         # after propagation x will transition out of the focal region
@@ -818,23 +829,27 @@ class Beam:
                     # check if there will be a transition
                     if x_focused:
                         # after propagation x will transition into the focal region
-                        print('x becomes focused')
+                        if not self.suppress:
+                            print('x becomes focused')
                         transition_to_x_focus = True
                     else:
                         # no transition
-                        print('x stays unfocused')
+                        if not self.suppress:
+                            print('x stays unfocused')
 
                 # check if y will remain focused
                 if self.focused_y:
                     # y remains focused
                     if y_focused:
                         # no transition
-                        print('y remains focused')
+                        if not self.suppress:
+                            print('y remains focused')
                         # no magnification
                         z_eff_y = prop_step
                     # y becomes unfocused
                     else:
-                        print('y becomes unfocused')
+                        if not self.suppress:
+                            print('y becomes unfocused')
                         # no magnification
                         z_eff_y = prop_step
                         # after propagation y will transition out of the focal region
@@ -849,11 +864,13 @@ class Beam:
                     # check if there will be a transition
                     if y_focused:
                         # after propagation y will transition into the focal region
-                        print('y becomes focused')
+                        if not self.suppress:
+                            print('y becomes focused')
                         transition_to_y_focus = True
                     else:
                         # no transition
-                        print('y stays unfocused')
+                        if not self.suppress:
+                            print('y stays unfocused')
 
                 # general propagation step, may or may not be Fresnel scaling
                 self.propagation(prop_step, z_eff_x, z_eff_y)
@@ -996,7 +1013,7 @@ class Pulse:
     """
 
     def __init__(self, beam_params=None, tau=None, time_window=None, unit_spectrum=False, spectral_width=0, N=0,
-                 GDD=0, genesis_output=None):
+                 GDD=0, genesis_output=None, suppress=True):
         """
         Create a Pulse object
         :param beam_params: same parameters as given for Beam
@@ -1006,6 +1023,7 @@ class Pulse:
             full width of time window in fs (related to energy sampling)
         """
         # set some attributes
+        self.suppress = suppress
         self.beam_params = beam_params
         self.tau = tau
         self.time_window = time_window
@@ -1275,10 +1293,12 @@ class Pulse:
             sx = px[1]
         except ValueError:
             fit_validity = 0
-            print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
+            if not self.suppress:
+                print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
             fit_validity = 0
-            print('Least squares minimization failed. Using second moment for width.')
+            if not self.suppress:
+                print('Least squares minimization failed. Using second moment for width.')
 
         try:
             # only fit in the region where we have signal
@@ -1289,10 +1309,12 @@ class Pulse:
             sy = py[1]
         except ValueError:
             fit_validity = 0
-            print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
+            if not self.suppress:
+                print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
             fit_validity = 0
-            print('Least squares minimization failed. Using second moment for width.')
+            if not self.suppress:
+                print('Least squares minimization failed. Using second moment for width.')
 
         # conversion factor from sigma to FWHM. Also convert back to meters.
         fwhm_x = sx * 2.355 / 1e6
@@ -1351,19 +1373,20 @@ class Pulse:
 
 
         with Pool(5) as p:
-            results = [p.apply_async(propagate_energy,(energy, self.beam_params, beamline, screen_names,envelope))
+            results = [p.apply(propagate_energy,(energy, self.beam_params, beamline, screen_names,envelope))
                       for energy, envelope in zip(self.energy, self.envelope)]
 
 
         for num, energy in enumerate(self.energy):
-            output = results[num].get()
+
+            output = results[num]
             for screen in screen_names:
-                self.energy_stacks[screen][:,:,num] = output[num]['energy_stacks']
-                self.qx[screen][:,:,num] = output[num]['qx']
-                self.qy[screen][:,:,num] = output[num]['qy']
-                self.cx[screen][:,:,num] = output[num]['cx']
-                self.cy[screen][:,:,num] = output[num]['cy']
-                self.delay[screen][:,:,num] = output[num]['delay']
+                self.energy_stacks[screen][:,:,num] = output['energy_stacks'][screen]
+                self.qx[screen][num] = output['qx'][screen]
+                self.qy[screen][num] = output['qy'][screen]
+                self.cx[screen][num] = output['cx'][screen]
+                self.cy[screen][num] = output['cy'][screen]
+                self.delay[screen][num] = output['delay'][screen]
 
         # loop through beams in the pulse
         # for num, energy in enumerate(self.energy):
@@ -1707,7 +1730,8 @@ class Pulse:
             N = self.x[image_name].size
             dx = (maxx - minx) / N
             index = int((slice_pos - minx) / dx)
-            print(index)
+            if not self.suppress:
+                print(index)
             profile = np.abs(self.time_stacks[image_name][index, :, :]) ** 2
             extent = (min_t, max_t, minx, maxx)
             ylabel = 'X coordinates (microns)'
@@ -1719,7 +1743,8 @@ class Pulse:
             N = self.y[image_name].size
             dx = (maxy - miny) / N
             index = int((slice_pos - miny) / dx)
-            print(index)
+            if not self.suppress:
+                print(index)
             profile = np.abs(self.time_stacks[image_name][:, index, :]) ** 2
             extent = (min_t, max_t, miny, maxy)
             ylabel = 'Y coordinates (microns)'
@@ -2345,7 +2370,7 @@ class GaussianSource:
         vertical beam width at output plane (1/e^2)
     """
     
-    def __init__(self, beam_params):
+    def __init__(self, beam_params,suppress=True):
         """
         Initialize a GaussianSource object
         :param beam_params: dict
@@ -2375,6 +2400,7 @@ class GaussianSource:
         """
 
         # set some attributes
+        self.suppress = suppress
         self.sigma_x = beam_params['sigma_x']
         self.sigma_y = beam_params['sigma_y']
         self.N = int(beam_params['N'])
@@ -2414,10 +2440,11 @@ class GaussianSource:
         divergence_y = self.wavelength / np.pi / self.sigma_y
 
         # print beam width and divergence
-        print('FWHM in x: '+str(1.18*self.wx*1e6)+' microns')
-        print('FWHM in y: '+str(1.18*self.wy*1e6)+' microns')
-        print('FWHM Divergence (x): %.1f \u03BCrad' % (divergence_x * 1e6 * 1.18))
-        print('FWHM Divergence (y): %.1f \u03BCrad' % (divergence_y * 1e6 * 1.18))
+        if not self.suppress:
+            print('FWHM in x: '+str(1.18*self.wx*1e6)+' microns')
+            print('FWHM in y: '+str(1.18*self.wy*1e6)+' microns')
+            print('FWHM Divergence (x): %.1f \u03BCrad' % (divergence_x * 1e6 * 1.18))
+            print('FWHM Divergence (y): %.1f \u03BCrad' % (divergence_y * 1e6 * 1.18))
 
         # factor to multiply by Rayleigh range to check if the beam is inside the focal range
         factor = beam_params['rangeFactor']*(2/1.18)**2
@@ -2440,13 +2467,15 @@ class GaussianSource:
             if focused_x:
                 # set it so that it will be 8 times the FWHM at the boundary of the focal range
                 FOV_x = np.abs(self.zRx * factor/self.z0x) * scale * fwhm_x
-                print('x is focused')
+                if not self.suppress:
+                    print('x is focused')
             else:
                 # if out of focus, just set to 8 times the FWHM
                 FOV_x = scale*fwhm_x
             if focused_y:
                 # set it so that it will be 8 times the FWHM at the boundary of the focal range
-                print('y is focused')
+                if not self.suppress:
+                    print('y is focused')
                 FOV_y = np.abs(self.zRy * factor/self.z0y) * scale * fwhm_y
             else:
                 # if out of focus, just set to 8 times the FWHM
@@ -2475,11 +2504,11 @@ def propagate_energy(energy, beam_params, beamline, screen_names, envelope, beam
     beamline.propagate_beamline(b1)
 
     energy_stacks = {}
-    qx = {}
-    qy = {}
-    cx = {}
-    cy = {}
-    delay = {}
+    qx_dict = {}
+    qy_dict = {}
+    cx_dict = {}
+    cy_dict = {}
+    delay_dict = {}
 
     for screen in screen_names:
         # put current photon energy into energy stack, multiply by spectral envelope
@@ -2487,20 +2516,20 @@ def propagate_energy(energy, beam_params, beamline, screen_names, envelope, beam
         energy_slice, delay, zx, zy, cx, cy = screen_obj.complex_beam()
         energy_stacks[screen] = energy_slice * envelope
         if zx != 0:
-            qx[screen] = 1/zx
+            qx_dict[screen] = 1/zx
         if zy != 0:
-            qy[screen] = 1/zy
-        cx[screen] = cx
-        cy[screen] = cy
-        delay[screen] = delay
+            qy_dict[screen] = 1/zy
+        cx_dict[screen] = cx
+        cy_dict[screen] = cy
+        delay_dict[screen] = delay
 
     output = {
         'energy_stacks': energy_stacks,
-        'qx': qx,
-        'qy': qy,
-        'cx': cx,
-        'cy': cy,
-        'delay': delay
+        'qx': qx_dict,
+        'qy': qy_dict,
+        'cx': cx_dict,
+        'cy': cy_dict,
+        'delay': delay_dict
     }
 
     return output
