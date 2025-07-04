@@ -66,7 +66,9 @@ class TranslationAxis(MotionAxis):
                 current_position = device.get_pos()
                 new_position = current_position + self.translation_vector * adjustment
                 device.set_pos(new_position)
-                self.position += adjustment
+
+            self.position += adjustment
+
             for axis in self.coupled_axes:
                 if isinstance(axis, RotationAxis):
                     axis.translate_center(self.translation_vector * adjustment)
