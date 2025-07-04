@@ -686,12 +686,14 @@ class Beamline:
         # loop through all devices including drifts
         for device in self.full_list[1:]:
             # print name
-            print('\033[1m' +device.name+'\033[0m')
+            if not self.suppress:
+                print('\033[1m' +device.name+'\033[0m')
             # propagate through device. beam is modified directly.
             device.propagate(beam)
-            print('zx: %.6f' % beam.zx)
-            print('zy: %.6f' % beam.zy)
-            print('azimuth %.2f mrad' % (beam.global_azimuth * 1e3))
+            if not self.suppress:
+                print('zx: %.6f' % beam.zx)
+                print('zy: %.6f' % beam.zy)
+                print('azimuth %.2f mrad' % (beam.global_azimuth * 1e3))
             # print some beam info
             # print('zy: %.2f' % beam.zy)
             # print('ay: %.2f microrad' % (beam.ay*1e6))

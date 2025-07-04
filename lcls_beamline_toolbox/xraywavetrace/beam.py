@@ -1372,14 +1372,16 @@ class Pulse:
 
 
 
-        with Pool(5) as p:
-            results = [p.apply(propagate_energy,(energy, self.beam_params, beamline, screen_names,envelope))
-                      for energy, envelope in zip(self.energy, self.envelope)]
+        p = Pool(8)
 
+        results = [p.apply_async(propagate_energy,(energy, self.beam_params, beamline, screen_names,envelope))
+                  for energy, envelope in zip(self.energy, self.envelope)]
+        p.close()
+        p.join()
 
         for num, energy in enumerate(self.energy):
 
-            output = results[num]
+            output = results[num].get()
             for screen in screen_names:
                 self.energy_stacks[screen][:,:,num] = output['energy_stacks'][screen]
                 self.qx[screen][num] = output['qx'][screen]
@@ -2517,8 +2519,12 @@ def propagate_energy(energy, beam_params, beamline, screen_names, envelope, beam
         energy_stacks[screen] = energy_slice * envelope
         if zx != 0:
             qx_dict[screen] = 1/zx
+        else:
+            qx_dict[screen] = 0
         if zy != 0:
             qy_dict[screen] = 1/zy
+        else:
+            qy_dict[screen] = 0
         cx_dict[screen] = cx
         cy_dict[screen] = cy
         delay_dict[screen] = delay
