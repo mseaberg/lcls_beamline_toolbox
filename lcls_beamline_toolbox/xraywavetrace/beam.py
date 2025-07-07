@@ -1345,6 +1345,9 @@ class Pulse:
             Collection of beamline devices to propagate through
         screen_names: list of strings
             Locations to evaluate pulse. Must correspond to profile monitor names in the beamline
+        cores: int
+            Number of cores to use for parallel pulse propagation. If greater than zero, use multiprocessing pool,
+            if zero don't parallelize.
         Returns
         -------
         None
@@ -1372,23 +1375,35 @@ class Pulse:
 
 
         if cores>0:
+            def apply_result(result):
+                num = result['num']
+                for screen in screen_names:
+                    self.energy_stacks[screen][:,:,num] = result['energy_stacks'][screen]
+                    self.qx[screen][num] = result['qx'][screen]
+                    self.qy[screen][num] = result['qy'][screen]
+                    self.cx[screen][num] = result['cx'][screen]
+                    self.cy[screen][num] = result['cy'][screen]
+                    self.delay[screen][num] = result['delay'][screen]
+
+
             p = Pool(cores)
 
-            results = [p.apply_async(propagate_energy,(energy, self.beam_params, beamline, screen_names,envelope))
-                      for energy, envelope in zip(self.energy, self.envelope)]
+            results = [p.apply_async(propagate_energy,(num, energy, self.beam_params, beamline, screen_names,envelope),
+                                     callback=apply_result)
+                      for num, (energy, envelope) in enumerate(zip(self.energy, self.envelope))]
             p.close()
             p.join()
 
-            for num, energy in enumerate(self.energy):
-
-                output = results[num].get()
-                for screen in screen_names:
-                    self.energy_stacks[screen][:,:,num] = output['energy_stacks'][screen]
-                    self.qx[screen][num] = output['qx'][screen]
-                    self.qy[screen][num] = output['qy'][screen]
-                    self.cx[screen][num] = output['cx'][screen]
-                    self.cy[screen][num] = output['cy'][screen]
-                    self.delay[screen][num] = output['delay'][screen]
+            # for num, energy in enumerate(self.energy):
+            #
+            #     output = results[num].get()
+            #     for screen in screen_names:
+            #         self.energy_stacks[screen][:,:,num] = output['energy_stacks'][screen]
+            #         self.qx[screen][num] = output['qx'][screen]
+            #         self.qy[screen][num] = output['qy'][screen]
+            #         self.cx[screen][num] = output['cx'][screen]
+            #         self.cy[screen][num] = output['cy'][screen]
+            #         self.delay[screen][num] = output['delay'][screen]
         else:
 
             # loop through beams in the pulse
@@ -2495,7 +2510,7 @@ class GaussianSource:
         # beam amplitude
         self.source = np.exp(-((self.x / self.wx) ** 2))*np.exp(-((self.y / self.wy) ** 2))
 
-def propagate_energy(energy, beam_params, beamline, screen_names, envelope, beams=None):
+def propagate_energy(num, energy, beam_params, beamline, screen_names, envelope, beams=None):
 
     beam_params = copy.deepcopy(beam_params)
     beam_params['photonEnergy'] = energy
@@ -2530,6 +2545,7 @@ def propagate_energy(energy, beam_params, beamline, screen_names, envelope, beam
         delay_dict[screen] = delay
 
     output = {
+        'num': num,
         'energy_stacks': energy_stacks,
         'qx': qx_dict,
         'qy': qy_dict,
