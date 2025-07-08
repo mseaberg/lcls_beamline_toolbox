@@ -6,10 +6,14 @@ import lcls_beamline_toolbox.xraywavetrace.motion as motion
 import lcls_beamline_toolbox.utility.util as util
 
 class MFX:
-    def __init__(self, E0, N=512, ax=0, ay=0, cx=0, cy=0):
+    def __init__(self, E0, N=512, ax=0, ay=0):
 
         self.E0 = E0
         # parameter dictionary. z_source is in LCLS coordinates (20 meters upstream of undulator exit)
+
+        cx = ax*(100-26)
+        cy = ay*(100-26)
+
         self.beam_params = {
             'photonEnergy': E0,
             'N': N,
