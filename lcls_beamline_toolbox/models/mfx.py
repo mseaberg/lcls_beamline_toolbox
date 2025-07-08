@@ -58,6 +58,17 @@ class MFX:
         self.tfs_z = motion.TranslationAxis(self.beamline.tfs_2.zhat,
                                             device_list=self.tfs_list)
 
+    def undulator_pointing(self,ax=0,ay=0):
+
+        cx = ax * (100 - 26)
+        cy = ay * (100 - 26)
+        self.beam_params['ax'] = ax
+        self.beam_params['ay'] = ay
+        self.beam_params['cx'] = cx
+        self.beam_params['cy'] = cy
+
+        self.b1 = beam.Beam(beam_params=self.beam_params, suppress=True)
+
     def configure_tfs(self,tfs_config=0):
         # convert tfs_combination into binary
         tfs_binary = np.binary_repr(tfs_config, width=9)
