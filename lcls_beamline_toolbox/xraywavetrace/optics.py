@@ -6681,7 +6681,12 @@ class CRL:
         thickness += shapeError2
 
         # lens aperture
-        mask = (((xi - self.dx) ** 2 + (yi - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(float)
+        mask = (((xi - self.dx) ** 2 + (yi - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(bool)
+
+        mask2 = (((xi - self.dx) ** 2 + (yi - self.dy) ** 2) < (self.diameter) ** 2).astype(bool)
+
+        # cap thickness to maximum of lens area
+        thickness[np.logical_not(mask)] = np.max(thickness[mask])
 
         # subtract 2nd order and linear terms
         phase = -beam.k0 * delta * (thickness - 2 / 2 / self.roc * ((xi - self.dx) ** 2 + (yi - self.dy) ** 2))
@@ -6694,6 +6699,9 @@ class CRL:
 
         # lens transmission based on beta and thickness profile
         transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
+
+        # playing around with allowing transmission outside lens shape, but cutting off at twice the lens diameter
+        # transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask2
 
         # adjust beam properties
         new_zx = 1 / (1 / beam.zx + p2 * beam.lambda0 / np.pi)
