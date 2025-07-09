@@ -129,7 +129,7 @@ class MFX:
         xcs_s1 = optics.Slit('xcs_s1',z=809.5,x_width=5e-3,y_width=5e-3)
         xcs_yag1 = optics.PPM('xcs_yag1',z=810,FOV=5e-3,N=256)
         mr1l4 = optics.FlatMirror('MR1L4',z=817.1,alpha=2.75e-3,orientation=2)
-        mfx_prefocus = optics.CRL('prefocus',z=983,roc=750e-6,diameter=5e-3)
+        mfx_prefocus = optics.CRL('prefocus',z=983,roc=750e-6,diameter=1.6e-3)
         mfx_dia_yag = optics.PPM('DIA_YAG',z=984.9,FOV=5e-3,N=256)
 
         xrt_devices = [xcs_s1,xcs_yag1,mr1l4,mfx_prefocus,mfx_dia_yag]
@@ -140,15 +140,15 @@ class MFX:
 
         # transfocator (center at 1020.44
         z_tfs = 1020.44
-        tfs_2 = optics.CRL('tfs_2',z=z_tfs-4*75e-3,roc=500e-6)
-        tfs_3 = optics.CRL('tfs_3',z=z_tfs-3*75e-3,roc=300e-6)
-        tfs_4 = optics.CRL('tfs_4',z=z_tfs-2*75e-3,roc=250e-6)
-        tfs_5 = optics.CRL('tfs_5',z=z_tfs-75e-3,roc=200e-6)
-        tfs_6 = optics.CRL('tfs_6',z=z_tfs,roc=125e-6)
-        tfs_7 = optics.CRL('tfs_7',z=z_tfs+75e-3,roc=62.5e-6)
-        tfs_8 = optics.CRL('tfs_8',z=z_tfs+2*75e-3,roc=50e-6)
-        tfs_9 = optics.CRL('tfs_9',z=z_tfs+3*75e-3,roc=50e-6)
-        tfs_10 = optics.CRL('tfs_10',z=z_tfs+4*75e-3,roc=50e-6)
+        tfs_2 = optics.CRL('tfs_2',z=z_tfs-4*75e-3,roc=500e-6, diameter=1.4e-3)
+        tfs_3 = optics.CRL('tfs_3',z=z_tfs-3*75e-3,roc=300e-6, diameter=1e-3)
+        tfs_4 = optics.CRL('tfs_4',z=z_tfs-2*75e-3,roc=250e-6, diameter=1e-3)
+        tfs_5 = optics.CRL('tfs_5',z=z_tfs-75e-3,roc=200e-6, diameter=0.88e-3)
+        tfs_6 = optics.CRL('tfs_6',z=z_tfs,roc=125e-6, diameter=0.623e-3)
+        tfs_7 = optics.CRL('tfs_7',z=z_tfs+75e-3,roc=62.5e-6, diameter=.44e-3)
+        tfs_8 = optics.CRL('tfs_8',z=z_tfs+2*75e-3,roc=50e-6, diameter=.44e-3)
+        tfs_9 = optics.CRL('tfs_9',z=z_tfs+3*75e-3,roc=50e-6, diameter=.44e-3)
+        tfs_10 = optics.CRL('tfs_10',z=z_tfs+4*75e-3,roc=50e-6, diameter=.44e-3)
 
         self.tfs_list = [tfs_2,tfs_3,tfs_4,tfs_5,tfs_6,tfs_7,tfs_8,tfs_9,tfs_10]
 
