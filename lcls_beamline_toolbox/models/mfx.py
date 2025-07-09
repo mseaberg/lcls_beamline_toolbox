@@ -160,10 +160,10 @@ class MFX:
                 self.tfs_list[i].disable()
 
 
-        mfx_dg2_us_slits = optics.Slit('DG2_us_slit', z=1021.29,x_width=.4e-3,y_width=.4e-3)
+        mfx_dg2_us_slits = optics.Slit('DG2_us_slit', z=1021.29,x_width=1e-3,y_width=1e-3)
         mfx_dg2_yag = optics.PPM('DG2_YAG',z=1021.74,FOV=1e-3,N=1024)
-        mfx_dg2_ms_slits = optics.Slit('DG2_ms_slit',z=1022.84,x_width=.4e-3,y_width=.4e-3)
-        mfx_dg2_ds_slits = optics.Slit('DG2_ds_slit',z=1022.99,x_width=.4e-3,y_width=.4e-3)
+        mfx_dg2_ms_slits = optics.Slit('DG2_ms_slit',z=1022.84,x_width=1e-3,y_width=1e-3)
+        mfx_dg2_ds_slits = optics.Slit('DG2_ds_slit',z=1022.99,x_width=1e-3,y_width=1e-3)
 
         mfx_ip = optics.PPM('MFX_IP',z=1024.84,FOV=100e-6,N=256)
 
