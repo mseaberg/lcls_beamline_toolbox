@@ -6589,11 +6589,11 @@ class CRL:
         self.z_intersect = 0
         self.enabled = True
         self.suppress = True
-        self.full_sim = True
+        self.multi_beam = False
 
         # set allowed kwargs
         allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError', 'suppress',
-                             'full_sim']
+                             'multi_beam']
 
         # update attributes based on kwargs
         for key, value in kwargs.items():
@@ -6724,7 +6724,7 @@ class CRL:
         transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
         transmission2 = np.exp(-beam.k0 * beta * thickness) * mask2
 
-        if self.full_sim:
+        if self.multi_beam:
             new_beam = copy.deepcopy(beam)
         else:
             new_beam = None
@@ -6747,7 +6747,7 @@ class CRL:
 
         # multiply beam by CRL transmission function and any high order phase
         beam.wave *= transmission
-        if self.full_sim:
+        if self.multi_beam:
             new_beam.wave *= transmission2
 
         return new_beam

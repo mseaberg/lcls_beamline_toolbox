@@ -129,7 +129,7 @@ class MFX:
         xcs_s1 = optics.Slit('xcs_s1',z=809.5,x_width=5e-3,y_width=5e-3)
         xcs_yag1 = optics.PPM('xcs_yag1',z=810,FOV=5e-3,N=256)
         mr1l4 = optics.FlatMirror('MR1L4',z=817.1,alpha=2.75e-3,orientation=2)
-        mfx_prefocus = optics.CRL('prefocus',z=983,roc=750e-6,diameter=1.6e-3)
+        mfx_prefocus = optics.CRL('prefocus',z=983,roc=750e-6,diameter=1.6e-3,multi_beam=True)
         mfx_dia_yag = optics.PPM('DIA_YAG',z=984.9,FOV=5e-3,N=256)
 
         xrt_devices = [xcs_s1,xcs_yag1,mr1l4,mfx_prefocus,mfx_dia_yag]
@@ -140,15 +140,15 @@ class MFX:
 
         # transfocator (center at 1020.44
         z_tfs = 1020.44
-        tfs_2 = optics.CRL('tfs_2',z=z_tfs-4*75e-3,roc=500e-6, diameter=1.4e-3)
-        tfs_3 = optics.CRL('tfs_3',z=z_tfs-3*75e-3,roc=300e-6, diameter=1e-3)
-        tfs_4 = optics.CRL('tfs_4',z=z_tfs-2*75e-3,roc=250e-6, diameter=1e-3)
-        tfs_5 = optics.CRL('tfs_5',z=z_tfs-75e-3,roc=200e-6, diameter=0.88e-3)
-        tfs_6 = optics.CRL('tfs_6',z=z_tfs,roc=125e-6, diameter=0.623e-3)
-        tfs_7 = optics.CRL('tfs_7',z=z_tfs+75e-3,roc=62.5e-6, diameter=.44e-3)
-        tfs_8 = optics.CRL('tfs_8',z=z_tfs+2*75e-3,roc=50e-6, diameter=.44e-3)
-        tfs_9 = optics.CRL('tfs_9',z=z_tfs+3*75e-3,roc=50e-6, diameter=.44e-3)
-        tfs_10 = optics.CRL('tfs_10',z=z_tfs+4*75e-3,roc=50e-6, diameter=.44e-3)
+        tfs_2 = optics.CRL('tfs_2',z=z_tfs-4*75e-3,roc=500e-6, diameter=1.4e-3,multi_beam=True)
+        tfs_3 = optics.CRL('tfs_3',z=z_tfs-3*75e-3,roc=300e-6, diameter=1e-3,multi_beam=True)
+        tfs_4 = optics.CRL('tfs_4',z=z_tfs-2*75e-3,roc=250e-6, diameter=1e-3,multi_beam=True)
+        tfs_5 = optics.CRL('tfs_5',z=z_tfs-75e-3,roc=200e-6, diameter=0.88e-3,multi_beam=True)
+        tfs_6 = optics.CRL('tfs_6',z=z_tfs,roc=125e-6, diameter=0.623e-3,multi_beam=True)
+        tfs_7 = optics.CRL('tfs_7',z=z_tfs+75e-3,roc=62.5e-6, diameter=.44e-3,multi_beam=True)
+        tfs_8 = optics.CRL('tfs_8',z=z_tfs+2*75e-3,roc=50e-6, diameter=.44e-3,multi_beam=True)
+        tfs_9 = optics.CRL('tfs_9',z=z_tfs+3*75e-3,roc=50e-6, diameter=.44e-3,multi_beam=True)
+        tfs_10 = optics.CRL('tfs_10',z=z_tfs+4*75e-3,roc=50e-6, diameter=.44e-3,multi_beam=True)
 
         self.tfs_list = [tfs_2,tfs_3,tfs_4,tfs_5,tfs_6,tfs_7,tfs_8,tfs_9,tfs_10]
 
@@ -160,14 +160,14 @@ class MFX:
                 self.tfs_list[i].disable()
 
 
-        mfx_dg2_us_slits = optics.Slit('DG2_us_slit', z=1021.29,x_width=1e-3,y_width=1e-3)
-        mfx_dg2_yag = optics.PPM('DG2_YAG',z=1021.74,FOV=1e-3,N=256)
-        mfx_dg2_ms_slits = optics.Slit('DG2_ms_slit',z=1022.84,x_width=1e-3,y_width=1e-3)
-        mfx_dg2_ds_slits = optics.Slit('DG2_ds_slit',z=1022.99,x_width=1e-3,y_width=1e-3)
+        mfx_dg2_us_slits = optics.Slit('DG2_us_slit', z=1021.29,x_width=.4e-3,y_width=.4e-3)
+        mfx_dg2_yag = optics.PPM('DG2_YAG',z=1021.74,FOV=1e-3,N=1024)
+        mfx_dg2_ms_slits = optics.Slit('DG2_ms_slit',z=1022.84,x_width=.4e-3,y_width=.4e-3)
+        mfx_dg2_ds_slits = optics.Slit('DG2_ds_slit',z=1022.99,x_width=.4e-3,y_width=.4e-3)
 
         mfx_ip = optics.PPM('MFX_IP',z=1024.84,FOV=100e-6,N=256)
 
-        mfx_dg3_yag = optics.PPM('DG3_YAG',z=1027.84,FOV=1e-3,N=256)
+        mfx_dg3_yag = optics.PPM('DG3_YAG',z=1027.84,FOV=1e-3,N=1024)
 
         mfx_devices = [mfx_dg1_slits,mfx_dg1_yag,mfx_dg2_us_slits,mfx_dg2_yag,mfx_dg2_ms_slits,mfx_dg2_ds_slits,mfx_ip,
                        mfx_dg3_yag] + self.tfs_list
