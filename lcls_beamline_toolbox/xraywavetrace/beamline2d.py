@@ -683,13 +683,15 @@ class Beamline:
             dz = self.full_list[0].z - beam.z_source
             beam.reinitialize(dz)
 
+        beam_list = [beam]
+
         # loop through all devices including drifts
         for device in self.full_list[1:]:
             # print name
             if not self.suppress:
                 print('\033[1m' +device.name+'\033[0m')
             # propagate through device. beam is modified directly.
-            device.propagate(beam)
+            beam_list = device.propagate(beam_list)
             if not self.suppress:
                 print('zx: %.6f' % beam.zx)
                 print('zy: %.6f' % beam.zy)

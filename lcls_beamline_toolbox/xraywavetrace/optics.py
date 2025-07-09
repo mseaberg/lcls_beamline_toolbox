@@ -19,6 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 import time
+import copy
 from time import sleep
 from lcls_beamline_toolbox.utility.pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolation
@@ -1069,14 +1070,16 @@ class Mirror:
 
         return
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method used with beamline2d.Beamline class. For Mirror, calls reflect
         :param beam: Beam
             Beam object to be reflected. Beam object is modified.
         :return: None
         """
-        self.reflect(beam)
+        for beam in beam_list:
+            self.reflect(beam)
+        return beam_list
 
     def adjust_motor(self, motor_name, adjustment):
         """
@@ -1917,7 +1920,7 @@ class Crystal(Mirror):
 
         return delta_k, k_f
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method that overrides Mirror class propagation
         :param beam: Beam
@@ -1926,10 +1929,14 @@ class Crystal(Mirror):
         """
         # if we're operating in zero order, just acts like a mirror
         if self.order == 0:
-            self.reflect(beam)
+            for beam in beam_list:
+                self.reflect(beam)
         # if we're in first order, calculate diffraction
         elif self.order == 1:
-            self.diffract(beam)
+            for beam in beam_list:
+                self.diffract(beam)
+
+        return beam_list
 
     def define_ki(self, beam, alpha_in):
 
@@ -4720,7 +4727,7 @@ class Mono:
         lambda1 = np.cos(self.alpha_ref) - np.cos(np.arcsin(self.cff * np.sin(self.alpha_ref))) / self.grating.n0
         self.energy_ref = 1239.8 / (lambda1 * 1e9)
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method to propagate the beam through the monochromator
         :param beam: Beam
@@ -4735,17 +4742,20 @@ class Mono:
         ##########################################
 
         # reflect beam from pre-mirror
-        self.m2.propagate(beam)
-        # self.YAG.propagate(beam)
-        # propagate from pre-mirror to grating
-        beam.beam_prop(self.grating.z - self.m2.z)
+        for beam in beam_list:
+            self.m2.propagate(beam)
+            # self.YAG.propagate(beam)
+            # propagate from pre-mirror to grating
+            beam.beam_prop(self.grating.z - self.m2.z)
 
-        # calculate profile on monochromator YAG
-        self.yag.propagate(beam)
-        # adjust beam angle to prepare for grating orientation
-        beam.ay -= 2 * self.m2.delta
-        # propagate beam through grating
-        self.grating.propagate(beam)
+            # calculate profile on monochromator YAG
+            self.yag.propagate(beam)
+            # adjust beam angle to prepare for grating orientation
+            beam.ay -= 2 * self.m2.delta
+            # propagate beam through grating
+            self.grating.propagate(beam)
+
+        return beam_list
 
 
 class Grating(Mirror):
@@ -4908,7 +4918,7 @@ class Grating(Mirror):
 
         return delta_k, k_f
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method that overrides Mirror class propagation
         :param beam: Beam
@@ -4922,8 +4932,10 @@ class Grating(Mirror):
         # elif self.order == 1:
         #     self.diffract(beam)
 
-        self.trace_surface(beam)
-        beam.beam_prop(-self.length / 2 * 1.1)
+        for beam in beam_list:
+            self.trace_surface(beam)
+            beam.beam_prop(-self.length / 2 * 1.1)
+        return beam_list
 
     def trace_surface(self, beam):
 
@@ -5955,14 +5967,16 @@ class Collimator:
         # multiply beam by aperture
         beam.wave *= aperture
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method that all optics need to have, just calls multiply here.
         :param beam: Beam
             Beam object to propagate through the collimator. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        for beam in beam_list:
+            self.multiply(beam)
+        return beam_list
 
     def get_pos(self):
         pos_vec = np.zeros((3))
@@ -6069,14 +6083,16 @@ class Slit:
         # multiply beam by aperture
         beam.wave *= aperture
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method to propagate beam through aperture. Calls multiply.
         :param beam: Beam
             Beam object to propagate through slits. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        for beam in beam_list:
+            self.multiply(beam)
+        return beam_list
 
 
 class Drift:
@@ -6211,7 +6227,7 @@ class Drift:
         self.global_y = pos[1]
         self.z = pos[2]
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method to propagate through a Drift section
         :param beam: Beam
@@ -6222,129 +6238,131 @@ class Drift:
 
         # can put re-calculation of distance here
         # get beam k
-        k = beam.get_k()
+        for beam in beam_list:
+            k = beam.get_k()
 
-        # deal with the case that the beam is propagating perpendicular to the z direction
-        # if k[2] == 0:
-        #     if issubclass(type(self.downstream_component), Mirror):
-        #         alpha = self.downstream_component.global_alpha
-        #
-        if not self.suppress:
-            print('global_x %.2f' % beam.global_x)
-            print('global_y %.2f' % beam.global_y)
-
-        if issubclass(type(self.downstream_component), Mirror):
-            # beam global coordinates are currently on surface of upstream component
-            # get global alpha for mirror
-            alpha = self.downstream_component.global_alpha
-            z_m = self.downstream_component.z
-            x_m = self.downstream_component.global_x
-            y_m = self.downstream_component.global_y
-
-            mirror_center = np.array([x_m, y_m, z_m])
-
-            normal = self.downstream_component.normal
-            nx = normal[0]
-            ny = normal[1]
-            nz = normal[2]
-            kx = k[0]
-            ky = k[1]
-            kz = k[2]
-
-            # if self.downstream_component.orientation==0 or self.downstream_component.orientation==1:
-            #     mirror_center += normal*self.downstream_component.dx
-            # else:
-            #     mirror_center -= normal*self.downstream_component.dx
-            # making this consistent with trace_surface
-            mirror_center += normal * self.downstream_component.dx
-
-            x_m = mirror_center[0]
-            y_m = mirror_center[1]
-            z_m = mirror_center[2]
-
-            # find z location where two lines intersect
-            # if self.downstream_component.orientation == 0:
-            #     # z_intersect = ((-k[0]/k[2]*beam.global_z + beam.global_x + np.tan(alpha)*z_m - x_m)/
-            #     #                (np.tan(alpha) - k[0]/k[2]))
+            # deal with the case that the beam is propagating perpendicular to the z direction
+            # if k[2] == 0:
+            #     if issubclass(type(self.downstream_component), Mirror):
+            #         alpha = self.downstream_component.global_alpha
             #
-            #
-            # elif self.downstream_component.orientation == 1:
-            #     z_intersect = ((-k[1]/k[2]*beam.global_z + beam.global_y + np.tan(alpha)*z_m - y_m)/
-            #                    (np.tan(alpha) - k[1]/k[2]))
-            #
-            # elif self.downstream_component.orientation == 2:
-            #
-            #     z_intersect = ((-k[0] / k[2] * beam.global_z + beam.global_x + np.tan(alpha) * z_m - x_m) /
-            #                    (np.tan(alpha) - k[0] / k[2]))
-            #
-            # else:
-            #
-            #     z_intersect = ((-k[1] / k[2] * beam.global_z + beam.global_y + np.tan(alpha) * z_m - y_m) /
-            #                    (np.tan(alpha) - k[1] / k[2]))
-            z_intersect = ((nx*kx*beam.global_z - nx*kz*(beam.global_x-x_m) +
-                           ny*ky*beam.global_z-ny*kz*(beam.global_y-y_m) + nz*kz*z_m)/
-                           (nx*kx+ny*ky+nz*kz))
-
-        else:
-            z_m = self.downstream_component.z
-            x_m = self.downstream_component.global_x
-            y_m = self.downstream_component.global_y
-
-            normal = self.downstream_component.zhat
-            nx = normal[0]
-            ny = normal[1]
-            nz = normal[2]
-            kx = k[0]
-            ky = k[1]
-            kz = k[2]
-            z_intersect = ((nx * kx * beam.global_z - nx * kz * (beam.global_x - x_m) +
-                            ny * ky * beam.global_z - ny * kz * (beam.global_y - y_m) + nz * kz * z_m) /
-                           (nx * kx + ny * ky + nz * kz))
-
-        x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
-        if not self.suppress:
-            print('x intersect: %.4e' % x_intersect)
-            print('component x: %.4e' % self.downstream_component.global_x)
-        y_intersect = k[1] / k[2] * (z_intersect - beam.global_z) + beam.global_y
-        if not self.suppress:
-            print('y intersect: %.4e' % y_intersect)
-            print('component y: %.4e' % self.downstream_component.global_y)
-            print('z intersect: %.4e' % z_intersect)
-            print('component z: %.4e' % self.downstream_component.z)
-        dx = x_intersect - beam.global_x
-        dy = y_intersect - beam.global_y
-        dz = z_intersect - beam.global_z
-
-        if issubclass(type(self.downstream_component), Mirror):
-
             if not self.suppress:
-                print('found curved mirror')
-            intersection = self.downstream_component.find_intersection(beam).flatten()
+                print('global_x %.2f' % beam.global_x)
+                print('global_y %.2f' % beam.global_y)
+
+            if issubclass(type(self.downstream_component), Mirror):
+                # beam global coordinates are currently on surface of upstream component
+                # get global alpha for mirror
+                alpha = self.downstream_component.global_alpha
+                z_m = self.downstream_component.z
+                x_m = self.downstream_component.global_x
+                y_m = self.downstream_component.global_y
+
+                mirror_center = np.array([x_m, y_m, z_m])
+
+                normal = self.downstream_component.normal
+                nx = normal[0]
+                ny = normal[1]
+                nz = normal[2]
+                kx = k[0]
+                ky = k[1]
+                kz = k[2]
+
+                # if self.downstream_component.orientation==0 or self.downstream_component.orientation==1:
+                #     mirror_center += normal*self.downstream_component.dx
+                # else:
+                #     mirror_center -= normal*self.downstream_component.dx
+                # making this consistent with trace_surface
+                mirror_center += normal * self.downstream_component.dx
+
+                x_m = mirror_center[0]
+                y_m = mirror_center[1]
+                z_m = mirror_center[2]
+
+                # find z location where two lines intersect
+                # if self.downstream_component.orientation == 0:
+                #     # z_intersect = ((-k[0]/k[2]*beam.global_z + beam.global_x + np.tan(alpha)*z_m - x_m)/
+                #     #                (np.tan(alpha) - k[0]/k[2]))
+                #
+                #
+                # elif self.downstream_component.orientation == 1:
+                #     z_intersect = ((-k[1]/k[2]*beam.global_z + beam.global_y + np.tan(alpha)*z_m - y_m)/
+                #                    (np.tan(alpha) - k[1]/k[2]))
+                #
+                # elif self.downstream_component.orientation == 2:
+                #
+                #     z_intersect = ((-k[0] / k[2] * beam.global_z + beam.global_x + np.tan(alpha) * z_m - x_m) /
+                #                    (np.tan(alpha) - k[0] / k[2]))
+                #
+                # else:
+                #
+                #     z_intersect = ((-k[1] / k[2] * beam.global_z + beam.global_y + np.tan(alpha) * z_m - y_m) /
+                #                    (np.tan(alpha) - k[1] / k[2]))
+                z_intersect = ((nx*kx*beam.global_z - nx*kz*(beam.global_x-x_m) +
+                               ny*ky*beam.global_z-ny*kz*(beam.global_y-y_m) + nz*kz*z_m)/
+                               (nx*kx+ny*ky+nz*kz))
+
+            else:
+                z_m = self.downstream_component.z
+                x_m = self.downstream_component.global_x
+                y_m = self.downstream_component.global_y
+
+                normal = self.downstream_component.zhat
+                nx = normal[0]
+                ny = normal[1]
+                nz = normal[2]
+                kx = k[0]
+                ky = k[1]
+                kz = k[2]
+                z_intersect = ((nx * kx * beam.global_z - nx * kz * (beam.global_x - x_m) +
+                                ny * ky * beam.global_z - ny * kz * (beam.global_y - y_m) + nz * kz * z_m) /
+                               (nx * kx + ny * ky + nz * kz))
+
+            x_intersect = k[0] / k[2] * (z_intersect - beam.global_z) + beam.global_x
             if not self.suppress:
-                print(intersection)
-            x_intersect = intersection[0]
-            y_intersect = intersection[1]
-            z_intersect = intersection[2]
+                print('x intersect: %.4e' % x_intersect)
+                print('component x: %.4e' % self.downstream_component.global_x)
+            y_intersect = k[1] / k[2] * (z_intersect - beam.global_z) + beam.global_y
+            if not self.suppress:
+                print('y intersect: %.4e' % y_intersect)
+                print('component y: %.4e' % self.downstream_component.global_y)
+                print('z intersect: %.4e' % z_intersect)
+                print('component z: %.4e' % self.downstream_component.z)
             dx = x_intersect - beam.global_x
             dy = y_intersect - beam.global_y
             dz = z_intersect - beam.global_z
-        # re-calculate propagation distance
-        old_z = np.copy(self.dz)
 
-        self.downstream_component.x_intersect = x_intersect
-        self.downstream_component.y_intersect = y_intersect
-        self.downstream_component.z_intersect = z_intersect
+            if issubclass(type(self.downstream_component), Mirror):
 
-        self.dz = np.sqrt(dx**2 + dy**2 + dz**2)
-        self.downstream_component.correction = self.dz - old_z
-        if not self.suppress:
-            print('delta z: %.2f' % ((self.dz - old_z)*1e6))
+                if not self.suppress:
+                    print('found curved mirror')
+                intersection = self.downstream_component.find_intersection(beam).flatten()
+                if not self.suppress:
+                    print(intersection)
+                x_intersect = intersection[0]
+                y_intersect = intersection[1]
+                z_intersect = intersection[2]
+                dx = x_intersect - beam.global_x
+                dy = y_intersect - beam.global_y
+                dz = z_intersect - beam.global_z
+            # re-calculate propagation distance
+            old_z = np.copy(self.dz)
 
-        # beam.global_x = x_intersect
-        # beam.global_y = y_intersect
-        # beam.global_z =
+            self.downstream_component.x_intersect = x_intersect
+            self.downstream_component.y_intersect = y_intersect
+            self.downstream_component.z_intersect = z_intersect
 
-        beam.beam_prop(self.dz)
+            self.dz = np.sqrt(dx**2 + dy**2 + dz**2)
+            self.downstream_component.correction = self.dz - old_z
+            if not self.suppress:
+                print('delta z: %.2f' % ((self.dz - old_z)*1e6))
+
+            # beam.global_x = x_intersect
+            # beam.global_y = y_intersect
+            # beam.global_z =
+
+            beam.beam_prop(self.dz)
+        return beam_list
 
 
 class Prism:
@@ -6487,14 +6505,16 @@ class Prism:
         beam.ax += p1_x
         beam.ay += p1_y
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method to propagate beam through prism. Calls multiply.
         :param beam: Beam
             Beam object to propagate through prism. Beam is modified by this method.
         :return: None
         """
-        self.multiply(beam)
+        for beam in beam_list:
+            self.multiply(beam)
+        return beam_list
 
 
 class CRL:
@@ -6569,9 +6589,11 @@ class CRL:
         self.z_intersect = 0
         self.enabled = True
         self.suppress = True
+        self.full_sim = True
 
         # set allowed kwargs
-        allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError', 'suppress']
+        allowed_arguments = ['diameter', 'roc', 'E0', 'f', 'material', 'dx', 'dy', 'z', 'shapeError', 'suppress',
+                             'full_sim']
 
         # update attributes based on kwargs
         for key, value in kwargs.items():
@@ -6683,7 +6705,8 @@ class CRL:
         # lens aperture
         mask = (((xi - self.dx) ** 2 + (yi - self.dy) ** 2) < (self.diameter / 2) ** 2).astype(bool)
 
-        mask2 = (((xi - self.dx) ** 2 + (yi - self.dy) ** 2) < (self.diameter) ** 2).astype(bool)
+        # mask2 = (((xi - self.dx) ** 2 + (yi - self.dy) ** 2) > (self.diameter / 2) ** 2).astype(bool)
+        mask2 = np.logical_not(mask)
 
         # cap thickness to maximum of lens area
         thickness[np.logical_not(mask)] = np.max(thickness[mask])
@@ -6699,6 +6722,12 @@ class CRL:
 
         # lens transmission based on beta and thickness profile
         transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask
+        transmission2 = np.exp(-beam.k0 * beta * thickness) * mask2
+
+        if self.full_sim:
+            new_beam = copy.deepcopy(beam)
+        else:
+            new_beam = None
 
         # playing around with allowing transmission outside lens shape, but cutting off at twice the lens diameter
         # transmission = np.exp(-beam.k0 * beta * thickness) * np.exp(1j * phase) * mask2
@@ -6718,18 +6747,27 @@ class CRL:
 
         # multiply beam by CRL transmission function and any high order phase
         beam.wave *= transmission
+        if self.full_sim:
+            new_beam.wave *= transmission2
 
-    def propagate(self, beam):
+        return new_beam
+
+    def propagate(self, beam_list):
         """
         Method to propagate beam through CRL. Calls multiply.
         :param beam: Beam
             Beam object to propagate through CRL. Beam is modified by this method.
         :return: None
         """
+        new_list = []
         if self.enabled:
-            self.multiply(beam)
+            for beam in beam_list:
+                new_beam = self.multiply(beam)
+                if new_beam is not None:
+                    new_list.append(new_beam)
         else:
             pass
+        return beam_list + new_list
 
     def disable(self):
         self.enabled = False
@@ -7192,7 +7230,7 @@ class PPM:
         # interpolating function from Scipy's interp2d. Extrapolation value is set to zero.
         f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
         # do the interpolation to get the profile we'll see on the PPM
-        self.profile = f(self.x, self.y)
+        profile_temp = f(self.x, self.y)
 
         # points = np.zeros((np.size(beam.x),2))
         # points[:,0] = (beam.x.flatten() + x_shift)*scaling_x
@@ -7201,7 +7239,9 @@ class PPM:
         # self.profile = interpolation.griddata(points, profile, (self.x, self.y), method='linear')
 
         # account for coordinate scaling between PPM and beam
-        self.profile *= self.dx/beam.dx * self.dy/beam.dy
+        profile_temp *= self.dx/beam.dx * self.dy/beam.dy
+
+        self.profile += profile_temp
 
         if self.calc_phase:
             phase = unwrap_phase(np.angle(beam.wave))
@@ -7232,14 +7272,16 @@ class PPM:
         # calculate centroids and beam widths
         self.cx, self.cy, self.wx, self.wy, wx2, xy2 = self.beam_analysis(self.x_lineout, self.y_lineout)
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method to propagate beam through PPM. Calls calc_profile.
         :param beam: Beam
             Beam object for viewing at PPM location. The Beam object is not modified by this method.
         :return: None
         """
-        self.calc_profile(beam)
+        for beam in beam_list:
+            self.calc_profile(beam)
+        return beam_list
 
     def retrieve_wavefront(self, wfs):
         """
@@ -9230,7 +9272,7 @@ class WFS:
         self.global_y = pos[1]
         self.z = pos[2]
 
-    def propagate(self,beam):
+    def propagate(self,beam_list):
         """
         Method to send the beam through
         :param beam: Beam
@@ -9239,9 +9281,11 @@ class WFS:
         """
         # Only do something if enabled.
         if self.enabled:
-            self.multiply(beam)
+            for beam in beam_list:
+                self.multiply(beam)
         else:
             pass
+        return beam_list
 
     def disable(self):
         """
@@ -9576,7 +9620,7 @@ class PhasePlate:
         # beam.zx = 100000
         # beam.wavey *= transmission_y
 
-    def propagate(self, beam):
+    def propagate(self, beam_list):
         """
         Method to propagate beam through PhasePlate. Calls multiply.
         :param beam: Beam
@@ -9584,4 +9628,6 @@ class PhasePlate:
         :return: None
         """
         if self.platePhase is not None:
-            self.multiply(beam)
+            for beam in beam_list:
+                self.multiply(beam)
+        return beam_list
