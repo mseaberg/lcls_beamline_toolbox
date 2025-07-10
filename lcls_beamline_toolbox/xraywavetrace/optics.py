@@ -656,7 +656,11 @@ class Mirror:
         if not self.suppress:
             print('finished Delaunay in {} seconds'.format(toc - tic))
 
+        tic = time.perf_counter()
         int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
+        toc = time.perf_counter()
+        if not self.suppress:
+            print('finished interp in {} seconds'.format(toc-tic))
         mask2 = int1(xi_0, xi_1)
 
         # mask2 = interpolation.griddata(points, mask[mask], (xi_0, xi_1), method='nearest',fill_value=0)
