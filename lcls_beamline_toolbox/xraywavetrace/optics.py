@@ -28,7 +28,7 @@ try:
     import cupy as xp
     import cupyx.scipy.ndimage as ndimage
     import cupyx.scipy.interpolate as interpolation
-    from cupyx.scipy.spatial import Delaunay
+    # from cupyx.scipy.spatial import Delaunay
     # import cupyx.scipy.optimize as optimize
     # import cupyx.scipy.spatial.transform as transform
     use_gpu=True
@@ -37,8 +37,8 @@ except ImportError:
     import numpy as xp
     import scipy.ndimage as ndimage
     import scipy.interpolate as interpolation
-    from scipy.spatial import Delaunay
     use_gpu=False
+from scipy.spatial import Delaunay
 import scipy.spatial.transform as transform
 import scipy.optimize as optimize
 from skimage.restoration import unwrap_phase
