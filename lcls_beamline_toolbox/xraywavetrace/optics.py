@@ -656,17 +656,21 @@ class Mirror:
         if not self.suppress:
             print('attempting interpolation')
 
-        tic = time.perf_counter()
-        tri = Delaunay(points)
-        toc = time.perf_counter()
-        if not self.suppress:
-            print('finished Delaunay in {} seconds'.format(toc - tic))
+        if not use_gpu:
+            tic = time.perf_counter()
+            tri = Delaunay(points)
+            toc = time.perf_counter()
+            if not self.suppress:
+                print('finished Delaunay in {} seconds'.format(toc - tic))
 
-        tic = time.perf_counter()
-        int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
-        toc = time.perf_counter()
-        if not self.suppress:
-            print('finished interp in {} seconds'.format(toc-tic))
+        if use_gpu:
+            int1 = interpolation.LinearNDInterpolator(points, mask[mask], fill_value=0)
+        else:
+            tic = time.perf_counter()
+            int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
+            toc = time.perf_counter()
+            if not self.suppress:
+                print('finished interp in {} seconds'.format(toc-tic))
         mask2 = int1(xi_0, xi_1)
 
         # mask2 = interpolation.griddata(points, mask[mask], (xi_0, xi_1), method='nearest',fill_value=0)
@@ -676,7 +680,10 @@ class Mirror:
         mask2 = mask2 > 0.5
 
         # interpolate intensity onto new exit plane grid
-        int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
+        if use_gpu:
+            int1 = interpolation.LinearNDInterpolator(points, xp.abs(beam.wave[mask]), fill_value=0)
+        else:
+            int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
 
         abs_out = int1(xi_0, xi_1)
 
@@ -756,12 +763,17 @@ class Mirror:
         points[:, 0] = x_eff.flatten()
         points[:, 1] = y_eff.flatten()
         # phase_interp = interpolation.griddata(points, total_phase.flatten(), (xi_0, xi_1), fill_value=0)
-
-        int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
+        if use_gpu:
+            int1 = interpolation.LinearNDInterpolator(points, total_phase[mask], fill_value=0)
+        else:
+            int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
         phase_interp = int1(xi_0, xi_1)
 
         # interpolate the reflectivity onto the exit plane grid
-        int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
+        if use_gpu:
+            int1 = interpolation.LinearNDInterpolator(points, reflectivity[mask], fill_value=0)
+        else:
+            int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
         reflectivity_interp = int1(xi_0, xi_1)
 
         # reflectivity_interp = interpolation.griddata(points, reflectivity.flatten(), (xi_0, xi_1), fill_value=0)
@@ -4115,15 +4127,19 @@ class CurvedMirror(Mirror):
         # interp_points[:,0] = xi_0
         # interp_points[:,1] = xi_1
 
-        tic = time.perf_counter()
-        tri = Delaunay(points)
-        toc = time.perf_counter()
-        if not self.suppress:
-            print('finished Delaunay in {} seconds'.format(toc-tic))
+        if not use_gpu:
+            tic = time.perf_counter()
+            tri = Delaunay(points)
+            toc = time.perf_counter()
+            if not self.suppress:
+                print('finished Delaunay in {} seconds'.format(toc-tic))
 
         tic = time.perf_counter()
         #
-        int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
+        if use_gpu:
+            int1 = interpolation.LinearNDInterpolator(points, mask[mask], fill_value=0)
+        else:
+            int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
         mask2 = int1(xi_0,xi_1)
 
         if not self.suppress:
@@ -4136,7 +4152,10 @@ class CurvedMirror(Mirror):
         mask2 = mask2 > 0.5
 
         # interpolate intensity onto new exit plane grid
-        int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
+        if use_gpu:
+            int1 = interpolation.LinearNDInterpolator(points, xp.abs(beam.wave[mask]), fill_value=0)
+        else:
+            int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
 
         abs_out = int1(xi_0, xi_1)
         if not self.suppress:
@@ -4217,14 +4236,19 @@ class CurvedMirror(Mirror):
         points[:, 0] = x_eff.flatten()
         points[:, 1] = y_eff.flatten()
 
-        int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
+        if use_gpu:
+            int1 = interpolation.LinearNDInterpolator(points, total_phase[mask], fill_value=0)
+        else:
+            int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
         phase_interp = int1(xi_0,xi_1)
 
         # phase_interp = interpolation.griddata(points, total_phase.flatten(), (xi_0, xi_1), fill_value=0)
 
         # interpolate the reflectivity onto the exit plane grid
-
-        int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
+        if use_gpu:
+            int1 = interpolation.LinearNDInterpolator(points, reflectivity[mask], fill_value=0)
+        else:
+            int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
         reflectivity_interp = int1(xi_0,xi_1)
 
         toc = time.perf_counter()
