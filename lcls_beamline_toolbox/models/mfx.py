@@ -27,7 +27,7 @@ class MFX:
             'cx': cx,
             'cy': cy
         }
-        self.b1 = beam.Beam(beam_params=self.beam_params, suppress=True)
+        self.b1 = beam.Beam(beam_params=self.beam_params, suppress=False)
         self.beamline = self.define_beamline()
         self.prepare_tfs()
 
@@ -174,7 +174,7 @@ class MFX:
 
         device_list = fee_devices + txi_devices + xrt_devices + mfx_devices
 
-        mfx_beamline = beamline.Beamline(device_list=device_list,ordered=False,suppress=True)
+        mfx_beamline = beamline.Beamline(device_list=device_list,ordered=False,suppress=False)
 
         return mfx_beamline
 

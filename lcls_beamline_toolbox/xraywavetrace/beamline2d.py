@@ -1,4 +1,4 @@
-"""
+f"""
 beamline2d module
 
 Part of the xraybeamline2d package.

@@ -29,19 +29,18 @@ try:
     import cupyx.scipy.ndimage as ndimage
     import cupyx.scipy.interpolate as interpolation
     from cupyx.scipy.spatial import Delaunay
-    import cupyx.scipy.optimize as optimize
-    import cupyx.scipy.spatial.transform as transform
+    # import cupyx.scipy.optimize as optimize
+    # import cupyx.scipy.spatial.transform as transform
     use_gpu=True
+    print('using gpu')
 except ImportError:
     import numpy as xp
     import scipy.ndimage as ndimage
     import scipy.interpolate as interpolation
     from scipy.spatial import Delaunay
-    import scipy.optimize as optimize
-    import scipy.spatial.transform as transform
     use_gpu=False
-
-
+import scipy.spatial.transform as transform
+import scipy.optimize as optimize
 from skimage.restoration import unwrap_phase
 import os
 import pickle
@@ -7079,6 +7078,7 @@ class PPM:
 
         # get 2D coordinate arrays
         self.xx, self.yy = xp.meshgrid(self.x, self.y)
+        print(type(self.xx))
 
         self.f_x, self.f_y = xp.meshgrid(f_x, f_y)
 
@@ -7259,6 +7259,8 @@ class PPM:
         # get beam coordinates for interpolation
         x = beam.x[0,:] + x_shift
         y = beam.y[:,0] + y_shift
+        print(type(self.xx))
+        print(use_gpu)
 
         x_map = (self.xx - xp.amin(x)) / (xp.amax(x) - xp.amin(x)) * beam.M
         y_map = (self.yy - xp.amin(y)) / (xp.amax(y) - xp.amin(y)) * beam.N

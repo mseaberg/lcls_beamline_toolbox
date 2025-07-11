@@ -216,7 +216,7 @@ class Beam:
 
 
         # get array shape
-        self.N, self.M = self.wave.shape
+        self.N, self.M = xp.shape(self.wave)
 
         # set up coordinates
         x = xp.linspace(-self.M / 2.0 * self.dx, (self.M / 2.0 - 1) * self.dx, self.M, dtype=float)
@@ -638,11 +638,11 @@ class Beam:
                             self.rangeFactor)
 
         if interp_flag:
-            new_x, new_y = np.meshgrid(new_x, new_y)
+            new_x, new_y = xp.meshgrid(new_x, new_y)
 
             amp_interp = Util.interp_flip2d(new_x, new_y, self.x, self.y, np.abs(self.wave))
             phase_interp = Util.interp_flip2d(new_x, new_y, self.x, self.y, unwrap_phase(np.angle(self.wave)))
-            self.wave = amp_interp * np.exp(1j * phase_interp)
+            self.wave = amp_interp * xp.exp(1j * phase_interp)
             self.x = new_x
             self.y = new_y
             self.dx = new_dx
