@@ -6702,7 +6702,7 @@ class CRL:
         :return: None
         """
 
-        beam_shift = xp.array([self.x_intersect - self.global_x,
+        beam_shift = xp.asarray([self.x_intersect - self.global_x,
                                self.y_intersect - self.global_y,
                                self.z_intersect - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
