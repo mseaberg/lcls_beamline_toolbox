@@ -2,16 +2,21 @@
 util module for xraybeamline2d package
 """
 import numpy as np
-import numpy as xp
-import scipy as sp
-#try:
-#    import cupy as xp
-#    import cupyx.scipy as sp
-#except ImportError:
-#    import numpy as xp
-#    import scipy as sp
+# import numpy as xp
+# import scipy as sp
+try:
+   import cupy as xp
+   import cupyx.scipy as sp
+   # import cupyx.scipy.optimize as optimize
+   # import cupyx.scipy.spatial.transform as transform
+   # import cupyx.scipy.special as special
+   # from cupyx.scipy.integrate import cumulative_trapezoid
+except ImportError:
+   import numpy as xp
+   import scipy as sp
+
 import scipy.special
-import scipy.optimize as optimize
+import scipy.optimize as optimize 
 import scipy.spatial.transform as transform
 from scipy.integrate import cumulative_trapezoid
 
