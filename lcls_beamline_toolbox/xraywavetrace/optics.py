@@ -6313,7 +6313,7 @@ class Drift:
                 x_m = self.downstream_component.global_x
                 y_m = self.downstream_component.global_y
 
-                mirror_center = xp.array([x_m, y_m, z_m])
+                mirror_center = xp.asarray([x_m, y_m, z_m])
 
                 normal = self.downstream_component.normal
                 nx = normal[0]
@@ -6659,7 +6659,7 @@ class CRL:
         filename = os.path.join(os.path.dirname(__file__), 'cxro_data/%s.csv' % self.material)
 
         # load in CXRO data
-        cxro_data = xp.genfromtxt(filename, delimiter=',')
+        cxro_data = np.genfromtxt(filename, delimiter=',')
         self.energy = cxro_data[:, 0]
         self.delta = cxro_data[:, 1]
         self.beta = cxro_data[:, 2]
@@ -6673,7 +6673,7 @@ class CRL:
 
         elif self.E0 is not None:
             # interpolate to find index of refraction at beam's energy
-            delta = xp.interp(self.E0, self.energy, self.delta)
+            delta = np.interp(self.E0, self.energy, self.delta)
             self.f = self.roc / 2 / delta
 
     def get_pos(self):
@@ -6690,7 +6690,7 @@ class CRL:
         self.z = pos[2]
 
     def calc_f(self,E1):
-        delta = xp.interp(E1, self.energy, self.delta)
+        delta = np.interp(E1, self.energy, self.delta)
         f = self.roc / 2 / delta
         return f
 
@@ -7081,7 +7081,7 @@ class PPM:
 
         # set some attributes
         # self.N = N
-        self.M = xp.copy(self.N)
+        self.M = np.copy(self.N)
         self.dx = self.FOV / self.N
         self.dy = self.dx * self.aspect_ratio
         # self.FOV = FOV
@@ -7207,7 +7207,14 @@ class PPM:
             # only fit in the region where we have signal
             mask = line_x > .1
             # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
-            px, pcovx = optimize.curve_fit(Util.fit_gaussian, self.x[mask] * 1e6, line_x[mask], p0=guessx)
+            if use_gpu:
+                x_fit = xp.asnumpy(self.x[mask])
+                line_fit = xp.asnumpy(line_x[mask])
+                guessx = [xp.asnumpy(cx*1e6),xp.asnumpy(sx)]
+            else:
+                x_fit = self.x[mask]
+                line_fit = line_x[mask]
+            px, pcovx = optimize.curve_fit(Util.fit_gaussian, x_fit * 1e6, line_fit, p0=guessx)
             # set sx to sigma from the fit if successful.
             sx = px[1]
         except ValueError:
@@ -7222,8 +7229,15 @@ class PPM:
         try:
             # only fit in the region where we have signal
             mask = line_y > .1
+            if use_gpu:
+                y_fit = xp.asnumpy(self.y[mask])
+                line_fit = xp.asnumpy(line_y[mask])
+                guessy = [xp.asnumpy(cy*1e6),xp.asnumpy(sy)]
+            else:
+                y_fit = self.y[mask]
+                line_fit = line_y[mask]
             # Gaussian fit using Scipy curve_fit. Using only data that has >10% of the max
-            py, pcovy = optimize.curve_fit(Util.fit_gaussian, self.y[mask] * 1e6, line_y[mask], p0=guessy)
+            py, pcovy = optimize.curve_fit(Util.fit_gaussian, y_fit * 1e6, line_fit, p0=guessy)
             # set sy to sigma from the fit if successful.
             sy = py[1]
         except ValueError:

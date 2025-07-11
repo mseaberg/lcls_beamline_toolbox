@@ -1,4 +1,11 @@
 import numpy as np
+try:
+    import cupy as xp
+    use_gpu=True
+    print('using gpu')
+except ImportError:
+    import numpy as xp
+    use_gpu=False
 from ..utility import util
 import scipy.spatial.transform as transform
 
@@ -47,7 +54,7 @@ class TranslationAxis(MotionAxis):
     def __init__(self, translation_vector, device_list, **kwargs):
         super().__init__(device_list, **kwargs)
         # vector along which this axis translates
-        self.translation_vector = np.copy(translation_vector)
+        self.translation_vector = xp.copy(translation_vector)
 
     def mv(self, position):
         """
@@ -83,7 +90,7 @@ class TranslationAxis(MotionAxis):
         re = transform.Rotation.from_rotvec(rotation_vector)
         Re = re.as_matrix()
 
-        self.translation_vector = np.matmul(Re, self.translation_vector)
+        self.translation_vector = xp.matmul(Re, self.translation_vector)
 
 
 class RotationAxis(MotionAxis):
@@ -93,12 +100,12 @@ class RotationAxis(MotionAxis):
 
     def __init__(self, rotation_vector, device_list, rotation_center=None, **kwargs):
         super().__init__(device_list, **kwargs)
-        self.rotation_vector = np.copy(rotation_vector)
+        self.rotation_vector = xp.copy(rotation_vector)
         if rotation_center is None:
             # if rotation center is not specified, rotate about device center
-            self.rotation_center = np.copy(device_list[0].get_pos())
+            self.rotation_center = xp.copy(device_list[0].get_pos())
         else:
-            self.rotation_center = np.copy(rotation_center)
+            self.rotation_center = xp.copy(rotation_center)
 
     def rotate_about_point(self, adjustment):
         """
@@ -109,16 +116,16 @@ class RotationAxis(MotionAxis):
 
         for device in self.device_list:
             device_pos = device.get_pos()
-            new_pos = np.matmul(Re, device_pos - self.rotation_center) + self.rotation_center
+            new_pos = xp.matmul(Re, device_pos - self.rotation_center) + self.rotation_center
 
             if hasattr(device,'normal'):
-                device.normal = np.matmul(Re, device.normal)
-                device.sagittal = np.matmul(Re, device.sagittal)
-                device.tangential = np.matmul(Re, device.tangential)
+                device.normal = xp.matmul(Re, device.normal)
+                device.sagittal = xp.matmul(Re, device.sagittal)
+                device.tangential = xp.matmul(Re, device.tangential)
             else:
-                device.xhat = np.matmul(Re, device.xhat)
-                device.yhat = np.matmul(Re, device.yhat)
-                device.zhat = np.matmul(Re, device.zhat)
+                device.xhat = xp.matmul(Re, device.xhat)
+                device.yhat = xp.matmul(Re, device.yhat)
+                device.zhat = xp.matmul(Re, device.zhat)
 
             device.set_pos(new_pos)
 
@@ -151,9 +158,9 @@ class RotationAxis(MotionAxis):
         re = transform.Rotation.from_rotvec(rotation_vector)
         Re = re.as_matrix()
 
-        self.rotation_center = np.matmul(Re, self.rotation_center - rotation_center) + rotation_center
+        self.rotation_center = xp.matmul(Re, self.rotation_center - rotation_center) + rotation_center
 
-        self.rotation_vector = np.matmul(Re, self.rotation_vector)
+        self.rotation_vector = xp.matmul(Re, self.rotation_vector)
 
     def translate_center(self, translation_vector):
         self.rotation_center += translation_vector

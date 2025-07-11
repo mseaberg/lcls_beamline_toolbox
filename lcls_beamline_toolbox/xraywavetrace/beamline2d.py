@@ -14,6 +14,13 @@ from . import optics
 # import matplotlib.pyplot as plt
 import copy
 import numpy as np
+try:
+    import cupy as xp
+    use_gpu=True
+    print('using gpu')
+except ImportError:
+    import numpy as xp
+    use_gpu=False
 import pandas as pd
 import time
 from lcls_beamline_toolbox.utility.util import Util
@@ -84,13 +91,13 @@ class Beamline:
         dummy_device = optics.PPM('dummy', z=self.device_list[0].z - 1, N=32)
 
         # initialize coordinates
-        x = np.copy(self.x_offset)
-        y = np.copy(self.y_offset)
+        x = copy.copy(self.x_offset)
+        y = copy.copy(self.y_offset)
         # x = 0
         # y = 0
 
-        dummy_device.global_x = np.copy(x)
-        dummy_device.global_y = np.copy(y)
+        dummy_device.global_x = copy.copy(x)
+        dummy_device.global_y = copy.copy(y)
 
         self.device_list.insert(0, dummy_device)
 
@@ -101,11 +108,11 @@ class Beamline:
         # beam direction
         k = Util.get_k(elevation, azimuth)
 
-        xhat = np.array([1, 0, 0])
-        yhat = np.array([0, 1, 0])
-        zhat = np.array([0, 0, 1])
+        xhat = xp.array([1, 0, 0])
+        yhat = xp.array([0, 1, 0])
+        zhat = xp.array([0, 0, 1])
 
-        k = np.copy(zhat)
+        k = xp.copy(zhat)
 
         # initialize drift number
         i = 0
@@ -124,8 +131,8 @@ class Beamline:
                 # x += k[0] * dz
                 # y += k[1] * dz
                 # update device
-                device.global_x = np.copy(x)
-                device.global_y = np.copy(y)
+                device.global_x = xp.copy(x)
+                device.global_y = xp.copy(y)
 
                 # set drift name
                 name = 'drift%d' % i
@@ -206,7 +213,7 @@ class Beamline:
                 # xhat, yhat, zhat = Util.rotate_3d(xhat, yhat, zhat, delta=device.roll * 2, dir='roll')
 
                 # update k
-                k = np.copy(zhat)
+                k = xp.copy(zhat)
             else:
                 device.xhat = xhat
                 device.yhat = yhat
@@ -248,9 +255,9 @@ class Beamline:
 
         dummy_device.global_x = np.copy(self.device_list[0].global_x)
         dummy_device.global_y = np.copy(self.device_list[0].global_y)
-        dummy_device.xhat = np.copy(self.device_list[0].xhat)
-        dummy_device.yhat = np.copy(self.device_list[0].yhat)
-        dummy_device.zhat = np.copy(self.device_list[0].zhat)
+        dummy_device.xhat = xp.copy(self.device_list[0].xhat)
+        dummy_device.yhat = xp.copy(self.device_list[0].yhat)
+        dummy_device.zhat = xp.copy(self.device_list[0].zhat)
 
         self.device_list.insert(0, dummy_device)
 
@@ -289,9 +296,9 @@ class Beamline:
 
     def read_RTD_file(self, filename, photon_source):
 
-        ux = np.array([1,0,0])
-        uy = np.array([0,1,0])
-        uz = np.array([0,0,1])
+        ux = xp.array([1,0,0])
+        uy = xp.array([0,1,0])
+        uz = xp.array([0,0,1])
 
         df = pd.read_csv(filename)
         df = df[df['FC'].astype(str).str.contains(photon_source)]
@@ -312,9 +319,9 @@ class Beamline:
             yaw = row['LCLS_Y_yaw']
             inc_angle = row['inc_angle']
 
-            xhat = np.copy(ux)
-            yhat = np.copy(uy)
-            zhat = np.copy(uz)
+            xhat = xp.copy(ux)
+            yhat = xp.copy(uy)
+            zhat = xp.copy(uz)
 
             xhat,yhat,zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=pitch, dir='elevation')
             xhat,yhat,zhat = Util.rotate_3d_trace(xhat, yhat, zhat, delta=yaw, dir='azimuth')
@@ -351,21 +358,21 @@ class Beamline:
 
             if issubclass(type(device), Mirror):
                 if device.orientation==0:
-                    normal = np.copy(ux)
-                    sagittal = np.copy(uy)
-                    tangential = np.copy(uz)
+                    normal = xp.copy(ux)
+                    sagittal = xp.copy(uy)
+                    tangential = xp.copy(uz)
                 elif device.orientation==1:
-                    normal = np.copy(uy)
-                    sagittal = -np.copy(ux)
-                    tangential = np.copy(uz)
+                    normal = xp.copy(uy)
+                    sagittal = -xp.copy(ux)
+                    tangential = xp.copy(uz)
                 elif device.orientation==2:
-                    normal = -np.copy(ux)
-                    sagittal = -np.copy(uy)
-                    tangential = np.copy(uz)
+                    normal = -xp.copy(ux)
+                    sagittal = -xp.copy(uy)
+                    tangential = xp.copy(uz)
                 elif device.orientation==3:
-                    normal = -np.copy(uy)
-                    sagittal = np.copy(ux)
-                    tangential = np.copy(uz)
+                    normal = -xp.copy(uy)
+                    sagittal = xp.copy(ux)
+                    tangential = xp.copy(uz)
                 device.normal = normal
                 device.sagittal = sagittal
                 device.tangential = tangential

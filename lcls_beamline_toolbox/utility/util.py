@@ -7,9 +7,11 @@ import numpy as np
 try:
    import cupy as xp
    import cupyx.scipy as sp
+   use_gpu=True
 except ImportError:
    import numpy as xp
    import scipy as sp
+   use_gpu=False
 import scipy.special
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
@@ -1052,44 +1054,56 @@ class Util:
 
         if dir=='elevation':
             # an "elevation" rotation corresponds to a rotation about the xhat unit vector
-            r1 = transform.Rotation.from_rotvec(xhat * delta)
-            Rx = r1.as_matrix()
-            xhat = np.matmul(Rx, xhat)
-            yhat = np.matmul(Rx, yhat)
-            zhat = np.matmul(Rx, zhat)
+            if use_gpu:
+                r1 = (transform.Rotation.from_rotvec(xp.asnumpy(xhat) * delta))
+            else:
+                r1 = transform.Rotation.from_rotvec((xhat) * delta)
+            Rx = xp.asarray(r1.as_matrix())
+            xhat = xp.matmul(Rx, xhat)
+            yhat = xp.matmul(Rx, yhat)
+            zhat = xp.matmul(Rx, zhat)
         elif dir=='azimuth':
             # an azimuth rotation corresponds to a rotation about the yhat unit vector
-            r2 = transform.Rotation.from_rotvec(yhat * delta)
-            Ry = r2.as_matrix()
-            xhat = np.matmul(Ry, xhat)
-            yhat = np.matmul(Ry, yhat)
-            zhat = np.matmul(Ry, zhat)
+            if use_gpu:
+                r2 = (transform.Rotation.from_rotvec(xp.asnumpy(yhat) * delta))
+            else:
+                r2 = transform.Rotation.from_rotvec(yhat * delta)
+            Ry = xp.asarray(r2.as_matrix())
+            xhat = xp.matmul(Ry, xhat)
+            yhat = xp.matmul(Ry, yhat)
+            zhat = xp.matmul(Ry, zhat)
         elif dir=='roll':
             # a roll rotation corresponds to a rotation about the zhat unit vector
-            r2 = transform.Rotation.from_rotvec(zhat * delta)
-            Ry = r2.as_matrix()
-            xhat = np.matmul(Ry, xhat)
-            yhat = np.matmul(Ry, yhat)
-            zhat = np.matmul(Ry, zhat)
+            if use_gpu:
+                r2 = (transform.Rotation.from_rotvec(xp.asnumpy(zhat) * delta))
+            else:
+                r2 = transform.Rotation.from_rotvec(zhat * delta)
+            Ry = xp.asarray(r2.as_matrix())
+            xhat = xp.matmul(Ry, xhat)
+            yhat = xp.matmul(Ry, yhat)
+            zhat = xp.matmul(Ry, zhat)
 
         return xhat, yhat, zhat
 
     @staticmethod
     def rotate_about_point(device, point, rot_vec):
-        re = transform.Rotation.from_rotvec(rot_vec)
-        Re = re.as_matrix()
+        if use_gpu:
+            re = (transform.Rotation.from_rotvec(xp.asnumpy(rot_vec)))
+        else:
+            re = transform.Rotation.from_rotvec(rot_vec)
+        Re = xp.asarray(re.as_matrix())
 
         device_pos = Util.get_pos(device)
-        new_pos = np.matmul(Re, device_pos - point) + point
+        new_pos = xp.matmul(Re, device_pos - point) + point
 
         if hasattr(device,'normal'):
-            device.normal = np.matmul(Re, device.normal)
-            device.sagittal = np.matmul(Re, device.sagittal)
-            device.tangential = np.matmul(Re, device.tangential)
+            device.normal = xp.matmul(Re, device.normal)
+            device.sagittal = xp.matmul(Re, device.sagittal)
+            device.tangential = xp.matmul(Re, device.tangential)
         else:
-            device.xhat = np.matmul(Re, device.xhat)
-            device.yhat = np.matmul(Re, device.yhat)
-            device.zhat = np.matmul(Re, device.zhat)
+            device.xhat = xp.matmul(Re, device.xhat)
+            device.yhat = xp.matmul(Re, device.yhat)
+            device.zhat = xp.matmul(Re, device.zhat)
 
         device.global_x = new_pos[0]
         device.global_y = new_pos[1]
@@ -1099,7 +1113,7 @@ class Util:
 
     @staticmethod
     def get_pos(device):
-        pos_vec = np.zeros((3))
+        pos_vec = xp.zeros((3))
         pos_vec[0] = device.global_x
         pos_vec[1] = device.global_y
         pos_vec[2] = device.z
