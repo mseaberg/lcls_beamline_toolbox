@@ -7259,10 +7259,18 @@ class PPM:
         # get beam coordinates for interpolation
         x = beam.x[0,:] + x_shift
         y = beam.y[:,0] + y_shift
+
+        x_map = (self.xx - xp.amin(x)) / (xp.amax(x) - xp.amin(x)) * beam.M
+        y_map = (self.yy - xp.amin(y)) / (xp.amax(y) - xp.amin(y)) * beam.N
+
+        coords = xp.vstack((y_map.flatten(), x_map.flatten()))
+
         # interpolating function from Scipy's interp2d. Extrapolation value is set to zero.
-        f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
+        # f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
         # do the interpolation to get the profile we'll see on the PPM
-        profile_temp = f(self.x, self.y)
+        # profile_temp = f(self.x, self.y)
+
+        profile_temp = xp.reshape(ndimage.map_coordinates(profile, coords, order=1, mode='nearest'), (self.N, self.N))
 
         # points = xp.zeros((xp.size(beam.x),2))
         # points[:,0] = (beam.x.flatten() + x_shift)*scaling_x
