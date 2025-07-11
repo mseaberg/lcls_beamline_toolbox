@@ -1,6 +1,8 @@
 import numpy as np
 import os
 import csv
+import io
+import pandas as pd
 import matplotlib.pyplot as plt
 from lcls_beamline_toolbox.utility.util import Util
 
@@ -167,7 +169,7 @@ class Device:
 
         density = 0.
 
-        with open(self.filename, 'r') as f:
+        with io.open(self.filename, mode='r', encoding="utf-8") as f:
             reader = csv.reader(f)
             i = 0
             for line in reader:
@@ -182,11 +184,15 @@ class Device:
         # density in atoms/m^3
         self.rho = self.density*100**3/self.mass/1.66e-24
 
-        cxro_data = np.genfromtxt(self.filename, delimiter=',', skip_header=2)
-        self.energy = cxro_data[:,0]
+        # cxro_data = np.genfromtxt(self.filename, delimiter=',', skip_header=2)
+        cxro_data = pd.read_csv(self.filename,header=1)
+        # self.energy = cxro_data[:,0]
+        self.energy = np.array(cxro_data[cxro_data.keys()[0]])
         self.wavelength = 1239.8/self.energy*1e-9
-        self.delta = cxro_data[:,1]
-        self.beta = cxro_data[:,2]
+        # self.delta = cxro_data[:,1]
+        # self.beta = cxro_data[:,2]
+        self.delta = np.array(cxro_data[cxro_data.keys()[1]])
+        self.beta = np.array(cxro_data[cxro_data.keys()[2]])
 
         self.index = 1-self.delta+1j*self.beta
 

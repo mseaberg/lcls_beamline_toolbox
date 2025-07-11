@@ -202,7 +202,7 @@ class Beam:
             # pass in parameters to GaussianSource
             b1 = GaussianSource(beam_params)
             # initialize relevant parameters from GaussianSource b1
-            self.wave = b1.source.astype(complex)
+            self.wave = xp.asarray(b1.source.astype(complex))
             self.zx = b1.z0x
             self.zy = b1.z0y
             self.dx = b1.dx
