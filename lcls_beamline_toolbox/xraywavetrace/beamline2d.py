@@ -15,6 +15,7 @@ from . import optics
 import copy
 import numpy as np
 try:
+    #import something
     import cupy as xp
     use_gpu=True
     print('using gpu')
@@ -91,13 +92,13 @@ class Beamline:
         dummy_device = optics.PPM('dummy', z=self.device_list[0].z - 1, N=32)
 
         # initialize coordinates
-        x = copy.copy(self.x_offset)
-        y = copy.copy(self.y_offset)
+        x = xp.asarray(copy.copy(self.x_offset))
+        y = xp.asarray(copy.copy(self.y_offset))
         # x = 0
         # y = 0
 
-        dummy_device.global_x = copy.copy(x)
-        dummy_device.global_y = copy.copy(y)
+        dummy_device.global_x = xp.asarray(copy.copy(x))
+        dummy_device.global_y = xp.asarray(copy.copy(y))
 
         self.device_list.insert(0, dummy_device)
 
@@ -108,9 +109,9 @@ class Beamline:
         # beam direction
         k = Util.get_k(elevation, azimuth)
 
-        xhat = xp.array([1, 0, 0])
-        yhat = xp.array([0, 1, 0])
-        zhat = xp.array([0, 0, 1])
+        xhat = xp.asarray([1, 0, 0])
+        yhat = xp.asarray([0, 1, 0])
+        zhat = xp.asarray([0, 0, 1])
 
         k = xp.copy(zhat)
 
@@ -705,6 +706,7 @@ class Beamline:
                 print('zx: %.6f' % beam.zx)
                 print('zy: %.6f' % beam.zy)
                 print('azimuth %.2f mrad' % (beam.global_azimuth * 1e3))
+                print('elevation %.2f mrad' % (beam.global_elevation * 1e3))
             # print some beam info
             # print('zy: %.2f' % beam.zy)
             # print('ay: %.2f microrad' % (beam.ay*1e6))
