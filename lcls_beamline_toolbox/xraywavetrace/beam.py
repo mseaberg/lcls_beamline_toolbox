@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from lcls_beamline_toolbox.utility.util import Util
 try:
+    #import something
     import cupy as xp
     use_gpu=True
 except ImportError:
@@ -274,14 +275,14 @@ class Beam:
         self.beam_params = beam_params
 
         # define beam unit vectors in LCLS coordinates
-        self.xhat = np.array([1, 0, 0])
-        self.yhat = np.array([0, 1, 0])
-        self.zhat = np.array([0, 0, 1])
+        self.xhat = xp.array([1, 0, 0])
+        self.yhat = xp.array([0, 1, 0])
+        self.zhat = xp.array([0, 0, 1])
 
         # define LCLS unit vectors
-        self.x_nom = np.copy(self.xhat)
-        self.y_nom = np.copy(self.yhat)
-        self.z_nom = np.copy(self.zhat)
+        self.x_nom = xp.copy(self.xhat)
+        self.y_nom = xp.copy(self.yhat)
+        self.z_nom = xp.copy(self.zhat)
 
         self.rotate_nominal(delta_azimuth=self.ax, delta_elevation=self.ay)
 
@@ -319,18 +320,24 @@ class Beam:
     def rotate_nominal(self, delta_elevation=0, delta_azimuth=0):
 
         # an "elevation" rotation corresponds to a rotation about the xhat unit vector
-        r1 = transform.Rotation.from_rotvec(-self.xhat * delta_elevation)
-        Rx = r1.as_matrix()
-        self.xhat = np.matmul(Rx, self.xhat)
-        self.yhat = np.matmul(Rx, self.yhat)
-        self.zhat = np.matmul(Rx, self.zhat)
+        if use_gpu:
+            r1 = transform.Rotation.from_rotvec(xp.asnumpy(-self.xhat * delta_elevation))
+        else:
+            r1 = transform.Rotation.from_rotvec(-self.xhat * delta_elevation)
+        Rx = xp.asarray(r1.as_matrix())
+        self.xhat = xp.matmul(Rx, self.xhat)
+        self.yhat = xp.matmul(Rx, self.yhat)
+        self.zhat = xp.matmul(Rx, self.zhat)
 
         # an azimuth rotation corresponds to a rotation about the yhat unit vector
-        r2 = transform.Rotation.from_rotvec(self.yhat * delta_azimuth)
-        Ry = r2.as_matrix()
-        self.xhat = np.matmul(Ry, self.xhat)
-        self.yhat = np.matmul(Ry, self.yhat)
-        self.zhat = np.matmul(Ry, self.zhat)
+        if use_gpu:
+            r2 = transform.Rotation.from_rotvec(xp.asnumpy(self.yhat * delta_azimuth))
+        else:
+            r2 = transform.Rotation.from_rotvec(self.yhat * delta_azimuth)
+        Ry = xp.asarray(r2.as_matrix())
+        self.xhat = xp.matmul(Ry, self.xhat)
+        self.yhat = xp.matmul(Ry, self.yhat)
+        self.zhat = xp.matmul(Ry, self.zhat)
 
         self.global_elevation += delta_elevation
         self.global_azimuth += delta_azimuth
@@ -797,8 +804,11 @@ class Beam:
                         y_prop_limit = dz_remaining
 
                 # distance to propagate during this step. Pick the more restrictive case.
-                prop_cases = [x_prop_limit, y_prop_limit]
-                prop_choice = np.argmin(np.abs(prop_cases))
+                prop_cases = xp.asarray([x_prop_limit, y_prop_limit])
+                if use_gpu:
+                    prop_choice = np.argmin(np.abs(xp.asnumpy(prop_cases)))
+                else:
+                    prop_choice = np.argmin(np.abs(prop_cases))
                 prop_step = prop_cases[prop_choice]
                 # prop_step = np.min([np.abs(x_prop_limit), np.abs(y_prop_limit)])
 

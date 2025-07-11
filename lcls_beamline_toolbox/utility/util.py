@@ -5,6 +5,7 @@ import numpy as np
 # import numpy as xp
 # import scipy as sp
 try:
+   #import something
    import cupy as xp
    import cupyx.scipy as sp
    use_gpu=True

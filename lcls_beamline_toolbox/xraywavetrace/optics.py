@@ -25,10 +25,11 @@ from lcls_beamline_toolbox.utility.pitch import TalbotLineout, TalbotImage
 
 # import scipy.ndimage as ndimage
 try:
+    #import something
     import cupy as xp
     import cupyx.scipy.ndimage as ndimage
     import cupyx.scipy.interpolate as interpolation
-    # from cupyx.scipy.spatial import Delaunay
+    from cupyx.scipy.spatial import Delaunay
     # import cupyx.scipy.optimize as optimize
     # import cupyx.scipy.spatial.transform as transform
     use_gpu=True
@@ -37,8 +38,9 @@ except ImportError:
     import numpy as xp
     import scipy.ndimage as ndimage
     import scipy.interpolate as interpolation
+    from scipy.spatial import Delaunay
     use_gpu=False
-from scipy.spatial import Delaunay
+
 import scipy.spatial.transform as transform
 import scipy.optimize as optimize
 from skimage.restoration import unwrap_phase
@@ -212,7 +214,7 @@ class Mirror:
         uz = xp.reshape(xp.asarray([0, 0, 1]), (3, 1))
 
         beam_center = xp.asarray([beam.global_x, beam.global_y, beam.global_z])
-        mirror_center = xp.asarray([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        mirror_center = xp.asarray([self.global_x, self.global_y, xp.asarray(self.z)]) + self.normal * self.dx
 
         # no need to rotate into a different plane than the mirror surface, so mirror unit vectors
         # are unchanged
@@ -227,12 +229,12 @@ class Mirror:
         coords -= xp.reshape(mirror_center, (3, 1))
 
         # now write beam coordinates in ellipse coordinates
-        transform_matrix = xp.tensordot(xp.reshape([mirror_x, mirror_y, mirror_z], (3, 3)),
-                                        xp.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        transform_matrix = xp.tensordot(xp.reshape(xp.asarray([mirror_x, mirror_y, mirror_z]), (3, 3)),
+                                        xp.reshape(xp.asarray([ux, uy, uz]), (3, 3)), axes=(1, 1))
         coords_mirror = xp.tensordot(transform_matrix, coords, axes=(1, 0))
 
         # now write rays in mirror coordinates
-        rays_mirror = xp.tensordot(transform_matrix, central_ray, axes=(1, 0))
+        rays_mirror = xp.tensordot(transform_matrix, xp.asarray(central_ray), axes=(1, 0))
 
         z_intersect = coords_mirror[2, :] - rays_mirror[2, :] / rays_mirror[0, :] * coords_mirror[0, :]
         # by definition the x coordinate is zero for intersection
@@ -350,7 +352,7 @@ class Mirror:
 
         # vector defining displacement from beam location to mirror center. This is in global coordinates
         beam_center = xp.asarray([beam.global_x, beam.global_y, beam.global_z])
-        mirror_center = xp.asarray([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        mirror_center = xp.asarray([self.global_x, self.global_y, xp.asarray(self.z)]) + self.normal * self.dx
         beam_to_mirror = beam_center - mirror_center
 
         # unit vectors for ellipse coordinates, written in global coordinates
@@ -375,8 +377,8 @@ class Mirror:
 
         # now write beam coordinates in mirror plane coordinates
         # (transforming from global coordinates to mirror coordinates)
-        transform_matrix = xp.tensordot(xp.reshape([mirror_x, mirror_y, mirror_z], (3, 3)),
-                                        xp.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        transform_matrix = xp.tensordot(xp.reshape(xp.asarray([mirror_x, mirror_y, mirror_z]), (3, 3)),
+                                        xp.reshape(xp.asarray([ux, uy, uz]), (3, 3)), axes=(1, 1))
         coords_mirror = xp.tensordot(transform_matrix, coords, axes=(1, 0))
 
         # mirror vectors written in mirror coordinates
@@ -587,8 +589,8 @@ class Mirror:
 
         # now write new beam coordinates in local beam coordinate system
         # (transforming from ellipse coordinates to local beam coordinates)
-        transform_matrix2 = xp.tensordot(xp.reshape([beam.xhat,beam.yhat,beam.zhat], (3, 3)),
-                                        xp.reshape([mirror_x, mirror_y, mirror_z], (3, 3)), axes=(1, 1))
+        transform_matrix2 = xp.tensordot(xp.reshape(xp.asarray([beam.xhat,beam.yhat,beam.zhat]), (3, 3)),
+                                        xp.reshape(xp.asarray([mirror_x, mirror_y, mirror_z]), (3, 3)), axes=(1, 1))
         shifted_plane2 = xp.tensordot(transform_matrix2, shifted_plane, axes=(1, 0))
 
         # beam's x and y coordinates in the exit beam local coordinate system
@@ -656,15 +658,15 @@ class Mirror:
         if not self.suppress:
             print('attempting interpolation')
 
-        if not use_gpu:
-            tic = time.perf_counter()
-            tri = Delaunay(points)
-            toc = time.perf_counter()
-            if not self.suppress:
-                print('finished Delaunay in {} seconds'.format(toc - tic))
+        tic = time.perf_counter()
+        tri = Delaunay(points)
+        toc = time.perf_counter()
+        if not self.suppress:
+            print('finished Delaunay in {} seconds'.format(toc - tic))
 
         if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(points, mask[mask], fill_value=0)
+            print('interpolating')
+            int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
         else:
             tic = time.perf_counter()
             int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
@@ -681,7 +683,8 @@ class Mirror:
 
         # interpolate intensity onto new exit plane grid
         if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(points, xp.abs(beam.wave[mask]), fill_value=0)
+            print('interpolating')
+            int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
         else:
             int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
 
@@ -690,12 +693,19 @@ class Mirror:
         # abs_out = interpolation.griddata(points, xp.abs(beam.wave[mask]), (xi_0, xi_1), fill_value=0)
 
         # unwrap phase of beam at input
+        # if use_gpu:
+        #     unwrap_mask = xp.abs(beam.wave) > 1e-6 * xp.max(xp.abs(beam.wave))
+        #     angle_in = Util.unwrap_phase_gpu(xp.angle(beam.wave), unwrap_mask)#, eps=1e-3)
+        # else:
+        #     angle_in = unwrap_phase(xp.angle(beam.wave))
         if use_gpu:
-            mask = xp.abs(beam.wave) > 1e-10 * xp.max(xp.abs(beam.wave))
-            angle_in = Util.unwrap_phase_gpu(xp.angle(beam.wave), mask, eps=1e-3)
+            angle_in = xp.asarray(unwrap_phase(xp.asnumpy(xp.angle(beam.wave))))
         else:
             angle_in = unwrap_phase(xp.angle(beam.wave))
 
+        # plt.figure()
+        # plt.imshow(xp.asnumpy(angle_in))
+        
         # add quadratic phase if beam is not focused since this also needs to be interpolated
         quadratic = xp.zeros_like(beam.x)
 
@@ -759,19 +769,19 @@ class Mirror:
             total_phase -= xp.polyval([p_coeff_y[-3], 0, 0], y_eff)
 
         # interpolate the phase onto the exit plane grid
-        points = xp.zeros((xp.size(x_eff), 2))
-        points[:, 0] = x_eff.flatten()
-        points[:, 1] = y_eff.flatten()
+        # points = xp.zeros((xp.size(x_eff), 2))
+        # points[:, 0] = x_eff.flatten()
+        # points[:, 1] = y_eff.flatten()
         # phase_interp = interpolation.griddata(points, total_phase.flatten(), (xi_0, xi_1), fill_value=0)
         if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(points, total_phase[mask], fill_value=0)
+            int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
         else:
             int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
         phase_interp = int1(xi_0, xi_1)
 
         # interpolate the reflectivity onto the exit plane grid
         if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(points, reflectivity[mask], fill_value=0)
+            int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
         else:
             int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
         reflectivity_interp = int1(xi_0, xi_1)
@@ -1366,8 +1376,8 @@ class Crystal(Mirror):
 
         # now write beam coordinates in mirror plane coordinates
         # (transforming from global coordinates to mirror coordinates)
-        transform_matrix = xp.tensordot(xp.reshape([mirror_x, mirror_y, mirror_z], (3, 3)),
-                                        xp.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        transform_matrix = xp.tensordot(xp.reshape(xp.asarray([mirror_x, mirror_y, mirror_z]), (3, 3)),
+                                        xp.reshape(xp.asarray([ux, uy, uz]), (3, 3)), axes=(1, 1))
         coords_mirror = xp.tensordot(transform_matrix, coords, axes=(1, 0))
 
         # mirror vectors written in mirror coordinates
@@ -1592,8 +1602,8 @@ class Crystal(Mirror):
 
         # now write new beam coordinates in local beam coordinate system
         # (transforming from ellipse coordinates to local beam coordinates)
-        transform_matrix2 = xp.tensordot(xp.reshape([beam.xhat,beam.yhat,beam.zhat], (3, 3)),
-                                        xp.reshape([mirror_x, mirror_y, mirror_z], (3, 3)), axes=(1, 1))
+        transform_matrix2 = xp.tensordot(xp.reshape(xp.asarray([beam.xhat,beam.yhat,beam.zhat]), (3, 3)),
+                                        xp.reshape(xp.asarray([mirror_x, mirror_y, mirror_z]), (3, 3)), axes=(1, 1))
         shifted_plane2 = xp.tensordot(transform_matrix2, shifted_plane, axes=(1, 0))
 
         # beam's x and y coordinates in the exit beam local coordinate system
@@ -1690,8 +1700,8 @@ class Crystal(Mirror):
 
         # unwrap phase of beam at input
         if use_gpu:
-            mask = xp.abs(beam.wave*C) > 1e-10 * xp.max(xp.abs(beam.wave*C))
-            angle_in = Util.unwrap_phase_gpu(xp.angle(beam.wave*C), mask, eps=1e-3)
+            unwrap_mask = xp.abs(beam.wave*C) > 1e-6 * xp.max(xp.abs(beam.wave*C))
+            angle_in = Util.unwrap_phase_gpu(xp.angle(beam.wave*C), unwrap_mask, eps=1e-3)
         else:
             angle_in = unwrap_phase(xp.angle(beam.wave*C))
 
@@ -2023,7 +2033,7 @@ class Crystal(Mirror):
             wavefront *= xp.exp(-1j * xp.pi / beam.lambda0 / beam.zy * (beam.y - beam.cy) ** 2)
 
         if use_gpu:
-            mask = xp.abs(wavefront) > 1e-10 * xp.max(xp.abs(wavefront))
+            mask = xp.abs(wavefront) > 1e-6 * xp.max(xp.abs(wavefront))
             wavefront_angle = Util.unwrap_phase_gpu(xp.angle(wavefront), mask, eps=1e-3)
         else:
             wavefront_angle = unwrap_phase(xp.angle(wavefront))
@@ -3706,8 +3716,8 @@ class CurvedMirror(Mirror):
         coords += xp.reshape(ellipse_x * params['x0'] + ellipse_z * params['z0'], (3, 1))
 
         # now write beam coordinates in ellipse coordinates
-        transform_matrix = xp.tensordot(xp.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)),
-                                        xp.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        transform_matrix = xp.tensordot(xp.reshape(xp.asarray([ellipse_x, ellipse_y, ellipse_z]), (3, 3)),
+                                        xp.reshape(xp.asarray([ux, uy, uz]), (3, 3)), axes=(1, 1))
         coords_ellipse = xp.tensordot(transform_matrix, coords, axes=(1, 0))
 
         # now write rays in ellipse coordinates
@@ -3821,8 +3831,8 @@ class CurvedMirror(Mirror):
 
         # now write beam coordinates in ellipse coordinates
         # (transforming from global coordinates to ellipse coordinates)
-        transform_matrix = xp.tensordot(xp.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)),
-                                        xp.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        transform_matrix = xp.tensordot(xp.reshape(xp.asarray([ellipse_x, ellipse_y, ellipse_z]), (3, 3)),
+                                        xp.reshape(xp.asarray([ux, uy, uz]), (3, 3)), axes=(1, 1))
         coords_ellipse = xp.tensordot(transform_matrix, coords, axes=(1, 0))
 
         # mirror vectors written in ellipse coordinates
@@ -4054,8 +4064,8 @@ class CurvedMirror(Mirror):
 
         # now write new beam coordinates in local beam coordinate system
         # (transforming from ellipse coordinates to local beam coordinates)
-        transform_matrix2 = xp.tensordot(xp.reshape([beam.xhat,beam.yhat,beam.zhat], (3, 3)),
-                                        xp.reshape([ellipse_x, ellipse_y, ellipse_z], (3, 3)), axes=(1, 1))
+        transform_matrix2 = xp.tensordot(xp.reshape(xp.asarray([beam.xhat,beam.yhat,beam.zhat]), (3, 3)),
+                                        xp.reshape(xp.asarray([ellipse_x, ellipse_y, ellipse_z]), (3, 3)), axes=(1, 1))
         shifted_plane2 = xp.tensordot(transform_matrix2, shifted_plane, axes=(1, 0))
 
         # beam's x and y coordinates in the exit beam local coordinate system
@@ -4127,17 +4137,17 @@ class CurvedMirror(Mirror):
         # interp_points[:,0] = xi_0
         # interp_points[:,1] = xi_1
 
-        if not use_gpu:
-            tic = time.perf_counter()
-            tri = Delaunay(points)
-            toc = time.perf_counter()
-            if not self.suppress:
-                print('finished Delaunay in {} seconds'.format(toc-tic))
+
+        tic = time.perf_counter()
+        tri = Delaunay(points)
+        toc = time.perf_counter()
+        if not self.suppress:
+            print('finished Delaunay in {} seconds'.format(toc-tic))
 
         tic = time.perf_counter()
         #
         if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(points, mask[mask], fill_value=0)
+            int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
         else:
             int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
         mask2 = int1(xi_0,xi_1)
@@ -4153,7 +4163,7 @@ class CurvedMirror(Mirror):
 
         # interpolate intensity onto new exit plane grid
         if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(points, xp.abs(beam.wave[mask]), fill_value=0)
+            int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
         else:
             int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
 
@@ -4237,7 +4247,7 @@ class CurvedMirror(Mirror):
         points[:, 1] = y_eff.flatten()
 
         if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(points, total_phase[mask], fill_value=0)
+            int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
         else:
             int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
         phase_interp = int1(xi_0,xi_1)
@@ -4246,7 +4256,7 @@ class CurvedMirror(Mirror):
 
         # interpolate the reflectivity onto the exit plane grid
         if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(points, reflectivity[mask], fill_value=0)
+            int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
         else:
             int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
         reflectivity_interp = int1(xi_0,xi_1)
@@ -5035,8 +5045,8 @@ class Grating(Mirror):
 
         # now write beam coordinates in mirror plane coordinates
         # (transforming from global coordinates to mirror coordinates)
-        transform_matrix = xp.tensordot(xp.reshape([mirror_x, mirror_y, mirror_z], (3, 3)),
-                                        xp.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+        transform_matrix = xp.tensordot(xp.reshape(xp.asarray([mirror_x, mirror_y, mirror_z]), (3, 3)),
+                                        xp.reshape(xp.asarray([ux, uy, uz]), (3, 3)), axes=(1, 1))
         coords_mirror = xp.tensordot(transform_matrix, coords, axes=(1, 0))
 
         # mirror vectors written in mirror coordinates
@@ -5271,8 +5281,8 @@ class Grating(Mirror):
 
         # now write new beam coordinates in local beam coordinate system
         # (transforming from ellipse coordinates to local beam coordinates)
-        transform_matrix2 = xp.tensordot(xp.reshape([beam.xhat,beam.yhat,beam.zhat], (3, 3)),
-                                        xp.reshape([mirror_x, mirror_y, mirror_z], (3, 3)), axes=(1, 1))
+        transform_matrix2 = xp.tensordot(xp.reshape(xp.asarray([beam.xhat,beam.yhat,beam.zhat]), (3, 3)),
+                                        xp.reshape(xp.asarray([mirror_x, mirror_y, mirror_z]), (3, 3)), axes=(1, 1))
         shifted_plane2 = xp.tensordot(transform_matrix2, shifted_plane, axes=(1, 0))
 
         # beam's x and y coordinates in the exit beam local coordinate system
@@ -5352,8 +5362,8 @@ class Grating(Mirror):
 
         # unwrap phase of beam at input
         if use_gpu:
-            mask = xp.abs(beam.wave) > 1e-10 * xp.max(xp.abs(beam.wave))
-            angle_in = Util.unwrap_phase_gpu(xp.angle(beam.wave), mask, eps=1e-3)
+            unwrap_mask = xp.abs(beam.wave) > 1e-10 * xp.max(xp.abs(beam.wave))
+            angle_in = Util.unwrap_phase_gpu(xp.angle(beam.wave), unwrap_mask, eps=1e-3)
         else:
             angle_in = unwrap_phase(xp.angle(beam.wave))
 
@@ -6309,10 +6319,13 @@ class Drift:
                 # beam global coordinates are currently on surface of upstream component
                 # get global alpha for mirror
                 alpha = self.downstream_component.global_alpha
-                z_m = self.downstream_component.z
+                z_m = xp.asarray(self.downstream_component.z)
                 x_m = self.downstream_component.global_x
                 y_m = self.downstream_component.global_y
 
+                print(type(z_m))
+                print(type(x_m))
+                print(type(y_m))
                 mirror_center = xp.asarray([x_m, y_m, z_m])
 
                 normal = self.downstream_component.normal
@@ -6716,8 +6729,8 @@ class CRL:
         shapeError2 = xp.zeros_like(xi)
 
         # interpolate to find index of refraction at beam's energy
-        delta = xp.interp(beam.photonEnergy, self.energy, self.delta)
-        beta = xp.interp(beam.photonEnergy, self.energy, self.beta)
+        delta = np.interp(beam.photonEnergy, self.energy, self.delta)
+        beta = np.interp(beam.photonEnergy, self.energy, self.beta)
 
         # check for phase error
         if self.shapeError is not None:
@@ -7325,8 +7338,8 @@ class PPM:
 
         if self.calc_phase:
             if use_gpu:
-                mask = xp.abs(beam.wave) > 1e-10 * xp.max(xp.abs(beam.wave))
-                phase = Util.unwrap_phase_gpu(xp.angle(beam.wave), mask, eps=1e-3)
+                unwrap_mask = xp.abs(beam.wave) > 1e-10 * xp.max(xp.abs(beam.wave))
+                phase = Util.unwrap_phase_gpu(xp.angle(beam.wave), unwrap_mask, eps=1e-3)
             else:
                 phase = unwrap_phase(xp.angle(beam.wave))
             f_phase = interpolation.interp2d(x * scaling_x, y * scaling_y, phase, fill_value=0)
@@ -7766,37 +7779,70 @@ class PPM:
         ax_y = plt.subplot2grid((4, 4), (0, 3), rowspan=3)
         ax_x = plt.subplot2grid((4, 4), (3, 0), colspan=3)
 
-        # show the image, with positive y at the top of the figure
-        ax_profile.imshow(xp.flipud(self.profile), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'),
-                          aspect='auto')
-        # label coordinates
-        ax_profile.set_xlabel('X coordinates (%s)' % units)
-        ax_profile.set_ylabel('Y coordinates (%s)' % units)
-        ax_profile.set_title(self.name)
-
-        # show the vertical lineout (distance in microns)
-        ax_y.plot(self.y_lineout/xp.max(self.y_lineout), self.y * mult)
-        # also plot the Gaussian fit
-        ax_y.plot(xp.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2), self.y * mult)
-        # show a grid
-        ax_y.grid(True)
-        # set limits
-        ax_y.set_xlim(0, 1.05)
-
-        # show the horizontal lineout (distance in microns)
-        ax_x.plot(self.x * mult, self.x_lineout/xp.max(self.x_lineout))
-        # also plot the Gaussian fit
-        ax_x.plot(self.x * mult, xp.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2))
-        # show a grid
-        ax_x.grid(True)
-        # set limits
-        ax_x.set_ylim(0, 1.05)
-
-        # add some annotations with beam centroid and FWHM
-        ax_y.text(.6, .1 * xp.max(self.y * mult), 'centroid: %.2f %s' % (self.cy * mult, units), rotation=-90)
-        ax_y.text(.3, .1 * xp.max(self.y * mult), 'width: %.2f %s' % (self.wy * mult, units), rotation=-90)
-        ax_x.text(-.9 * xp.max(self.x * mult), .6, 'centroid: %.2f %s' % (self.cx * mult, units))
-        ax_x.text(-.9 * xp.max(self.x * mult), .3, 'width: %.2f %s' % (self.wx * mult, units))
+        if use_gpu:
+            # show the image, with positive y at the top of the figure
+            ax_profile.imshow(xp.asnumpy(xp.flipud(self.profile)), extent=(xp.asnumpy(minx), xp.asnumpy(maxx), xp.asnumpy(miny), xp.asnumpy(maxy)), cmap=plt.get_cmap('gnuplot'),
+                              aspect='auto')
+            # label coordinates
+            ax_profile.set_xlabel('X coordinates (%s)' % units)
+            ax_profile.set_ylabel('Y coordinates (%s)' % units)
+            ax_profile.set_title(self.name)
+    
+            # show the vertical lineout (distance in microns)
+            ax_y.plot(xp.asnumpy(self.y_lineout/xp.max(self.y_lineout)), xp.asnumpy(self.y * mult))
+            # also plot the Gaussian fit
+            ax_y.plot(xp.asnumpy(xp.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2)), xp.asnumpy(self.y * mult))
+            # show a grid
+            ax_y.grid(True)
+            # set limits
+            ax_y.set_xlim(0, 1.05)
+    
+            # show the horizontal lineout (distance in microns)
+            ax_x.plot(xp.asnumpy(self.x * mult), xp.asnumpy(self.x_lineout/xp.max(self.x_lineout)))
+            # also plot the Gaussian fit
+            ax_x.plot(xp.asnumpy(self.x * mult), xp.asnumpy(xp.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2)))
+            # show a grid
+            ax_x.grid(True)
+            # set limits
+            ax_x.set_ylim(0, 1.05)
+    
+            # add some annotations with beam centroid and FWHM
+            ax_y.text(.6, .1 * xp.asnumpy(xp.max(self.y * mult)), 'centroid: %.2f %s' % (self.cy * mult, units), rotation=-90)
+            ax_y.text(.3, .1 * xp.asnumpy(xp.max(self.y * mult)), 'width: %.2f %s' % (self.wy * mult, units), rotation=-90)
+            ax_x.text(-.9 * xp.asnumpy(xp.max(self.x * mult)), .6, 'centroid: %.2f %s' % (self.cx * mult, units))
+            ax_x.text(-.9 * xp.asnumpy(xp.max(self.x * mult)), .3, 'width: %.2f %s' % (self.wx * mult, units))
+        else:
+            # show the image, with positive y at the top of the figure
+            ax_profile.imshow(xp.flipud(self.profile), extent=(minx, maxx, miny, maxy), cmap=plt.get_cmap('gnuplot'),
+                              aspect='auto')
+            # label coordinates
+            ax_profile.set_xlabel('X coordinates (%s)' % units)
+            ax_profile.set_ylabel('Y coordinates (%s)' % units)
+            ax_profile.set_title(self.name)
+    
+            # show the vertical lineout (distance in microns)
+            ax_y.plot(self.y_lineout/xp.max(self.y_lineout), self.y * mult)
+            # also plot the Gaussian fit
+            ax_y.plot(xp.exp(-(self.y - self.cy) ** 2 / 2 / (self.wy / 2.355) ** 2), self.y * mult)
+            # show a grid
+            ax_y.grid(True)
+            # set limits
+            ax_y.set_xlim(0, 1.05)
+    
+            # show the horizontal lineout (distance in microns)
+            ax_x.plot(self.x * mult, self.x_lineout/xp.max(self.x_lineout))
+            # also plot the Gaussian fit
+            ax_x.plot(self.x * mult, xp.exp(-(self.x - self.cx) ** 2 / 2 / (self.wx / 2.355) ** 2))
+            # show a grid
+            ax_x.grid(True)
+            # set limits
+            ax_x.set_ylim(0, 1.05)
+    
+            # add some annotations with beam centroid and FWHM
+            ax_y.text(.6, .1 * xp.max(self.y * mult), 'centroid: %.2f %s' % (self.cy * mult, units), rotation=-90)
+            ax_y.text(.3, .1 * xp.max(self.y * mult), 'width: %.2f %s' % (self.wy * mult, units), rotation=-90)
+            ax_x.text(-.9 * xp.max(self.x * mult), .6, 'centroid: %.2f %s' % (self.cx * mult, units))
+            ax_x.text(-.9 * xp.max(self.x * mult), .3, 'width: %.2f %s' % (self.wx * mult, units))
 
         # tight layout to make sure we're not cutting out anything
         plt.tight_layout()

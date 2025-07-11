@@ -1,5 +1,6 @@
 import numpy as np
 try:
+    #import something
     import cupy as xp
     use_gpu=True
     print('using gpu')
