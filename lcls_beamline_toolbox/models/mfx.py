@@ -112,7 +112,7 @@ class MFX:
 
         # FEE devices
         im2l0 = optics.PPM('IM2L0',z=735.99,FOV=5e-3,N=256)
-        mr1l0 = optics.FlatMirror('MR1L0', z=740,alpha=2.1e-3,length=1,suppress=False)
+        mr1l0 = optics.FlatMirror('MR1L0', z=740,alpha=2.1e-3,length=1,suppress=True)
         im3l0 = optics.PPM('IM3L0',z=746,FOV=5.632e-3,N=256)
         mr2l0 = optics.FlatMirror('MR2L0',z=747.286,alpha=2.1e-3,length=1,orientation=2)
         im4l0 = optics.PPM('IM4L0',z=753.559,FOV=5e-3,N=256)
@@ -165,7 +165,7 @@ class MFX:
         mfx_dg2_ms_slits = optics.Slit('DG2_ms_slit',z=1022.84,x_width=1e-3,y_width=1e-3)
         mfx_dg2_ds_slits = optics.Slit('DG2_ds_slit',z=1022.99,x_width=1e-3,y_width=1e-3)
 
-        mfx_ip = optics.PPM('MFX_IP',z=1024.84,FOV=20e-6,N=256)
+        mfx_ip = optics.PPM('MFX_IP',z=1024.84,FOV=100e-6,N=256)
 
         mfx_dg3_yag = optics.PPM('DG3_YAG',z=1027.84,FOV=1e-3,N=256)
 
@@ -174,7 +174,7 @@ class MFX:
 
         device_list = fee_devices + txi_devices + xrt_devices + mfx_devices
 
-        mfx_beamline = beamline.Beamline(device_list=device_list,ordered=False,suppress=False)
+        mfx_beamline = beamline.Beamline(device_list=device_list,ordered=False,suppress=True)
 
         return mfx_beamline
 

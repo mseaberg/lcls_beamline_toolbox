@@ -110,6 +110,12 @@ class SND:
         self.t2_x.coupled_axes = [self.t2_th]
         self.t3_x.coupled_axes = [self.t3_th]
 
+        self.motor_list = [self.t1_tth,self.t1_th1,self.t1_th2,self.t4_th2,self.t4_th1,
+                           self.t4_tth,self.t1_L,self.t4_L,self.t1_chi1,self.t1_chi2,
+                           self.t4_chi1,self.t4_chi2,self.t1_x,self.t2_x,self.t3_x,
+                           self.t4_x,self.t2_th,self.t3_th,self.t1_y1,self.t1_y2,self.t4_y1,
+                           self.t4_y2]
+
 
 
     def propagate_delay(self):
