@@ -947,7 +947,7 @@ class Pulse:
             # define pulse energies and envelope
             self.energy = xp.linspace(-E_range/2, E_range/2, self.N) + self.E0
             self.envelope = xp.ones(self.N)
-            self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
+            self.pulse = xp.fft.fftshift(xp.fft.fft(xp.fft.fftshift(self.envelope)))
 
         # allow for genesis output as a Pulse input
         elif genesis_output is not None:
@@ -984,11 +984,11 @@ class Pulse:
             self.energy = xp.linspace(-self.N / 2, self.N / 2 - 1, self.N) * self.dE + self.E0
 
             # calculate SASE beams in energy domain
-            field_energy = np.fft.ifftshift(np.fft.ifft(np.fft.ifftshift(Efield, axes=2), axis=2), axes=2)
+            field_energy = xp.fft.ifftshift(xp.fft.ifft(xp.fft.ifftshift(Efield, axes=2), axis=2), axes=2)
 
             # don't bother propagating energies that have low intensity
             if threshold>0:
-                spectrum = np.sum(np.abs(field_energy)**2,axis=(0,1))
+                spectrum = xp.sum(xp.abs(field_energy)**2,axis=(0,1))
                 mask = spectrum>threshold*np.max(spectrum)
                 indices = np.where(mask>0)
                 ind_min = np.min(indices)
