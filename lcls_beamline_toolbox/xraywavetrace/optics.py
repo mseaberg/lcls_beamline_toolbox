@@ -207,12 +207,12 @@ class Mirror:
 
     def find_intersection(self, beam):
 
-        ux = xp.reshape(xp.array([1, 0, 0]), (3, 1))
-        uy = xp.reshape(xp.array([0, 1, 0]), (3, 1))
-        uz = xp.reshape(xp.array([0, 0, 1]), (3, 1))
+        ux = xp.reshape(xp.asarray([1, 0, 0]), (3, 1))
+        uy = xp.reshape(xp.asarray([0, 1, 0]), (3, 1))
+        uz = xp.reshape(xp.asarray([0, 0, 1]), (3, 1))
 
-        beam_center = xp.array([beam.global_x, beam.global_y, beam.global_z])
-        mirror_center = xp.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        beam_center = xp.asarray([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = xp.asarray([self.global_x, self.global_y, self.z]) + self.normal * self.dx
 
         # no need to rotate into a different plane than the mirror surface, so mirror unit vectors
         # are unchanged
@@ -236,11 +236,11 @@ class Mirror:
 
         z_intersect = coords_mirror[2, :] - rays_mirror[2, :] / rays_mirror[0, :] * coords_mirror[0, :]
         # by definition the x coordinate is zero for intersection
-        x_intersect = xp.reshape(xp.array(0.0),(1,))
+        x_intersect = xp.reshape(xp.asarray(0.0),(1,))
         y_intersect = rays_mirror[1, :] / rays_mirror[2, :] * (z_intersect - coords_mirror[2, :]) + coords_mirror[1,:]
 
         # put into an array
-        intersect_point = xp.reshape(xp.array([x_intersect,y_intersect,z_intersect]), (3,1))
+        intersect_point = xp.reshape(xp.asarray([x_intersect,y_intersect,z_intersect]), (3,1))
 
         inv_transform = xp.linalg.inv(transform_matrix)
 
@@ -285,9 +285,9 @@ class Mirror:
         """
 
         # figure out mirror vectors:
-        mirror_x = xp.array([1, 0, 0], dtype=float)
-        mirror_y = xp.array([0, 1, 0], dtype=float)
-        mirror_z = xp.array([0, 0, 1], dtype=float)
+        mirror_x = xp.asarray([1, 0, 0], dtype=float)
+        mirror_y = xp.asarray([0, 1, 0], dtype=float)
+        mirror_z = xp.asarray([0, 0, 1], dtype=float)
 
         # rotate mirror pitch by delta first
         r1 = transform.Rotation.from_rotvec(mirror_y * self.delta)
@@ -311,7 +311,7 @@ class Mirror:
         mirror_z = xp.matmul(Rx, mirror_z)
 
         # calculate outgoing k vector in absence of additional mirror rotations
-        mirror_0 = xp.array([1, 0, 0])
+        mirror_0 = xp.asarray([1, 0, 0])
         k_f_normal = k_i - 2 * xp.dot(k_i, mirror_0) * mirror_0
 
         # component of outgoing k vector along rotated mirror x-axis
@@ -335,9 +335,9 @@ class Mirror:
 
         figon = self.show_figures
         # global unit vectors
-        ux = xp.reshape(xp.array([1,0,0]),(3,1))
-        uy = xp.reshape(xp.array([0,1,0]),(3,1))
-        uz = xp.reshape(xp.array([0,0,1]),(3,1))
+        ux = xp.reshape(xp.asarray([1,0,0]),(3,1))
+        uy = xp.reshape(xp.asarray([0,1,0]),(3,1))
+        uz = xp.reshape(xp.asarray([0,0,1]),(3,1))
 
         delta_z = self.length / 2 * 1.1
 
@@ -349,8 +349,8 @@ class Mirror:
         beam.beam_prop(-delta_z)
 
         # vector defining displacement from beam location to mirror center. This is in global coordinates
-        beam_center = xp.array([beam.global_x, beam.global_y, beam.global_z])
-        mirror_center = xp.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        beam_center = xp.asarray([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = xp.asarray([self.global_x, self.global_y, self.z]) + self.normal * self.dx
         beam_to_mirror = beam_center - mirror_center
 
         # unit vectors for ellipse coordinates, written in global coordinates
@@ -958,7 +958,7 @@ class Mirror:
         #     yi = beam.x
         #     yi_1d = yi[0, :]
         #
-        # k_i = xp.array([k_ix, k_iy, k_iz])
+        # k_i = xp.asarray([k_ix, k_iy, k_iz])
         # delta_k = self.rotation(k_i)
         #
         # # mirror shape error interpolation onto beam coordinates (if applicable)
@@ -1326,9 +1326,9 @@ class Crystal(Mirror):
 
         figon = self.show_figures
         # global unit vectors
-        ux = xp.reshape(xp.array([1,0,0]),(3,1))
-        uy = xp.reshape(xp.array([0,1,0]),(3,1))
-        uz = xp.reshape(xp.array([0,0,1]),(3,1))
+        ux = xp.reshape(xp.asarray([1,0,0]),(3,1))
+        uy = xp.reshape(xp.asarray([0,1,0]),(3,1))
+        uz = xp.reshape(xp.asarray([0,0,1]),(3,1))
 
         delta_z = self.length / 2 * 1.1
 
@@ -1340,8 +1340,8 @@ class Crystal(Mirror):
         beam.beam_prop(-delta_z)
 
         # vector defining displacement from beam location to mirror center. This is in global coordinates
-        beam_center = xp.array([beam.global_x, beam.global_y, beam.global_z])
-        mirror_center = xp.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        beam_center = xp.asarray([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = xp.asarray([self.global_x, self.global_y, self.z]) + self.normal * self.dx
         beam_to_mirror = beam_center - mirror_center
 
         # unit vectors for ellipse coordinates, written in global coordinates
@@ -1422,7 +1422,7 @@ class Crystal(Mirror):
         # crystal plane normal vector (this is in the coordinates of the crystal)
         c_x = xp.cos(self.alphaAsym)
         c_z = xp.sin(self.alphaAsym)
-        c_normal = xp.reshape(xp.array([c_x, 0, c_z], dtype=float), (3,1))
+        c_normal = xp.reshape(xp.asarray([c_x, 0, c_z], dtype=float), (3,1))
 
         g_parallel = xp.sum(c_normal * mirror_z_local, axis=0) * beam.lambda0 / self.d
         rays_out = xp.zeros_like(rays_mirror)
@@ -1639,7 +1639,7 @@ class Crystal(Mirror):
         beamOutDotNormal = rays_out[0, :, :]
         beamInDotHNormal = xp.sum(rays_mirror * xp.reshape(c_normal,(3,1,1)), axis=0)
 
-        C1, C2 = xp.array(self.crystal.get_amplitude(beam.photonEnergy,
+        C1, C2 = xp.asarray(self.crystal.get_amplitude(beam.photonEnergy,
                                                      beamInDotNormal, beamOutDotNormal, beamInDotHNormal))
 
         # choose complex reflectivity based on polarization
@@ -1870,9 +1870,9 @@ class Crystal(Mirror):
         """
 
         # figure out mirror vectors:
-        mirror_x0 = xp.array([1, 0, 0], dtype=float)
-        mirror_y0 = xp.array([0, 1, 0], dtype=float)
-        mirror_z0 = xp.array([0, 0, 1], dtype=float)
+        mirror_x0 = xp.asarray([1, 0, 0], dtype=float)
+        mirror_y0 = xp.asarray([0, 1, 0], dtype=float)
+        mirror_z0 = xp.asarray([0, 0, 1], dtype=float)
 
         # crystal plane normal vector
         c_x = xp.cos(self.alphaAsym)
@@ -1882,9 +1882,9 @@ class Crystal(Mirror):
         crystal_x = xp.sin(self.alphaAsym)
         crystal_z = xp.cos(self.alphaAsym)
 
-        c_normal0 = xp.array([c_x, 0, c_z], dtype=float)
+        c_normal0 = xp.asarray([c_x, 0, c_z], dtype=float)
 
-        crystal_vector0 = xp.array([crystal_x, 0, crystal_z], dtype=float)
+        crystal_vector0 = xp.asarray([crystal_x, 0, crystal_z], dtype=float)
 
         r1 = transform.Rotation.from_rotvec(mirror_y0 * self.delta)
         Ry = r1.as_matrix()
@@ -1921,7 +1921,7 @@ class Crystal(Mirror):
         k_ix_norm = -xp.sin(self.alpha)
         k_iy_norm = 0
         k_iz_norm = xp.cos(self.alpha)
-        k_i_norm = xp.array([k_ix_norm, k_iy_norm, k_iz_norm])
+        k_i_norm = xp.asarray([k_ix_norm, k_iy_norm, k_iz_norm])
 
         # figure out k_f in "normal case"
         k_f_y = xp.dot(k_i_norm, mirror_y0) * mirror_y0 # should be 0
@@ -1971,9 +1971,9 @@ class Crystal(Mirror):
     def define_ki(self, beam, alpha_in):
 
         # unit vectors
-        u_x = xp.array([1, 0, 0], dtype=float)
-        u_y = xp.array([0, 1, 0], dtype=float)
-        u_z = xp.array([0, 0, 1], dtype=float)
+        u_x = xp.asarray([1, 0, 0], dtype=float)
+        u_y = xp.asarray([0, 1, 0], dtype=float)
+        u_z = xp.asarray([0, 0, 1], dtype=float)
 
         k_ix = xp.sin(beam.ax)
         k_iy = xp.sin(beam.ay)
@@ -2002,9 +2002,9 @@ class Crystal(Mirror):
     def define_ki_2d(self, beam, alpha_in, zi):
 
         # unit vectors
-        u_x = xp.array([1, 0, 0], dtype=float)
-        u_y = xp.array([0, 1, 0], dtype=float)
-        u_z = xp.array([0, 0, 1], dtype=float)
+        u_x = xp.asarray([1, 0, 0], dtype=float)
+        u_y = xp.asarray([0, 1, 0], dtype=float)
+        u_z = xp.asarray([0, 0, 1], dtype=float)
 
         k_ix = xp.sin(beam.ax)
         k_iy = xp.sin(beam.ay)
@@ -2062,9 +2062,9 @@ class Crystal(Mirror):
     def calc_kf_2d(self, k_i_2d, slope_error_z, slope_error_y, lambda0):
 
         # unit vectors
-        u_x = xp.array([1, 0, 0], dtype=float)
-        u_y = xp.array([0, 1, 0], dtype=float)
-        u_z = xp.array([0, 0, 1], dtype=float)
+        u_x = xp.asarray([1, 0, 0], dtype=float)
+        u_y = xp.asarray([0, 1, 0], dtype=float)
+        u_z = xp.asarray([0, 0, 1], dtype=float)
 
         # define crystal plane normal at every coordinate, including slope error
         # A positive asymmetry angle means that the normal has a positive z component
@@ -2091,9 +2091,9 @@ class Crystal(Mirror):
     # def calc_kf(self, z_s, k_i_avg, wavefront, zx, zy, alpha, slope_error_z, slope_error_y, lambda0):
     #     # calculate diffraction angle at every point on the grating
     #     # beta = xp.arccos(xp.cos(alpha_total) - beam.lambda0 * (self.n0 + self.n1 * z_g + self.n2 * z_g ** 2))
-    #     m_x = xp.array([1, 0, 0], dtype=float)
-    #     m_y = xp.array([0, 1, 0], dtype=float)
-    #     m_z = xp.array([0, 0, 1], dtype=float)
+    #     m_x = xp.asarray([1, 0, 0], dtype=float)
+    #     m_y = xp.asarray([0, 1, 0], dtype=float)
+    #     m_z = xp.asarray([0, 0, 1], dtype=float)
     #
     #
     #
@@ -2380,7 +2380,7 @@ class Crystal(Mirror):
         # slope_error_z *= -1e-9
         #
         # # calculate nominal reflected k vector
-        # k_i = xp.array([k_ix, k_iy, k_iz])
+        # k_i = xp.asarray([k_ix, k_iy, k_iz])
         # delta_k, k_f = self.rotation_crystal(k_i, beam.lambda0)
         # print(delta_k)
         #
@@ -2404,7 +2404,7 @@ class Crystal(Mirror):
         # beamOutDotNormal = k_f_2d[0,:,:]
         # beamInDotHNormal = xp.sum(k_i_2d * c_normal, axis=0)
         #
-        # C1, C2 = xp.array(self.crystal.get_amplitude(beam.photonEnergy,
+        # C1, C2 = xp.asarray(self.crystal.get_amplitude(beam.photonEnergy,
         #                                              beamInDotNormal, beamOutDotNormal, beamInDotHNormal))
         #
         # # choose complex reflectivity based on polarization
@@ -3676,14 +3676,14 @@ class CurvedMirror(Mirror):
 
     def find_intersection(self, beam):
 
-        ux = xp.reshape(xp.array([1, 0, 0]), (3, 1))
-        uy = xp.reshape(xp.array([0, 1, 0]), (3, 1))
-        uz = xp.reshape(xp.array([0, 0, 1]), (3, 1))
+        ux = xp.reshape(xp.asarray([1, 0, 0]), (3, 1))
+        uy = xp.reshape(xp.asarray([0, 1, 0]), (3, 1))
+        uz = xp.reshape(xp.asarray([0, 0, 1]), (3, 1))
 
         params = self.ellipse_params(self.p, self.q, self.alpha)
 
-        beam_center = xp.array([beam.global_x, beam.global_y, beam.global_z])
-        mirror_center = xp.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        beam_center = xp.asarray([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = xp.asarray([self.global_x, self.global_y, self.z]) + self.normal * self.dx
 
         # define ellipse coordinate unit vectors
         # rotation angle to rotate mirror vectors into ellipse coordinates
@@ -3738,7 +3738,7 @@ class CurvedMirror(Mirror):
             x_intersect = b * xp.sqrt(z_intersect**2/a**2 - xp.ones_like(z_intersect))
         y_intersect = rays_ellipse[1, :] / rays_ellipse[2, :] * (z_intersect - coords_ellipse[2, :]) + coords_ellipse[1,:]
 
-        intersect_point = xp.reshape(xp.array([x_intersect,y_intersect,z_intersect]), (3,1))
+        intersect_point = xp.reshape(xp.asarray([x_intersect,y_intersect,z_intersect]), (3,1))
 
         inv_transform = xp.linalg.inv(transform_matrix)
 
@@ -3756,9 +3756,9 @@ class CurvedMirror(Mirror):
 
         figon = self.show_figures
         # global unit vectors
-        ux = xp.reshape(xp.array([1,0,0]),(3,1))
-        uy = xp.reshape(xp.array([0,1,0]),(3,1))
-        uz = xp.reshape(xp.array([0,0,1]),(3,1))
+        ux = xp.reshape(xp.asarray([1,0,0]),(3,1))
+        uy = xp.reshape(xp.asarray([0,1,0]),(3,1))
+        uz = xp.reshape(xp.asarray([0,0,1]),(3,1))
 
         delta_z = self.length / 2 * 1.1
 
@@ -3772,8 +3772,8 @@ class CurvedMirror(Mirror):
         params = self.ellipse_params(self.p, self.q, self.alpha)
 
         # vector defining displacement from beam location to mirror center. This is in global coordinates
-        beam_center = xp.array([beam.global_x, beam.global_y, beam.global_z])
-        mirror_center = xp.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        beam_center = xp.asarray([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = xp.asarray([self.global_x, self.global_y, self.z]) + self.normal * self.dx
         beam_to_mirror = beam_center - mirror_center
 
         # define ellipse coordinate unit vectors
@@ -3996,7 +3996,7 @@ class CurvedMirror(Mirror):
 
         # can define mirror acceptance by taking dot product with mirror unit vectors (in ellipse coordinate system).
         # distance along length axis
-        mirror_center_ellipse = xp.reshape(xp.array([x0,0,z0]),(3,1,1))
+        mirror_center_ellipse = xp.reshape(xp.asarray([x0,0,z0]),(3,1,1))
         d_length = xp.sum((intersect_coords - mirror_center_ellipse)*xp.reshape(mirror_z_ellipse,(3,1,1)),axis=0)
         # distance along width axis
         d_width = xp.sum((intersect_coords - mirror_center_ellipse)*xp.reshape(mirror_y_ellipse,(3,1,1)),axis=0)
@@ -4452,7 +4452,7 @@ class CurvedMirror(Mirror):
             cy = beam.cx
             beamz = beam.zy
 
-        k_i = xp.array([k_ix, k_iy, k_iz])
+        k_i = xp.asarray([k_ix, k_iy, k_iz])
         delta_k = self.rotation(k_i)
 
         # mirror shape error interpolation onto beam coordinates (if applicable)
@@ -4899,10 +4899,10 @@ class Grating(Mirror):
         """
 
         # figure out mirror vectors:
-        mirror_x0 = xp.array([1, 0, 0], dtype=float)
-        mirror_y0 = xp.array([0, 1, 0], dtype=float)
-        mirror_z0 = xp.array([0, 0, 1], dtype=float)
-        grating_vector = xp.array([0, 0, 1], dtype=float)
+        mirror_x0 = xp.asarray([1, 0, 0], dtype=float)
+        mirror_y0 = xp.asarray([0, 1, 0], dtype=float)
+        mirror_z0 = xp.asarray([0, 0, 1], dtype=float)
+        grating_vector = xp.asarray([0, 0, 1], dtype=float)
 
         r1 = transform.Rotation.from_rotvec(mirror_y0 * self.delta)
         Ry = r1.as_matrix()
@@ -4933,7 +4933,7 @@ class Grating(Mirror):
         k_ix_norm = -xp.sin(self.alpha)
         k_iy_norm = 0
         k_iz_norm = xp.cos(self.alpha)
-        k_i_norm = xp.array([k_ix_norm, k_iy_norm, k_iz_norm])
+        k_i_norm = xp.asarray([k_ix_norm, k_iy_norm, k_iz_norm])
 
         # figure out k_f in "normal case"
         k_f_y = xp.dot(k_i_norm, mirror_y0) * mirror_y0  # should be 0
@@ -4992,9 +4992,9 @@ class Grating(Mirror):
 
         figon = self.show_figures
         # global unit vectors
-        ux = xp.reshape(xp.array([1,0,0]),(3,1))
-        uy = xp.reshape(xp.array([0,1,0]),(3,1))
-        uz = xp.reshape(xp.array([0,0,1]),(3,1))
+        ux = xp.reshape(xp.asarray([1,0,0]),(3,1))
+        uy = xp.reshape(xp.asarray([0,1,0]),(3,1))
+        uz = xp.reshape(xp.asarray([0,0,1]),(3,1))
 
         delta_z = self.length / 2 * 1.1
 
@@ -5006,8 +5006,8 @@ class Grating(Mirror):
         beam.beam_prop(-delta_z)
 
         # vector defining displacement from beam location to mirror center. This is in global coordinates
-        beam_center = xp.array([beam.global_x, beam.global_y, beam.global_z])
-        mirror_center = xp.array([self.global_x, self.global_y, self.z]) + self.normal * self.dx
+        beam_center = xp.asarray([beam.global_x, beam.global_y, beam.global_z])
+        mirror_center = xp.asarray([self.global_x, self.global_y, self.z]) + self.normal * self.dx
         beam_to_mirror = beam_center - mirror_center
 
         # unit vectors for ellipse coordinates, written in global coordinates
@@ -5645,7 +5645,7 @@ class Grating(Mirror):
 
             beamz = beam.zy
 
-        k_i = xp.array([k_ix, k_iy, k_iz])
+        k_i = xp.asarray([k_ix, k_iy, k_iz])
         delta_k, k_f = self.rotation_grating(k_i, beam.lambda0)
 
         # beta at beam center
@@ -6008,7 +6008,7 @@ class Collimator:
         :return: None
         """
 
-        beam_shift = xp.array([self.x_intersect - self.global_x,
+        beam_shift = xp.asarray([self.x_intersect - self.global_x,
                                self.y_intersect - self.global_y,
                                self.z_intersect - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
@@ -6122,7 +6122,7 @@ class Slit:
         :return: None
         """
 
-        beam_shift = xp.array([self.x_intersect - self.global_x,
+        beam_shift = xp.asarray([self.x_intersect - self.global_x,
                                self.y_intersect - self.global_y,
                                self.z_intersect - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
@@ -6520,7 +6520,7 @@ class Prism:
         delta = xp.interp(beam.photonEnergy, self.energy, self.delta)
         beta = xp.interp(beam.photonEnergy, self.energy, self.beta)
 
-        beam_shift = xp.array([self.x_intersect - self.global_x,
+        beam_shift = xp.asarray([self.x_intersect - self.global_x,
                                self.y_intersect - self.global_y,
                                self.z_intersect - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
@@ -6874,7 +6874,7 @@ class CRL1D(CRL):
         :return: None
         """
 
-        beam_shift = xp.array([self.x_intersect - self.global_x,
+        beam_shift = xp.asarray([self.x_intersect - self.global_x,
                                self.y_intersect - self.global_y,
                                self.z_intersect - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
@@ -7270,7 +7270,7 @@ class PPM:
         """
 
         if shift:
-            beam_shift = xp.array([self.x_intersect - self.global_x,
+            beam_shift = xp.asarray([self.x_intersect - self.global_x,
                                self.y_intersect - self.global_y,
                                self.z_intersect - self.z])
             x_shift = xp.dot(beam_shift, self.xhat)
@@ -7748,7 +7748,7 @@ class PPM:
         units = 'microns'
         mult = 1e6
 
-        all_extrema = xp.array([minx,maxx,miny,maxy])
+        all_extrema = xp.asarray([minx,maxx,miny,maxy])
         min_extrema = xp.min(xp.abs(all_extrema))
         if min_extrema<1:
             minx = xp.round(xp.min(self.x) * 1e9)
@@ -8408,8 +8408,8 @@ class PPM_Device(PPM):
 
             time_stamp = image_data['timestamp']
             # time_stamp = image_data.time_stamp
-            # img = xp.array(image_data.shaped_image,dtype='float')
-            # img = xp.array(self.gige.image2.image,dtype='float')
+            # img = xp.asarray(image_data.shaped_image,dtype='float')
+            # img = xp.asarray(self.gige.image2.image,dtype='float')
             #img = Util.threshold_array(img, self.threshold)
 
             if self.orientation == 'action0':
@@ -9206,8 +9206,8 @@ class EXS_Device(PPM):
 
             time_stamp = image_data['timestamp']
             # time_stamp = image_data.time_stamp
-            # img = xp.array(image_data.shaped_image,dtype='float')
-            # img = xp.array(self.gige.image2.image,dtype='float')
+            # img = xp.asarray(image_data.shaped_image,dtype='float')
+            # img = xp.asarray(self.gige.image2.image,dtype='float')
             # img = Util.threshold_array(img, self.threshold)
 
             if self.orientation == 'action0':
@@ -9643,7 +9643,7 @@ class PhasePlate:
         :return: None
         """
 
-        beam_shift = xp.array([self.x_intersect - self.global_x,
+        beam_shift = xp.asarray([self.x_intersect - self.global_x,
                                self.y_intersect - self.global_y,
                                self.z_intersect - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
