@@ -6,7 +6,7 @@ import lcls_beamline_toolbox.xraywavetrace.motion as motion
 import lcls_beamline_toolbox.utility.util as util
 
 class MFX:
-    def __init__(self, E0, N=512, ax=0, ay=0):
+    def __init__(self, E0, N=512, ax=0, ay=0, multi_beam=True):
 
         self.E0 = E0
         # parameter dictionary. z_source is in LCLS coordinates (20 meters upstream of undulator exit)
@@ -28,7 +28,7 @@ class MFX:
             'cy': cy
         }
         self.b1 = beam.Beam(beam_params=self.beam_params, suppress=True)
-        self.beamline = self.define_beamline()
+        self.beamline = self.define_beamline(multi_beam=multi_beam)
         self.prepare_tfs()
 
         # define motion
@@ -108,7 +108,7 @@ class MFX:
     def propagate(self):
         b2 = self.beamline.propagate_beamline(self.b1)
 
-    def define_beamline(self, tfs_config=0):
+    def define_beamline(self, tfs_config=0, multi_beam=True):
 
         # FEE devices
         im2l0 = optics.PPM('IM2L0',z=735.99,FOV=5e-3,N=256)
@@ -129,7 +129,7 @@ class MFX:
         xcs_s1 = optics.Slit('xcs_s1',z=809.5,x_width=5e-3,y_width=5e-3)
         xcs_yag1 = optics.PPM('xcs_yag1',z=810,FOV=5e-3,N=256)
         mr1l4 = optics.FlatMirror('MR1L4',z=817.1,alpha=2.75e-3,orientation=2,length=0.5)
-        mfx_prefocus = optics.CRL('prefocus',z=983,roc=750e-6,diameter=1.6e-3,multi_beam=True)
+        mfx_prefocus = optics.CRL('prefocus',z=983,roc=750e-6,diameter=1.6e-3,multi_beam=multi_beam)
         mfx_dia_yag = optics.PPM('DIA_YAG',z=984.9,FOV=5e-3,N=256)
 
         xrt_devices = [xcs_s1,xcs_yag1,mr1l4,mfx_prefocus,mfx_dia_yag]
@@ -140,15 +140,15 @@ class MFX:
 
         # transfocator (center at 1020.44
         z_tfs = 1020.44
-        tfs_2 = optics.CRL('tfs_2',z=z_tfs-4*75e-3,roc=500e-6, diameter=1.4e-3,multi_beam=True)
-        tfs_3 = optics.CRL('tfs_3',z=z_tfs-3*75e-3,roc=300e-6, diameter=1e-3,multi_beam=True)
-        tfs_4 = optics.CRL('tfs_4',z=z_tfs-2*75e-3,roc=250e-6, diameter=1e-3,multi_beam=True)
-        tfs_5 = optics.CRL('tfs_5',z=z_tfs-75e-3,roc=200e-6, diameter=0.88e-3,multi_beam=True)
-        tfs_6 = optics.CRL('tfs_6',z=z_tfs,roc=125e-6, diameter=0.623e-3,multi_beam=True)
-        tfs_7 = optics.CRL('tfs_7',z=z_tfs+75e-3,roc=62.5e-6, diameter=.44e-3,multi_beam=True)
-        tfs_8 = optics.CRL('tfs_8',z=z_tfs+2*75e-3,roc=50e-6, diameter=.44e-3,multi_beam=True)
-        tfs_9 = optics.CRL('tfs_9',z=z_tfs+3*75e-3,roc=50e-6, diameter=.44e-3,multi_beam=True)
-        tfs_10 = optics.CRL('tfs_10',z=z_tfs+4*75e-3,roc=50e-6, diameter=.44e-3,multi_beam=True)
+        tfs_2 = optics.CRL('tfs_2',z=z_tfs-4*75e-3,roc=500e-6, diameter=1.4e-3,multi_beam=multi_beam)
+        tfs_3 = optics.CRL('tfs_3',z=z_tfs-3*75e-3,roc=300e-6, diameter=1e-3,multi_beam=multi_beam)
+        tfs_4 = optics.CRL('tfs_4',z=z_tfs-2*75e-3,roc=250e-6, diameter=1e-3,multi_beam=multi_beam)
+        tfs_5 = optics.CRL('tfs_5',z=z_tfs-75e-3,roc=200e-6, diameter=0.88e-3,multi_beam=multi_beam)
+        tfs_6 = optics.CRL('tfs_6',z=z_tfs,roc=125e-6, diameter=0.623e-3,multi_beam=multi_beam)
+        tfs_7 = optics.CRL('tfs_7',z=z_tfs+75e-3,roc=62.5e-6, diameter=.44e-3,multi_beam=multi_beam)
+        tfs_8 = optics.CRL('tfs_8',z=z_tfs+2*75e-3,roc=50e-6, diameter=.44e-3,multi_beam=multi_beam)
+        tfs_9 = optics.CRL('tfs_9',z=z_tfs+3*75e-3,roc=50e-6, diameter=.44e-3,multi_beam=multi_beam)
+        tfs_10 = optics.CRL('tfs_10',z=z_tfs+4*75e-3,roc=50e-6, diameter=.44e-3,multi_beam=multi_beam)
 
         self.tfs_list = [tfs_2,tfs_3,tfs_4,tfs_5,tfs_6,tfs_7,tfs_8,tfs_9,tfs_10]
 
