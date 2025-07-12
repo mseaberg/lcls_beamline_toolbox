@@ -141,15 +141,15 @@ class Mirror:
         self.tangential = None
         self.sagittal = None
         self.normal = None
-        self.correction = 0
+        self.correction = []
         self.beam_cx = 0
         self.beam_cy = 0
         self.beam_ax = 0
         self.beam_ay = 0
         self.show_figures = False
-        self.x_intersect = 0.0
-        self.y_intersect = 0.0
-        self.z_intersect = 0.0
+        self.x_intersect = []
+        self.y_intersect = []
+        self.z_intersect = []
         self.use_reflectivity = False
         self.material = 'B4C'
         self.suppress = True
@@ -658,22 +658,38 @@ class Mirror:
         if not self.suppress:
             print('attempting interpolation')
 
-        tic = time.perf_counter()
-        tri = Delaunay(points)
-        toc = time.perf_counter()
+        # tic = time.perf_counter()
+        # tri = Delaunay(points)
+        # toc = time.perf_counter()
         if not self.suppress:
             print('finished Delaunay in {} seconds'.format(toc - tic))
 
-        if use_gpu:
-            print('interpolating')
-            int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
-        else:
-            tic = time.perf_counter()
-            int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
-            toc = time.perf_counter()
-            if not self.suppress:
-                print('finished interp in {} seconds'.format(toc-tic))
-        mask2 = int1(xi_0, xi_1)
+        x2 = x_eff[int(beam.N/2),:][mask_x]
+        y2 = y_eff[:,int(beam.M/2)][mask_y]
+        xi_min = xp.argmax(mask_x)
+        xi_max = int(xi_min + xp.sum(mask_x))
+        yi_min = xp.argmax(mask_y)
+        yi_max = int(yi_min+xp.sum(mask_y))
+        slice_x = slice(xi_min,xi_max)
+        slice_y = slice(yi_min,yi_max)
+
+        # print(xi_min)
+        # print(xi_max)
+        # print(yi_min)
+        # print(yi_max)
+        #
+        # print(np.size(x2))
+        # print(np.size(y2))
+        # print(np.shape(mask[slice_y,slice_x]))
+
+        tic = time.perf_counter()
+        # int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
+        int1 = interpolation.RegularGridInterpolator((y2,x2),mask[slice_y,slice_x],fill_value=0,bounds_error=False)
+        toc = time.perf_counter()
+        if not self.suppress:
+            print('finished interp in {} seconds'.format(toc-tic))
+        # mask2 = int1(xi_0, xi_1)
+        mask2 = int1((xi_1,xi_0))
 
         # mask2 = interpolation.griddata(points, mask[mask], (xi_0, xi_1), method='nearest',fill_value=0)
         # mask2 = fmask(x_out,y_out)
@@ -682,13 +698,11 @@ class Mirror:
         mask2 = mask2 > 0.5
 
         # interpolate intensity onto new exit plane grid
-        if use_gpu:
-            print('interpolating')
-            int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
-        else:
-            int1 = interpolation.LinearNDInterpolator(tri, xp.abs(beam.wave[mask]), fill_value=0)
+        # int1 = interpolation.LinearNDInterpolator(tri, np.abs(beam.wave[mask]), fill_value=0)
+        int1 = interpolation.RegularGridInterpolator((y2, x2), xp.abs(beam.wave[slice_y, slice_x]),fill_value=0,bounds_error=False)
 
-        abs_out = int1(xi_0, xi_1)
+        # abs_out = int1(xi_0, xi_1)
+        abs_out = int1((xi_1,xi_0))
 
         # abs_out = interpolation.griddata(points, xp.abs(beam.wave[mask]), (xi_0, xi_1), fill_value=0)
 
@@ -773,18 +787,18 @@ class Mirror:
         # points[:, 0] = x_eff.flatten()
         # points[:, 1] = y_eff.flatten()
         # phase_interp = interpolation.griddata(points, total_phase.flatten(), (xi_0, xi_1), fill_value=0)
-        if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
-        else:
-            int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
-        phase_interp = int1(xi_0, xi_1)
+
+        # int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
+        int1 = interpolation.RegularGridInterpolator((y2, x2), total_phase[slice_y, slice_x],fill_value=0,bounds_error=False)
+        # phase_interp = int1(xi_0, xi_1)
+        phase_interp = int1((xi_1,xi_0))
 
         # interpolate the reflectivity onto the exit plane grid
-        if use_gpu:
-            int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
-        else:
-            int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
-        reflectivity_interp = int1(xi_0, xi_1)
+        # int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
+        int1 = interpolation.RegularGridInterpolator((y2, x2), reflectivity[slice_y, slice_x],fill_value=0,bounds_error=False)
+        # reflectivity_interp = int1(xi_0, xi_1)
+        reflectivity_interp = int1((xi_0,xi_1))
+
 
         # reflectivity_interp = interpolation.griddata(points, reflectivity.flatten(), (xi_0, xi_1), fill_value=0)
 
@@ -6005,12 +6019,13 @@ class Collimator:
         self.xhat = None
         self.yhat = None
         self.zhat = None
-        self.x_intersect = 0
-        self.y_intersect = 0
-        self.z_intersect = 0
+        self.x_intersect = []
+        self.y_intersect = []
+        self.z_intersect = []
+        self.correction = []
         self.suppress = suppress
 
-    def multiply(self, beam):
+    def multiply(self, num, beam):
         """
         Method to multiply the beam by the collimator aperture.
         :param beam: Beam
@@ -6018,9 +6033,9 @@ class Collimator:
         :return: None
         """
 
-        beam_shift = xp.asarray([self.x_intersect - self.global_x,
-                               self.y_intersect - self.global_y,
-                               self.z_intersect - self.z])
+        beam_shift = xp.array([self.x_intersect[num] - self.global_x,
+                               self.y_intersect[num] - self.global_y,
+                               self.z_intersect[num] - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
         y_shift = xp.dot(beam_shift, self.yhat)
 
@@ -6039,8 +6054,8 @@ class Collimator:
             Beam object to propagate through the collimator. Beam is modified by this method.
         :return: None
         """
-        for beam in beam_list:
-            self.multiply(beam)
+        for num, beam in enumerate(beam_list):
+            self.multiply(num, beam)
         return beam_list
 
     def get_pos(self):
@@ -6106,9 +6121,10 @@ class Slit:
         self.xhat = None
         self.yhat = None
         self.zhat = None
-        self.x_intersect = 0
-        self.y_intersect = 0
-        self.z_intersect = 0
+        self.x_intersect = []
+        self.y_intersect = []
+        self.z_intersect = []
+        self.correction = []
         self.suppress = suppress
 
     def get_pos(self):
@@ -6124,7 +6140,7 @@ class Slit:
         self.global_y = pos[1]
         self.z = pos[2]
 
-    def multiply(self, beam):
+    def multiply(self, num, beam):
         """
         Method to propagate beam through the slit.
         :param beam: Beam
@@ -6132,9 +6148,9 @@ class Slit:
         :return: None
         """
 
-        beam_shift = xp.asarray([self.x_intersect - self.global_x,
-                               self.y_intersect - self.global_y,
-                               self.z_intersect - self.z])
+        beam_shift = xp.array([self.x_intersect[num] - self.global_x,
+                               self.y_intersect[num] - self.global_y,
+                               self.z_intersect[num] - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
         y_shift = xp.dot(beam_shift, self.yhat)
 
@@ -6155,8 +6171,8 @@ class Slit:
             Beam object to propagate through slits. Beam is modified by this method.
         :return: None
         """
-        for beam in beam_list:
-            self.multiply(beam)
+        for num, beam in enumerate(beam_list):
+            self.multiply(num, beam)
         return beam_list
 
 
@@ -6303,7 +6319,7 @@ class Drift:
 
         # can put re-calculation of distance here
         # get beam k
-        for beam in beam_list:
+        for num, beam in enumerate(beam_list):
             k = beam.get_k()
 
             # deal with the case that the beam is propagating perpendicular to the z direction
@@ -6416,12 +6432,20 @@ class Drift:
             # re-calculate propagation distance
             old_z = xp.copy(self.dz)
 
-            self.downstream_component.x_intersect = x_intersect
-            self.downstream_component.y_intersect = y_intersect
-            self.downstream_component.z_intersect = z_intersect
+            if num==0:
+                self.downstream_component.x_intersect = [x_intersect]
+                self.downstream_component.y_intersect = [y_intersect]
+                self.downstream_component.z_intersect = [z_intersect]
 
-            self.dz = xp.sqrt(dx**2 + dy**2 + dz**2)
-            self.downstream_component.correction = self.dz - old_z
+                self.dz = xp.sqrt(dx**2 + dy**2 + dz**2)
+                self.downstream_component.correction = [self.dz - old_z]
+            else:
+                self.downstream_component.x_intersect.append(x_intersect)
+                self.downstream_component.y_intersect.append(y_intersect)
+                self.downstream_component.z_intersect.append(z_intersect)
+
+                self.dz = xp.sqrt(dx ** 2 + dy ** 2 + dz ** 2)
+                self.downstream_component.correction.append(self.dz - old_z)
             if not self.suppress:
                 print('delta z: %.2f' % ((self.dz - old_z)*1e6))
 
@@ -6500,9 +6524,10 @@ class Prism:
         self.xhat = None
         self.yhat = None
         self.zhat = None
-        self.x_intersect = 0
-        self.y_intersect = 0
-        self.z_intersect = 0
+        self.x_intersect = []
+        self.y_intersect = []
+        self.z_intersect = []
+        self.correction = []
         self.suppress = suppress
 
         # get file name of CXRO data
@@ -6527,15 +6552,15 @@ class Prism:
         self.global_y = pos[1]
         self.z = pos[2]
 
-    def multiply(self, beam):
+    def multiply(self, num, beam):
 
         # interpolate to find index of refraction at beam's energy
         delta = xp.interp(beam.photonEnergy, self.energy, self.delta)
         beta = xp.interp(beam.photonEnergy, self.energy, self.beta)
 
-        beam_shift = xp.asarray([self.x_intersect - self.global_x,
-                               self.y_intersect - self.global_y,
-                               self.z_intersect - self.z])
+        beam_shift = xp.array([self.x_intersect[num] - self.global_x,
+                               self.y_intersect[num] - self.global_y,
+                               self.z_intersect[num] - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
         y_shift = xp.dot(beam_shift, self.yhat)
 
@@ -6580,8 +6605,8 @@ class Prism:
             Beam object to propagate through prism. Beam is modified by this method.
         :return: None
         """
-        for beam in beam_list:
-            self.multiply(beam)
+        for num, beam in enumerate(beam_list):
+            self.multiply(num, beam)
         return beam_list
 
 
@@ -6652,9 +6677,10 @@ class CRL:
         self.xhat = None
         self.yhat = None
         self.zhat = None
-        self.x_intersect = 0
-        self.y_intersect = 0
-        self.z_intersect = 0
+        self.x_intersect = []
+        self.y_intersect = []
+        self.z_intersect = []
+        self.correction = []
         self.enabled = True
         self.suppress = True
         self.multi_beam = False
@@ -6707,7 +6733,7 @@ class CRL:
         f = self.roc / 2 / delta
         return f
 
-    def multiply(self, beam):
+    def multiply(self, num, beam):
         """
         Method to propagate beam through CRL
         :param beam: Beam
@@ -6715,9 +6741,9 @@ class CRL:
         :return: None
         """
 
-        beam_shift = xp.asarray([self.x_intersect - self.global_x,
-                               self.y_intersect - self.global_y,
-                               self.z_intersect - self.z])
+        beam_shift = xp.array([self.x_intersect[num] - self.global_x,
+                               self.y_intersect[num] - self.global_y,
+                               self.z_intersect[num] - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
         y_shift = xp.dot(beam_shift, self.yhat)
 
@@ -6829,8 +6855,8 @@ class CRL:
         """
         new_list = []
         if self.enabled:
-            for beam in beam_list:
-                new_beam = self.multiply(beam)
+            for num, beam in enumerate(beam_list):
+                new_beam = self.multiply(num, beam)
                 if new_beam is not None:
                     new_list.append(new_beam)
         else:
@@ -6879,7 +6905,7 @@ class CRL1D(CRL):
 
         self.orientation = orientation
 
-    def multiply(self, beam):
+    def multiply(self, num, beam):
         """
         Method to propagate beam through 1D CRL
         :param beam: Beam
@@ -6887,9 +6913,9 @@ class CRL1D(CRL):
         :return: None
         """
 
-        beam_shift = xp.asarray([self.x_intersect - self.global_x,
-                               self.y_intersect - self.global_y,
-                               self.z_intersect - self.z])
+        beam_shift = xp.array([self.x_intersect[num] - self.global_x,
+                               self.y_intersect[num] - self.global_y,
+                               self.z_intersect[num] - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
         y_shift = xp.dot(beam_shift, self.yhat)
 
@@ -7078,9 +7104,10 @@ class PPM:
         self.xhat = None
         self.yhat = None
         self.zhat = None
-        self.x_intersect = 0
-        self.y_intersect = 0
-        self.z_intersect = 0
+        self.x_intersect = []
+        self.y_intersect = []
+        self.z_intersect = []
+        self.correction = []
         self.suppress = True
 
         # set allowed kwargs
@@ -7274,7 +7301,7 @@ class PPM:
 
         return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
 
-    def calc_profile(self, beam, shift=True):
+    def calc_profile(self, num, beam, shift=True):
         """
         Method to calculate the beam profile at the PPM screen.
         :param beam: Beam
@@ -7283,9 +7310,9 @@ class PPM:
         """
 
         if shift:
-            beam_shift = xp.asarray([self.x_intersect - self.global_x,
-                               self.y_intersect - self.global_y,
-                               self.z_intersect - self.z])
+            beam_shift = xp.array([self.x_intersect[num] - self.global_x,
+                               self.y_intersect[num] - self.global_y,
+                               self.z_intersect[num] - self.z])
             x_shift = xp.dot(beam_shift, self.xhat)
             y_shift = xp.dot(beam_shift, self.yhat)
         else:
@@ -7334,7 +7361,10 @@ class PPM:
         # account for coordinate scaling between PPM and beam
         profile_temp *= self.dx/beam.dx * self.dy/beam.dy
 
-        self.profile += profile_temp
+        if num==0:
+            self.profile = xp.copy(profile_temp)
+        else:
+            self.profile += profile_temp
 
         if self.calc_phase:
             if use_gpu:
@@ -7376,8 +7406,8 @@ class PPM:
             Beam object for viewing at PPM location. The Beam object is not modified by this method.
         :return: None
         """
-        for beam in beam_list:
-            self.calc_profile(beam)
+        for num, beam in enumerate(beam_list):
+            self.calc_profile(num, beam)
         return beam_list
 
     def retrieve_wavefront(self, wfs):
@@ -9369,9 +9399,10 @@ class WFS:
         self.xhat = None
         self.yhat = None
         self.zhat = None
-        self.x_intersect = 0
-        self.y_intersect = 0
-        self.z_intersect = 0
+        self.x_intersect = []
+        self.y_intersect = []
+        self.z_intersect = []
+        self.correction = []
         self.suppress = True
 
         # set allowed kwargs
@@ -9663,9 +9694,10 @@ class PhasePlate:
         self.xhat = None
         self.yhat = None
         self.zhat = None
-        self.x_intersect = 0
-        self.y_intersect = 0
-        self.z_intersect = 0
+        self.x_intersect = []
+        self.y_intersect = []
+        self.z_intersect = []
+        self.correction = []
         self.suppress = suppress
 
     def get_pos(self):
@@ -9681,7 +9713,7 @@ class PhasePlate:
         self.global_y = pos[1]
         self.z = pos[2]
 
-    def multiply(self, beam):
+    def multiply(self, num, beam):
         """
         Method to propagate beam through PhasePlate
         :param beam: Beam
@@ -9689,9 +9721,9 @@ class PhasePlate:
         :return: None
         """
 
-        beam_shift = xp.asarray([self.x_intersect - self.global_x,
-                               self.y_intersect - self.global_y,
-                               self.z_intersect - self.z])
+        beam_shift = xp.array([self.x_intersect[num] - self.global_x,
+                               self.y_intersect[num] - self.global_y,
+                               self.z_intersect[num] - self.z])
         x_shift = xp.dot(beam_shift, self.xhat)
         y_shift = xp.dot(beam_shift, self.yhat)
 
@@ -9758,6 +9790,6 @@ class PhasePlate:
         :return: None
         """
         if self.platePhase is not None:
-            for beam in beam_list:
-                self.multiply(beam)
+            for num, beam in enumerate(beam_list):
+                self.multiply(num, beam)
         return beam_list
