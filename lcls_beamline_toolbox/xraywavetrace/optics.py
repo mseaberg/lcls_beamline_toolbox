@@ -665,14 +665,14 @@ class Mirror:
         slice_x = slice(xi_min,xi_max)
         slice_y = slice(yi_min,yi_max)
 
-        print(xi_min)
-        print(xi_max)
-        print(yi_min)
-        print(yi_max)
-
-        print(np.size(x2))
-        print(np.size(y2))
-        print(np.shape(mask[slice_y,slice_x]))
+        # print(xi_min)
+        # print(xi_max)
+        # print(yi_min)
+        # print(yi_max)
+        #
+        # print(np.size(x2))
+        # print(np.size(y2))
+        # print(np.shape(mask[slice_y,slice_x]))
 
         tic = time.perf_counter()
         # int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
