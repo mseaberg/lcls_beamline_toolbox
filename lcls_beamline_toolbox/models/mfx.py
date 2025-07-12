@@ -32,7 +32,7 @@ class MFX:
         self.prepare_tfs()
 
         # define motion
-        self.mr1L4_pitch = motion.RotationAxis(self.beamline.MR1L4.sagittal,
+        self.mr1l4_pitch = motion.RotationAxis(self.beamline.MR1L4.sagittal,
                                                device_list=[self.beamline.MR1L4],
                                                rotation_center=self.beamline.MR1L4.get_pos(),
                                                initial_position=-552e-6)
@@ -128,7 +128,7 @@ class MFX:
         # XRT
         xcs_s1 = optics.Slit('xcs_s1',z=809.5,x_width=5e-3,y_width=5e-3)
         xcs_yag1 = optics.PPM('xcs_yag1',z=810,FOV=5e-3,N=256)
-        mr1l4 = optics.FlatMirror('MR1L4',z=817.1,alpha=2.75e-3,orientation=2)
+        mr1l4 = optics.FlatMirror('MR1L4',z=817.1,alpha=2.75e-3,orientation=2,length=0.5)
         mfx_prefocus = optics.CRL('prefocus',z=983,roc=750e-6,diameter=1.6e-3,multi_beam=True)
         mfx_dia_yag = optics.PPM('DIA_YAG',z=984.9,FOV=5e-3,N=256)
 

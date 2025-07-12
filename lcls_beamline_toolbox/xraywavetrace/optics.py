@@ -650,18 +650,38 @@ class Mirror:
         if not self.suppress:
             print('attempting interpolation')
 
-        tic = time.perf_counter()
-        tri = Delaunay(points)
-        toc = time.perf_counter()
+        # tic = time.perf_counter()
+        # tri = Delaunay(points)
+        # toc = time.perf_counter()
         if not self.suppress:
             print('finished Delaunay in {} seconds'.format(toc - tic))
 
+        x2 = x_eff[int(beam.N/2),:][mask_x]
+        y2 = y_eff[:,int(beam.M/2)][mask_y]
+        xi_min = np.argmax(mask_x)
+        xi_max = int(xi_min + np.sum(mask_x))
+        yi_min = np.argmax(mask_y)
+        yi_max = int(yi_min+np.sum(mask_y))
+        slice_x = slice(xi_min,xi_max)
+        slice_y = slice(yi_min,yi_max)
+
+        print(xi_min)
+        print(xi_max)
+        print(yi_min)
+        print(yi_max)
+
+        print(np.size(x2))
+        print(np.size(y2))
+        print(np.shape(mask[slice_y,slice_x]))
+
         tic = time.perf_counter()
-        int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
+        # int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
+        int1 = interpolation.RegularGridInterpolator((y2,x2),mask[slice_y,slice_x],fill_value=0,bounds_error=False)
         toc = time.perf_counter()
         if not self.suppress:
             print('finished interp in {} seconds'.format(toc-tic))
-        mask2 = int1(xi_0, xi_1)
+        # mask2 = int1(xi_0, xi_1)
+        mask2 = int1((xi_1,xi_0))
 
         # mask2 = interpolation.griddata(points, mask[mask], (xi_0, xi_1), method='nearest',fill_value=0)
         # mask2 = fmask(x_out,y_out)
@@ -670,9 +690,11 @@ class Mirror:
         mask2 = mask2 > 0.5
 
         # interpolate intensity onto new exit plane grid
-        int1 = interpolation.LinearNDInterpolator(tri, np.abs(beam.wave[mask]), fill_value=0)
+        # int1 = interpolation.LinearNDInterpolator(tri, np.abs(beam.wave[mask]), fill_value=0)
+        int1 = interpolation.RegularGridInterpolator((y2, x2), np.abs(beam.wave[slice_y, slice_x]),fill_value=0,bounds_error=False)
 
-        abs_out = int1(xi_0, xi_1)
+        # abs_out = int1(xi_0, xi_1)
+        abs_out = int1((xi_1,xi_0))
 
         # abs_out = interpolation.griddata(points, np.abs(beam.wave[mask]), (xi_0, xi_1), fill_value=0)
 
@@ -747,12 +769,17 @@ class Mirror:
         points[:, 1] = y_eff.flatten()
         # phase_interp = interpolation.griddata(points, total_phase.flatten(), (xi_0, xi_1), fill_value=0)
 
-        int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
-        phase_interp = int1(xi_0, xi_1)
+        # int1 = interpolation.LinearNDInterpolator(tri, total_phase[mask], fill_value=0)
+        int1 = interpolation.RegularGridInterpolator((y2, x2), total_phase[slice_y, slice_x],fill_value=0,bounds_error=False)
+        # phase_interp = int1(xi_0, xi_1)
+        phase_interp = int1((xi_1,xi_0))
 
         # interpolate the reflectivity onto the exit plane grid
-        int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
-        reflectivity_interp = int1(xi_0, xi_1)
+        # int1 = interpolation.LinearNDInterpolator(tri, reflectivity[mask], fill_value=0)
+        int1 = interpolation.RegularGridInterpolator((y2, x2), reflectivity[slice_y, slice_x],fill_value=0,bounds_error=False)
+        # reflectivity_interp = int1(xi_0, xi_1)
+        reflectivity_interp = int1((xi_0,xi_1))
+
 
         # reflectivity_interp = interpolation.griddata(points, reflectivity.flatten(), (xi_0, xi_1), fill_value=0)
 
@@ -762,6 +789,7 @@ class Mirror:
         if self.use_reflectivity:
             beam.wave *= np.sqrt(reflectivity_interp)
         # multiply by mirror aperture that has been interpolated onto the exit plane grid
+
         beam.wave *= mask2
 
         if figon:
