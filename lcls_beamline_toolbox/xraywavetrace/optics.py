@@ -661,8 +661,8 @@ class Mirror:
         # tic = time.perf_counter()
         # tri = Delaunay(points)
         # toc = time.perf_counter()
-        if not self.suppress:
-            print('finished Delaunay in {} seconds'.format(toc - tic))
+        # if not self.suppress:
+        #     print('finished Delaunay in {} seconds'.format(toc - tic))
 
         x2 = x_eff[int(beam.N/2),:][mask_x]
         y2 = y_eff[:,int(beam.M/2)][mask_y]
@@ -684,7 +684,9 @@ class Mirror:
 
         tic = time.perf_counter()
         # int1 = interpolation.LinearNDInterpolator(tri, mask[mask], fill_value=0)
-        int1 = interpolation.RegularGridInterpolator((y2,x2),mask[slice_y,slice_x],fill_value=0,bounds_error=False)
+        int1 = interpolation.RegularGridInterpolator((y2,x2),
+                                                     mask[slice_y,slice_x].astype(float),
+                                                     fill_value=0,bounds_error=False)
         toc = time.perf_counter()
         if not self.suppress:
             print('finished interp in {} seconds'.format(toc-tic))
@@ -6339,9 +6341,6 @@ class Drift:
                 x_m = self.downstream_component.global_x
                 y_m = self.downstream_component.global_y
 
-                print(type(z_m))
-                print(type(x_m))
-                print(type(y_m))
                 mirror_center = xp.asarray([x_m, y_m, z_m])
 
                 normal = self.downstream_component.normal
@@ -7337,8 +7336,6 @@ class PPM:
         # get beam coordinates for interpolation
         x = beam.x[0,:] + x_shift
         y = beam.y[:,0] + y_shift
-        print(type(self.xx))
-        print(use_gpu)
 
         x_map = (self.xx - xp.amin(x)) / (xp.amax(x) - xp.amin(x)) * beam.M
         y_map = (self.yy - xp.amin(y)) / (xp.amax(y) - xp.amin(y)) * beam.N

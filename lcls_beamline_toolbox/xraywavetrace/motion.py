@@ -112,8 +112,11 @@ class RotationAxis(MotionAxis):
         """
         Method to rotate a device about an arbitrary rotation center
         """
-        re = transform.Rotation.from_rotvec(self.rotation_vector*adjustment)
-        Re = re.as_matrix()
+        if use_gpu:
+            re = transform.Rotation.from_rotvec(xp.asnumpy(self.rotation_vector*adjustment))
+        else:
+            re = transform.Rotation.from_rotvec(self.rotation_vector*adjustment)
+        Re = xp.asarray(re.as_matrix())
 
         for device in self.device_list:
             device_pos = device.get_pos()
@@ -156,8 +159,11 @@ class RotationAxis(MotionAxis):
         """
         Method to rotate the rotation axis and center (i.e. if it is above a rotation stage in a stack)
         """
-        re = transform.Rotation.from_rotvec(rotation_vector)
-        Re = re.as_matrix()
+        if use_gpu:
+            re = transform.Rotation.from_rotvec(xp.asnumpy(rotation_vector))
+        else:
+            re = transform.Rotation.from_rotvec(rotation_vector)
+        Re = xp.asarray(re.as_matrix())
 
         self.rotation_center = xp.matmul(Re, self.rotation_center - rotation_center) + rotation_center
 
