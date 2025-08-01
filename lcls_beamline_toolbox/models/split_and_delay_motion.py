@@ -40,51 +40,63 @@ class SND:
                                           [self.delay_branch.c1, self.delay_branch.c2,
                                            self.delay_branch.t1_dh],
                                           rotation_center=self.delay_branch.c1.get_pos(),
-                                          initial_position=2*self.delay_branch.c1.bragg)
+                                          initial_position=2*self.delay_branch.c1.bragg,
+                                          name='t1_tth')
         self.t1_th1 = motion.RotationAxis(-self.delay_branch.c1.sagittal,
                                           [self.delay_branch.c1],
                                           rotation_center=self.delay_branch.c1.get_pos()+self.delay_branch.c1.normal*1e-3,
-                                          initial_position=self.delay_branch.c1.bragg)
+                                          initial_position=self.delay_branch.c1.bragg,
+                                          name='t1_th1')
         self.t1_th2 = motion.RotationAxis(self.delay_branch.c2.sagittal,
                                           [self.delay_branch.c2],
-                                          initial_position=self.delay_branch.c2.bragg)
+                                          initial_position=self.delay_branch.c2.bragg,
+                                          name='t1_th2')
         self.t1_L = motion.TranslationAxis(self.delay_branch.t1_dh.zhat,
-                                           [self.delay_branch.t1_dh,self.delay_branch.c2])
+                                           [self.delay_branch.t1_dh,self.delay_branch.c2],
+                                           name='t1_L')
         self.t4_tth = motion.RotationAxis(-self.delay_branch.c4.sagittal,
                                           [self.delay_branch.c4,self.delay_branch.c3,
                                            self.delay_branch.t4_dh],
                                           rotation_center=self.delay_branch.c4.get_pos(),
-                                          initial_position=2*self.delay_branch.c4.bragg)
+                                          initial_position=2*self.delay_branch.c4.bragg,
+                                          name='t4_tth')
         self.t4_th1 = motion.RotationAxis(self.delay_branch.c4.sagittal,
                                           [self.delay_branch.c4],
-                                          initial_position=self.delay_branch.c4.bragg)
+                                          initial_position=self.delay_branch.c4.bragg,
+                                          name='t4_th1')
         self.t4_th2 = motion.RotationAxis(-self.delay_branch.c3.sagittal,
                                           [self.delay_branch.c3],
-                                          initial_position=self.delay_branch.c3.bragg)
+                                          initial_position=self.delay_branch.c3.bragg,
+                                          name='t4_th2')
         self.t4_L = motion.TranslationAxis(-self.delay_branch.t4_dh.zhat,
-                                           [self.delay_branch.t4_dh,self.delay_branch.c3])
+                                           [self.delay_branch.t4_dh,self.delay_branch.c3],
+                                           name='t4_L')
         self.t1_chi1 = motion.RotationAxis(self.delay_branch.c1.tangential,
-                                           [self.delay_branch.c1])
+                                           [self.delay_branch.c1],
+                                           name='t1_chi1')
         self.t1_chi2 = motion.RotationAxis(self.delay_branch.c2.tangential,
-                                           [self.delay_branch.c2])
+                                           [self.delay_branch.c2],
+                                           name='t1_chi2')
         self.t4_chi1 = motion.RotationAxis(self.delay_branch.c4.tangential,
-                                           [self.delay_branch.c4])
+                                           [self.delay_branch.c4],
+                                           name='t4_chi1')
         self.t4_chi2 = motion.RotationAxis(self.delay_branch.c3.tangential,
-                                           [self.delay_branch.c3])
+                                           [self.delay_branch.c3],
+                                           name='t4_chi2')
         self.t1_x = motion.TranslationAxis(np.array([1,0,0]),
                                            [self.delay_branch.c1,self.delay_branch.t1_dh,
-                                            self.delay_branch.c2])
+                                            self.delay_branch.c2],name='t1_x')
         self.t4_x = motion.TranslationAxis(np.array([1,0,0]),
                                            [self.delay_branch.c4,self.delay_branch.t4_dh,
-                                            self.delay_branch.c3])
+                                            self.delay_branch.c3],name='t4_x')
         self.t1_y1 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c1])
+                                            [self.delay_branch.c1],name='t1_y1')
         self.t1_y2 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c2])
+                                            [self.delay_branch.c2],name='t1_y2')
         self.t4_y1 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c4])
+                                            [self.delay_branch.c4],name='t4_y1')
         self.t4_y2 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c3])
+                                            [self.delay_branch.c3],name='t4_y2')
 
         self.t1_x.coupled_axes = [self.t1_th1,self.t1_tth,self.t1_th2,self.t1_L,
                                   self.t1_y1,self.t1_y2,self.t1_chi1,self.t1_chi2]
@@ -99,14 +111,18 @@ class SND:
 
         self.t2_th = motion.RotationAxis(self.cc_branch.cc1_1.sagittal,
                                          [self.cc_branch.cc1_1,self.cc_branch.cc1_2],
-                                         rotation_center=self.cc_branch.cc1_1.get_pos())
+                                         rotation_center=self.cc_branch.cc1_1.get_pos(),
+                                         name='t2_th')
         self.t2_x = motion.TranslationAxis(np.array([1,0,0]),
-                                           [self.cc_branch.cc1_1,self.cc_branch.cc1_2])
+                                           [self.cc_branch.cc1_1,self.cc_branch.cc1_2],
+                                           name='t2_x')
         self.t3_th = motion.RotationAxis(-self.cc_branch.cc2_2.sagittal,
                                          [self.cc_branch.cc2_1,self.cc_branch.cc2_2],
-                                         rotation_center=self.cc_branch.cc2_2.get_pos())
+                                         rotation_center=self.cc_branch.cc2_2.get_pos(),
+                                         name='t3_th')
         self.t3_x = motion.TranslationAxis(np.array([1,0,0]),
-                                           [self.cc_branch.cc2_1,self.cc_branch.cc2_2])
+                                           [self.cc_branch.cc2_1,self.cc_branch.cc2_2],
+                                           name='t3_x')
         self.t2_x.coupled_axes = [self.t2_th]
         self.t3_x.coupled_axes = [self.t3_th]
 
@@ -115,6 +131,10 @@ class SND:
                            self.t4_chi1,self.t4_chi2,self.t1_x,self.t2_x,self.t3_x,
                            self.t4_x,self.t2_th,self.t3_th,self.t1_y1,self.t1_y2,self.t4_y1,
                            self.t4_y2]
+
+        self.motor_dict = {}
+        for motor in self.motor_list:
+            self.motor_dict[motor.name] = motor
 
 
 

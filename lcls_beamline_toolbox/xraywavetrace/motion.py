@@ -8,9 +8,10 @@ class MotionAxis:
     Base motion class, mostly defining attributes
     """
 
-    def __init__(self, device_list, initial_position=0, low_limit=-np.inf, high_limit=np.inf):
+    def __init__(self, device_list, name=None, initial_position=0, low_limit=-np.inf, high_limit=np.inf):
         # device that this axis belongs to
         self.device_list = device_list
+        self.name = name
         # initialize position
         self.position = initial_position
         self.low_limit = low_limit

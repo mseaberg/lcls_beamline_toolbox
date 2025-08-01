@@ -29,7 +29,6 @@ class MFX:
         }
         self.b1 = beam.Beam(beam_params=self.beam_params, suppress=True)
         self.beamline = self.define_beamline(multi_beam=multi_beam)
-        self.prepare_tfs()
 
         # define motion
         self.mr1l4_pitch = motion.RotationAxis(self.beamline.MR1L4.sagittal,
@@ -58,6 +57,8 @@ class MFX:
         self.tfs_z = motion.TranslationAxis(self.beamline.tfs_2.zhat,
                                             device_list=self.tfs_list)
 
+        self.prepare_tfs()
+
     def undulator_pointing(self,ax=0,ay=0):
 
         cx = ax * (100 - 26)
@@ -78,6 +79,7 @@ class MFX:
                 self.tfs_list[i].disable()
             else:
                 self.tfs_list[i].enable()
+
 
     def prepare_tfs(self,E0=None,df=0):
 
@@ -100,7 +102,7 @@ class MFX:
         # find best configuration
         i0 = np.argmin(np.abs(f_temp-df))
 
-        self.configure_tfs(i0)
+        self.configure_tfs(tfs_config=i0)
 
         return f_temp[i0]
 
@@ -160,12 +162,12 @@ class MFX:
                 self.tfs_list[i].disable()
 
 
-        mfx_dg2_us_slits = optics.Slit('DG2_us_slit', z=1021.29,x_width=1e-3,y_width=1e-3)
+        mfx_dg2_us_slits = optics.Slit('DG2_us_slit', z=1021.29,x_width=.8e-3,y_width=.8e-3)
         mfx_dg2_yag = optics.PPM('DG2_YAG',z=1021.74,FOV=1e-3,N=256)
-        mfx_dg2_ms_slits = optics.Slit('DG2_ms_slit',z=1022.84,x_width=1e-3,y_width=1e-3)
-        mfx_dg2_ds_slits = optics.Slit('DG2_ds_slit',z=1022.99,x_width=1e-3,y_width=1e-3)
+        mfx_dg2_ms_slits = optics.Slit('DG2_ms_slit',z=1022.84,x_width=.8e-3,y_width=.8e-3)
+        mfx_dg2_ds_slits = optics.Slit('DG2_ds_slit',z=1022.99,x_width=.8e-3,y_width=.8e-3)
 
-        mfx_ip = optics.PPM('MFX_IP',z=1024.84,FOV=100e-6,N=256)
+        mfx_ip = optics.PPM('MFX_IP',z=1024.84,FOV=20e-6,N=256)
 
         mfx_dg3_yag = optics.PPM('DG3_YAG',z=1027.84,FOV=1e-3,N=256)
 
