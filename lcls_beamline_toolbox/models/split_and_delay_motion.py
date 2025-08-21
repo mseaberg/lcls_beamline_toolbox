@@ -506,6 +506,15 @@ class Util:
     # for each channel cut crystal which are used to select the photon energy.
     @staticmethod
     def define_cc(E0):
+        """
+        Parameters
+        ----------
+        E0: photon energy (eV)
+
+        Returns
+        -------
+        Beamline object
+        """
         # channel cut branch
 
         lens00 = optics.CRL('lens00', diameter=5e-3, E0=E0, f=356, z=980, orientation=0)
@@ -603,6 +612,16 @@ class Util:
     # complexity comes when defining the degrees of freedom (in the next cell).
     @staticmethod
     def define_delay(E0, delay=0):
+        """
+        Parameters
+        ----------
+        E0: photon energy (eV)
+        delay: delay branch delay (ps)
+
+        Returns
+        -------
+        Beamline object
+        """
         s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=1e-3)
         di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
         c1slit = optics.Slit('c1slit', y_width=4e-3, dy=-2e-3, z=di.z + 0.15 - 1e-6)
@@ -614,8 +633,9 @@ class Util:
         L0 = dz / np.cos(2 * dummy.alpha)
         # print("L0: {}".format(L0))
         #     dz += delay*np.cos(2*c1.alpha)
-        dz = (L0 + delay) * np.cos(2 * c1.alpha)
-        dz2 = (L0 + delay - 30e-3) * np.cos(2 * c1.alpha)
+        delay_mm = delay*299792458/2/(1-np.cos(2*c1.alpha))
+        dz = (L0 + delay_mm) * np.cos(2 * c1.alpha)
+        dz2 = (L0 + delay_mm - 30e-3) * np.cos(2 * c1.alpha)
         # print('dz: {}'.format(dz))
         c2 = optics.Crystal('c2', hkl=[2, 2, 0], E0=E0, z=c1.z + dz, orientation=2, length=.02, width=.02,
                             show_figures=False)
