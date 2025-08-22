@@ -53,7 +53,7 @@ class SND:
                                           name='t1_th2')
         self.t1_L = motion.TranslationAxis(self.delay_branch.t1_dh.zhat,
                                            [self.delay_branch.t1_dh,self.delay_branch.c2],
-                                           name='t1_L')
+                                           initial_position=self.get_t1_L(), name='t1_L')
         self.t4_tth = motion.RotationAxis(-self.delay_branch.c4.sagittal,
                                           [self.delay_branch.c4,self.delay_branch.c3,
                                            self.delay_branch.t4_dh],
@@ -70,7 +70,7 @@ class SND:
                                           name='t4_th2')
         self.t4_L = motion.TranslationAxis(-self.delay_branch.t4_dh.zhat,
                                            [self.delay_branch.t4_dh,self.delay_branch.c3],
-                                           name='t4_L')
+                                           initial_position=self.get_t4_L(),name='t4_L')
         self.t1_chi1 = motion.RotationAxis(self.delay_branch.c1.tangential,
                                            [self.delay_branch.c1],
                                            name='t1_chi1')
