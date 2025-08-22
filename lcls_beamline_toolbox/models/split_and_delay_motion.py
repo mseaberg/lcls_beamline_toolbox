@@ -611,7 +611,7 @@ class Util:
     # In terms of defining the optics it's not necessarily more complicated than the channel-cut branch, but the
     # complexity comes when defining the degrees of freedom (in the next cell).
     @staticmethod
-    def define_delay(E0, delay=0):
+    def define_delay(E0, delay=0, bypass=False):
         """
         Parameters
         ----------
@@ -627,15 +627,16 @@ class Util:
         c1slit = optics.Slit('c1slit', y_width=4e-3, dy=-2e-3, z=di.z + 0.15 - 1e-6)
         c1 = optics.Crystal('c1', hkl=[2, 2, 0], E0=E0, z=di.z + 0.15, orientation=0, width=5e-3, dy=-2.5e-3, length=.02)
 
-        dummy = optics.Crystal('dummy', hkl=[2, 2, 0], E0=6500)
+        # dummy = optics.Crystal('dummy', hkl=[2, 2, 0], E0=6500)
+        dummy = optics.Crystal('dummy', hkl=[2, 2, 0], E0=E0)
         gap = 55e-3
         dz = gap * np.sin(np.pi / 2 - 2 * dummy.alpha) / np.sin(dummy.alpha)
         L0 = dz / np.cos(2 * dummy.alpha)
         # print("L0: {}".format(L0))
         #     dz += delay*np.cos(2*c1.alpha)
-        delay_mm = delay*299792458/2/(1-np.cos(2*c1.alpha))
-        dz = (L0 + delay_mm) * np.cos(2 * c1.alpha)
-        dz2 = (L0 + delay_mm - 30e-3) * np.cos(2 * c1.alpha)
+        delay_L = delay*1e-12*299792458/2/(1-np.cos(2*c1.alpha))
+        dz = (L0 + delay_L) * np.cos(2 * c1.alpha)
+        dz2 = (L0 + delay_L - 30e-3) * np.cos(2 * c1.alpha)
         # print('dz: {}'.format(dz))
         c2 = optics.Crystal('c2', hkl=[2, 2, 0], E0=E0, z=c1.z + dz, orientation=2, length=.02, width=.02,
                             show_figures=False)
