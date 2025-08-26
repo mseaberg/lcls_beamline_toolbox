@@ -332,8 +332,8 @@ class Beamline:
 
                 if 'KB' in fungible:
                     print('found mirror {}'.format(name))
-                    p = row['p']
-                    q = row['q']
+                    p = row['p nominal']
+                    q = row['q nominal']
                     device = optics.CurvedMirror(name, p=p, q=q, length=z_size, orientation=orientation,
                                             alpha=inc_angle, z=z)
                 elif 'HOMS' in fungible:
