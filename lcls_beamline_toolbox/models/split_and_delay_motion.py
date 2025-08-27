@@ -9,12 +9,15 @@ import copy
 import scipy.spatial.transform as transform
 
 class SND:
-    def __init__(self, E0, delay=0, ax=0, ay=0, cx=0, cy=0):
+    def __init__(self, energy=10000, two_theta=None, delay=0, ax=0, ay=0, cx=0, cy=0):
 
-        self.cc_branch = Util.define_cc(E0)
-        self.delay_branch = Util.define_delay(E0,delay=delay)
-        self.bypass_branch = Util.define_bypass(E0)
-        self.E0 = E0
+        if two_theta is not None:
+            self.E0 = self.calc_energy(two_theta)
+        else:
+            self.E0 = energy
+        self.cc_branch = Util.define_cc(self.E0)
+        self.delay_branch = Util.define_delay(self.E0,delay=delay)
+        self.bypass_branch = Util.define_bypass(self.E0)
         self.delay = delay
 
         self.b2 = None
@@ -22,7 +25,7 @@ class SND:
 
         # parameter dictionary. z_source is in LCLS coordinates (20 meters upstream of undulator exit)
         self.beam_params = {
-            'photonEnergy': E0,
+            'photonEnergy': self.E0,
             'N': 2048,
             'sigma_x': 30e-6,
             'sigma_y': 30e-6,
@@ -136,7 +139,15 @@ class SND:
         for motor in self.motor_list:
             self.motor_dict[motor.name] = motor
 
+    def calc_energy(self, two_theta):
+        theta = two_theta/2
+        l0 = 2 * self.delay_branch.c1.crystal.d * 1e-10 * np.sin(theta)
+        E0 = 1239.84 / (l0 * 1e9)
+        dtheta = self.delay_branch.c1.crystal.get_dtheta(E0, alpha=0)
+        l0 = 2 * self.delay_branch.c1.crystal.d * 1e-10 * np.sin(theta+dtheta)
+        E0 = 1239.84 / (l0 * 1e9)
 
+        return E0
 
     def propagate_delay(self):
         self.b2 = self.delay_branch.propagate_beamline(self.b1)
