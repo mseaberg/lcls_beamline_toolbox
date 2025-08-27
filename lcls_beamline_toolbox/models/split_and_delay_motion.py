@@ -167,7 +167,7 @@ class SND:
 
     # calculate t1_th1 from c1 orientation
     def get_t1_th1(self):
-        vec1 = self.delay_branch.c1.transverse
+        vec1 = self.delay_branch.c1.tangential
         angle1 = np.arccos(vec1[2])
         angle2 = self.get_t1_tth()
 
@@ -191,7 +191,7 @@ class SND:
 
     def mvr_t1_chi1(self, delta):
         pivot = Util.get_pos(self.delay_branch.c1)
-        rot_vec = self.delay_branch.c1.transverse * delta
+        rot_vec = self.delay_branch.c1.tangential * delta
         Util.rotate_about_point(self.delay_branch.c1, pivot, rot_vec)
 
     def mv_t1_chi1(self, pos):
@@ -239,7 +239,7 @@ class SND:
         self.mvr_t1_L(pos-self.get_t1_L())
 
     def get_t1_th2(self):
-        vec1 = self.delay_branch.c2.transverse
+        vec1 = self.delay_branch.c2.tangential
         angle1 = np.arccos(vec1[2])
         angle2 = self.get_t1_tth()
         return angle2 - angle1
@@ -260,14 +260,14 @@ class SND:
 
     def mvr_t1_chi2(self, delta):
         pivot = Util.get_pos(self.delay_branch.c2)
-        rot_vec = -self.delay_branch.c2.transverse * delta
+        rot_vec = -self.delay_branch.c2.tangential * delta
         Util.rotate_about_point(self.delay_branch.c2, pivot, rot_vec)
 
     def mv_t1_chi2(self, pos):
         self.mvr_t1_chi2(pos-self.get_t1_chi2())
 
     def get_t4_th1(self):
-        vec1 = self.delay_branch.c4.transverse
+        vec1 = self.delay_branch.c4.tangential
         angle1 = np.arccos(vec1[2])
         angle2 = self.get_t4_tth()
 
@@ -289,7 +289,7 @@ class SND:
 
     def mvr_t4_chi1(self, delta):
         pivot = Util.get_pos(self.delay_branch.c4)
-        rot_vec = self.delay_branch.c4.transverse * delta
+        rot_vec = self.delay_branch.c4.tangential * delta
         Util.rotate_about_point(self.delay_branch.c4, pivot, rot_vec)
 
     def mv_t4_chi1(self, pos):
@@ -337,7 +337,7 @@ class SND:
         self.mvr_t4_L(pos-self.get_t4_L())
 
     def get_t4_th2(self):
-        vec1 = self.delay_branch.c3.transverse
+        vec1 = self.delay_branch.c3.tangential
         angle1 = np.arccos(vec1[2])
         angle2 = self.get_t4_tth()
         return angle2 - angle1
@@ -358,14 +358,14 @@ class SND:
 
     def mvr_t4_chi2(self, delta):
         pivot = Util.get_pos(self.delay_branch.c3)
-        rot_vec = -self.delay_branch.c3.transverse * delta
+        rot_vec = -self.delay_branch.c3.tangential * delta
         Util.rotate_about_point(self.delay_branch.c3, pivot, rot_vec)
 
     def mv_t4_chi2(self, pos):
         self.mvr_t4_chi2(pos - self.get_t4_chi2())
 
     def get_t2_th(self):
-        vec = self.cc_branch.cc1_1.transverse
+        vec = self.cc_branch.cc1_1.tangential
         return np.arccos(vec[2])
 
     def mvr_t2_th(self, delta):
@@ -381,7 +381,7 @@ class SND:
         self.mvr_t2_th(pos - self.get_t2_th())
 
     def get_t3_th(self):
-        vec = self.cc_branch.cc2_2.transverse
+        vec = self.cc_branch.cc2_2.tangential
         return np.arccos(vec[2])
 
     def mvr_t3_th(self, delta):
@@ -692,7 +692,7 @@ class Util:
         if issubclass(type(device), optics.Mirror):
             device.normal = np.matmul(Re, device.normal)
             device.sagittal = np.matmul(Re, device.sagittal)
-            device.transverse = np.matmul(Re, device.transverse)
+            device.tangential = np.matmul(Re, device.tangential)
         else:
             device.xhat = np.matmul(Re, device.xhat)
             device.yhat = np.matmul(Re, device.yhat)
