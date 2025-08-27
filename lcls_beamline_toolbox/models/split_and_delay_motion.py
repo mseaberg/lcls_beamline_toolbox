@@ -4,6 +4,7 @@ import lcls_beamline_toolbox.xraywavetrace.beam1d as beam
 import lcls_beamline_toolbox.xraywavetrace.optics1d as optics
 import lcls_beamline_toolbox.xraywavetrace.beamline1d as beamline
 import lcls_beamline_toolbox.xraywavetrace.motion as motion
+import xrt.backends.raycing.materials as materials
 import scipy.optimize as optimize
 import copy
 import scipy.spatial.transform as transform
@@ -140,11 +141,12 @@ class SND:
             self.motor_dict[motor.name] = motor
 
     def calc_energy(self, two_theta):
+        test_crystal = materials.CrystalSi(hkl=[2,2,0])
         theta = two_theta/2
-        l0 = 2 * self.delay_branch.c1.crystal.d * 1e-10 * np.sin(theta)
+        l0 = 2 * test_crystal.d * 1e-10 * np.sin(theta)
         E0 = 1239.84 / (l0 * 1e9)
-        dtheta = self.delay_branch.c1.crystal.get_dtheta(E0, alpha=0)
-        l0 = 2 * self.delay_branch.c1.crystal.d * 1e-10 * np.sin(theta+dtheta)
+        dtheta = test_crystal.get_dtheta(E0, alpha=0)
+        l0 = 2 * test_crystal.d * 1e-10 * np.sin(theta+dtheta)
         E0 = 1239.84 / (l0 * 1e9)
 
         return E0
