@@ -149,7 +149,7 @@ class Beam:
             beam_params['scaleFactor'] = self.scaleFactor
 
         # take in manual input of initial wavefront/amplitude
-        if initial_beam_x and initial_beam_y:
+        if initial_beam_x is not None and initial_beam_y is not None:
             # initialize wave with initial_beam array
             self.wavex = np.copy(initial_beam_x).astype(complex)
             self.wavey = np.copy(initial_beam_y).astype(complex)
