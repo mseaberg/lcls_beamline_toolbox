@@ -1042,7 +1042,7 @@ class Pulse:
     """
 
     def __init__(self, beam_params=None, tau=None, time_window=None, SASE=False, num_spikes=3, unit_spectrum=False,
-                 spectral_width=0, N=0, GDD=0, suppress=True):
+                 spectral_width=None, N=0, GDD=0, suppress=True):
         """
         Create a Pulse object
         :param beam_params: same parameters as given for Beam
@@ -1245,7 +1245,7 @@ class Pulse:
             sx = np.sqrt(np.sum(norm_x * (x - cx) ** 2) / np.sum(norm_x)) * 1e6
 
         else:
-            cx = 0
+            cx = np.max(x)
             sx = 0
         if np.sum(norm_y) > 0:
             cy = np.sum(norm_y * y) / np.sum(norm_y)
@@ -1253,7 +1253,7 @@ class Pulse:
             sy = np.sqrt(np.sum(norm_y * (y - cy) ** 2) / np.sum(norm_y)) * 1e6
 
         else:
-            cy = 0
+            cy = np.max(y)
             sy = 0
 
         # conversion factor from sigma to fwhm
@@ -1551,6 +1551,24 @@ class Pulse:
         ax.set_ylabel('Intensity (normalized)')
 
         return ax, lineout
+
+    def get_beam_stats(self, image_name):
+        profile = np.sum(np.abs(self.time_stacks[image_name]) ** 2, axis=2)
+        intensity = np.sum(profile)/self.N
+        x_lineout = np.sum(profile, axis=0)
+        y_lineout = np.sum(profile, axis=1)
+
+        cx, cy, wx, wy, fwx_guess, fwy_guess = Pulse.beam_analysis(self.x[image_name], self.y[image_name],
+                                                                   x_lineout, y_lineout, suppress=self.suppress,
+                                                                   threshold=0.01)
+
+        beam_stats = {
+            'intensity': intensity,
+            'cx': cx,
+            'cy': cy
+        }
+        return beam_stats
+
 
     def imshow_projection(self, image_name):
         """

@@ -492,7 +492,7 @@ class Device:
         kB = 8.617e-5
         #d = np.sqrt(self.attenuation_length() ** 2 + (30e-9) ** 2)
         d = np.sqrt(self.attenuation_length() ** 2 + self.penetration**2)
-        # d = self.attenuation_length()
+        d = self.attenuation_length()
         R = self.reflectivity()
 
         dose = pulse_energy/1.6e-19/np.pi/(FWHM/1.18)**2/d/self.rho/1000*2*(1-R)*np.sin(self.angle)
