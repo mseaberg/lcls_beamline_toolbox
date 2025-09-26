@@ -17,6 +17,7 @@ from lcls_beamline_toolbox.utility.util import Util
 from skimage.restoration import unwrap_phase
 import scipy.spatial.transform as transform
 import scipy.optimize as optimization
+from multiprocessing import Pool
 
 
 class Beam:
@@ -1309,7 +1310,7 @@ class Pulse:
 
         return cx, cy, fwhm_x, fwhm_y, fwx_guess, fwy_guess
 
-    def propagate(self, beamline=None, screen_names=None):
+    def propagate(self, beamline=None, screen_names=None, cores=8):
         """
         Method for propagating a pulse through a beamline
         Parameters
@@ -1341,28 +1342,61 @@ class Pulse:
             self.ay[screen] = np.zeros(self.N)
             self.delay[screen] = np.zeros(self.N)
 
-        # loop through beams in the pulse
-        for num, energy in enumerate(self.energy):
-            # define beam for current energy
-            self.beam_params['photonEnergy'] = energy
-            b1 = Beam(beam_params=self.beam_params)
-            beamline.propagate_beamline(b1)
+        if cores>0:
+            def apply_result(result):
+                num = result['num']
+                for screen in screen_names:
+                    self.energy_stacks[screen][:,:,num] = result['energy_stacks'][screen]
+                    self.qx[screen][num] = result['qx'][screen]
+                    self.qy[screen][num] = result['qy'][screen]
+                    self.cx[screen][num] = result['cx'][screen]
+                    self.cy[screen][num] = result['cy'][screen]
+                    self.ax[screen][num] = result['ax'][screen]
+                    self.ay[screen][num] = result['ay'][screen]
+                    self.delay[screen][num] = result['delay'][screen]
 
-            for screen in screen_names:
-                # put current photon energy into energy stack, multiply by spectral envelope
-                screen_obj = getattr(beamline, screen)
-                energy_slice, delay, ax, ay, zx, zy, cx, cy = screen_obj.complex_beam()
-                self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
-                if zx != 0:
-                    self.qx[screen][num] = 1/zx
-                if zy != 0:
-                    self.qy[screen][num] = 1/zy
-                self.cx[screen][num] = cx
-                self.cy[screen][num] = cy
-                self.ax[screen][num] = ax
-                self.ay[screen][num] = ay
-                self.delay[screen][num] = delay
-                # self.energy_stacks[screen][:, :, num] = screen_obj.complex_beam() * self.envelope[num]
+
+            p = Pool(cores)
+
+            results = [p.apply_async(propagate_energy,(num, energy, self.beam_params, beamline, screen_names,envelope),
+                                     callback=apply_result)
+                      for num, (energy, envelope) in enumerate(zip(self.energy, self.envelope))]
+            p.close()
+            p.join()
+
+            # for num, energy in enumerate(self.energy):
+            #
+            #     output = results[num].get()
+            #     for screen in screen_names:
+            #         self.energy_stacks[screen][:,:,num] = output['energy_stacks'][screen]
+            #         self.qx[screen][num] = output['qx'][screen]
+            #         self.qy[screen][num] = output['qy'][screen]
+            #         self.cx[screen][num] = output['cx'][screen]
+            #         self.cy[screen][num] = output['cy'][screen]
+            #         self.delay[screen][num] = output['delay'][screen]
+        else:
+
+            # loop through beams in the pulse
+            for num, energy in enumerate(self.energy):
+                # define beam for current energy
+                self.beam_params['photonEnergy'] = energy
+                b1 = Beam(beam_params=self.beam_params)
+                beamline.propagate_beamline(b1)
+
+                for screen in screen_names:
+                    # put current photon energy into energy stack, multiply by spectral envelope
+                    screen_obj = getattr(beamline, screen)
+                    energy_slice, delay, ax, ay, zx, zy, cx, cy = screen_obj.complex_beam()
+                    self.energy_stacks[screen][:, :, num] = energy_slice * self.envelope[num]
+                    if zx != 0:
+                        self.qx[screen][num] = 1/zx
+                    if zy != 0:
+                        self.qy[screen][num] = 1/zy
+                    self.cx[screen][num] = cx
+                    self.cy[screen][num] = cy
+                    self.ax[screen][num] = ax
+                    self.ay[screen][num] = ay
+                    self.delay[screen][num] = delay
 
         # convert to time domain
         for screen in screen_names:
@@ -2578,3 +2612,53 @@ class GaussianSource:
         # norm2 = np.sum(profile)
         # self.source_x/=norm2**(1/4)
         # self.source_y/=norm2**(1/4)
+
+def propagate_energy(num, energy, beam_params, beamline, screen_names, envelope):
+
+    beam_params = copy.deepcopy(beam_params)
+    beam_params['photonEnergy'] = energy
+
+    b1 = Beam(beam_params=beam_params)
+    beamline.propagate_beamline(b1)
+
+    energy_stacks = {}
+    qx_dict = {}
+    qy_dict = {}
+    cx_dict = {}
+    cy_dict = {}
+    ax_dict = {}
+    ay_dict = {}
+    delay_dict = {}
+
+    for screen in screen_names:
+        # put current photon energy into energy stack, multiply by spectral envelope
+        screen_obj = getattr(beamline, screen)
+        energy_slice, delay, ax, ay, zx, zy, cx, cy = screen_obj.complex_beam()
+        energy_stacks[screen] = energy_slice * envelope
+        if zx != 0:
+            qx_dict[screen] = 1/zx
+        else:
+            qx_dict[screen] = 0
+        if zy != 0:
+            qy_dict[screen] = 1/zy
+        else:
+            qy_dict[screen] = 0
+        cx_dict[screen] = cx
+        cy_dict[screen] = cy
+        ax_dict[screen] = ax
+        ay_dict[screen] = ay
+        delay_dict[screen] = delay
+
+    output = {
+        'num': num,
+        'energy_stacks': energy_stacks,
+        'qx': qx_dict,
+        'qy': qy_dict,
+        'cx': cx_dict,
+        'cy': cy_dict,
+        'ax': ax_dict,
+        'ay': ay_dict,
+        'delay': delay_dict
+    }
+
+    return output
