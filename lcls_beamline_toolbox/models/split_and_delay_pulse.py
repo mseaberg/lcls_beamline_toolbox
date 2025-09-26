@@ -40,7 +40,7 @@ class SND:
         }
         self.b1 = beam.Beam(beam_params=self.beam_params,suppress=True)
 
-        self.pulse_delay = beam.Pulse(beam_params=self.beam_params, tau=0.1, time_window=10)
+        self.pulse_delay = beam.Pulse(beam_params=self.beam_params, tau=0.3, time_window=30)
         self.pulse_cc = beam.Pulse(beam_params=self.beam_params, tau=0.1, time_window=10)
 
         self.t1_tth = motion.RotationAxis(self.delay_branch.c1.sagittal,
