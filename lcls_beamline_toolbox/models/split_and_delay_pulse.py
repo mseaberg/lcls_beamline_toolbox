@@ -168,7 +168,7 @@ class SND:
     def propagate_delay(self):
         #self.b2 = self.delay_branch.propagate_beamline(self.b1)
         self.pulse_delay.propagate(beamline=self.delay_branch,
-                                   screen_names=self.delay_diagnostic_list)
+                                   screen_names=self.delay_diagnostic_list,cores=4)
         for diagnostic in self.delay_diagnostic_list:
             self.delay_beam_stats[diagnostic] = self.pulse_delay.get_beam_stats(diagnostic)
 
