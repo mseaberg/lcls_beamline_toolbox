@@ -1344,23 +1344,38 @@ class Pulse:
 
         if cores>0:
             def apply_result(result):
-                num = result['num']
+                min_i = result['min_index']
+                max_i = result['max_index']
+                print(max_i)
                 for screen in screen_names:
-                    self.energy_stacks[screen][:,:,num] = result['energy_stacks'][screen]
-                    self.qx[screen][num] = result['qx'][screen]
-                    self.qy[screen][num] = result['qy'][screen]
-                    self.cx[screen][num] = result['cx'][screen]
-                    self.cy[screen][num] = result['cy'][screen]
-                    self.ax[screen][num] = result['ax'][screen]
-                    self.ay[screen][num] = result['ay'][screen]
-                    self.delay[screen][num] = result['delay'][screen]
+                    self.energy_stacks[screen][:,:,min_i:max_i] = result['energy_stacks'][screen]
+                    self.qx[screen][min_i:max_i] = result['qx'][screen]
+                    self.qy[screen][min_i:max_i] = result['qy'][screen]
+                    self.cx[screen][min_i:max_i] = result['cx'][screen]
+                    self.cy[screen][min_i:max_i] = result['cy'][screen]
+                    self.ax[screen][min_i:max_i] = result['ax'][screen]
+                    self.ay[screen][min_i:max_i] = result['ay'][screen]
+                    self.delay[screen][min_i:max_i] = result['delay'][screen]
 
 
             p = Pool(cores)
 
-            results = [p.apply_async(propagate_energy,(num, energy, self.beam_params, beamline, screen_names,envelope),
+            core_size = np.ceil(self.N/cores)
+            # energy_chunks = []
+            # envelope_chunks = []
+            # min_index = [0]
+            # max_index = [core_size]
+            # for i in range(cores):
+            #     energy_chunks.append(self.energy[min_index:max_index])
+            #     envelope_chunks.append(self.)
+            energy_chunks = np.array_split(self.energy,cores)
+            envelope_chunks = np.array_split(self.envelope,cores)
+            min_index = np.arange(0,self.N,core_size)
+            max_index = np.arange(core_size,self.N+core_size,core_size)
+
+            results = [p.apply_async(propagate_energy,(min_i,max_i,energy_chunk, self.beam_params, beamline, screen_names,envelope_chunk),
                                      callback=apply_result)
-                      for num, (energy, envelope) in enumerate(zip(self.energy, self.envelope))]
+                      for (min_i, max_i, energy_chunk, envelope_chunk) in zip(min_index, max_index, energy_chunks, envelope_chunks)]
             p.close()
             p.join()
 
@@ -2613,13 +2628,9 @@ class GaussianSource:
         # self.source_x/=norm2**(1/4)
         # self.source_y/=norm2**(1/4)
 
-def propagate_energy(num, energy, beam_params, beamline, screen_names, envelope):
+def propagate_energy(min_index, max_index, energies, beam_params, beamline, screen_names, envelope):
 
     beam_params = copy.deepcopy(beam_params)
-    beam_params['photonEnergy'] = energy
-
-    b1 = Beam(beam_params=beam_params)
-    beamline.propagate_beamline(b1)
 
     energy_stacks = {}
     qx_dict = {}
@@ -2630,27 +2641,47 @@ def propagate_energy(num, energy, beam_params, beamline, screen_names, envelope)
     ay_dict = {}
     delay_dict = {}
 
+    N_energy = np.size(energies)
+
     for screen in screen_names:
-        # put current photon energy into energy stack, multiply by spectral envelope
         screen_obj = getattr(beamline, screen)
-        energy_slice, delay, ax, ay, zx, zy, cx, cy = screen_obj.complex_beam()
-        energy_stacks[screen] = energy_slice * envelope
-        if zx != 0:
-            qx_dict[screen] = 1/zx
-        else:
-            qx_dict[screen] = 0
-        if zy != 0:
-            qy_dict[screen] = 1/zy
-        else:
-            qy_dict[screen] = 0
-        cx_dict[screen] = cx
-        cy_dict[screen] = cy
-        ax_dict[screen] = ax
-        ay_dict[screen] = ay
-        delay_dict[screen] = delay
+        energy_stacks[screen] = np.zeros((screen_obj.N,screen_obj.N,N_energy),dtype=complex)
+        qx_dict[screen] = np.zeros(N_energy)
+        qy_dict[screen] = np.zeros_like(qx_dict)
+        cx_dict[screen] = np.zeros_like(qx_dict)
+        cy_dict[screen] = np.zeros_like(qx_dict)
+        ax_dict[screen] = np.zeros_like(qx_dict)
+        ay_dict[screen] = np.zeros_like(qx_dict)
+        delay_dict[screen] = np.zeros_like(qx_dict)
+
+    for num, energy in enumerate(energies):
+        beam_params['photonEnergy'] = energy
+
+        b1 = Beam(beam_params=beam_params)
+        beamline.propagate_beamline(b1)
+
+        for screen in screen_names:
+            # put current photon energy into energy stack, multiply by spectral envelope
+            screen_obj = getattr(beamline, screen)
+            energy_slice, delay, ax, ay, zx, zy, cx, cy = screen_obj.complex_beam()
+            energy_stacks[screen][:,:,num] = energy_slice * envelope[num]
+            if zx != 0:
+                qx_dict[screen][num] = 1/zx
+            else:
+                qx_dict[screen][num] = 0
+            if zy != 0:
+                qy_dict[screen][num] = 1/zy
+            else:
+                qy_dict[screen][num] = 0
+            cx_dict[screen][num] = cx
+            cy_dict[screen][num] = cy
+            ax_dict[screen][num] = ax
+            ay_dict[screen][num] = ay
+            delay_dict[screen][num] = delay
 
     output = {
-        'num': num,
+        'min_index': min_index,
+        'max_index': max_index,
         'energy_stacks': energy_stacks,
         'qx': qx_dict,
         'qy': qy_dict,
