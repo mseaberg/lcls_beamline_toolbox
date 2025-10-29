@@ -367,6 +367,12 @@ class Util:
             return np.exp(-((x - x0) ** 2 / (2 * w ** 2)))
 
     @staticmethod
+    def get_center_portion(im, l1, l2):
+        shape = im.shape
+        center = [shape[0] // 2, shape[1] // 2]
+        return im[center[0] - l1 // 2:center[0] + l1 // 2, center[1] - l2 // 2:center[1] + l2 // 2]
+
+    @staticmethod
     def fit_voigt(x, x0, wg, wl, eta):
         """
         Method for fitting to a pseudo-Voigt function. This method is a parameter to Scipy's optimize.curve_fit routine.
