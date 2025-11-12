@@ -8,9 +8,10 @@ class MotionAxis:
     Base motion class, mostly defining attributes
     """
 
-    def __init__(self, device_list, initial_position=0, low_limit=-np.inf, high_limit=np.inf):
+    def __init__(self, device_list, name=None, initial_position=0, low_limit=-np.inf, high_limit=np.inf):
         # device that this axis belongs to
         self.device_list = device_list
+        self.name = name
         # initialize position
         self.position = initial_position
         self.low_limit = low_limit
@@ -89,11 +90,22 @@ class TranslationAxis(MotionAxis):
 class RotationAxis(MotionAxis):
     """
     Class for rotational degrees of freedom.
+
     """
 
-    def __init__(self, rotation_vector, device_list, rotation_center=None, **kwargs):
+    def __init__(self, rotation_vector, device_list, rotation_center=None, units='rad', **kwargs):
+        """
+        Parameters
+        ----------
+        rotation_vector: 3-element array, usually one of a device's orientation vectors
+        device_list: list of objects that will be rotated due to this axis
+        rotation_center: 3-element array, corresponding to the point about which rotation will occur
+        units: default radians ('rad'), but other accepted option is 'deg'. If neither of these, will default to rad
+        kwargs: see MotionAxis class
+        """
         super().__init__(device_list, **kwargs)
         self.rotation_vector = np.copy(rotation_vector)
+        self.units = units
         if rotation_center is None:
             # if rotation center is not specified, rotate about device center
             self.rotation_center = np.copy(device_list[0].get_pos())
@@ -126,6 +138,7 @@ class RotationAxis(MotionAxis):
         """
         method to move to an absolute position, calls relative motion method
         """
+
         adjustment = position - self.position
         return self.mvr(adjustment)
 
@@ -136,9 +149,15 @@ class RotationAxis(MotionAxis):
         """
         if self.high_limit >= self.position + adjustment >= self.low_limit:
 
-            self.rotate_about_point(adjustment)
+            # if we are working in degrees, convert to radians before actually moving things
+            if self.units == 'deg':
+                motion_adjustment = np.deg2rad(adjustment)
+            else:
+                motion_adjustment = np.copy(adjustment)
+            self.rotate_about_point(motion_adjustment)
             for axis in self.coupled_axes:
-                axis.rotate_axis(self.rotation_vector*adjustment, self.rotation_center)
+                axis.rotate_axis(self.rotation_vector*motion_adjustment, self.rotation_center)
+            # update motor position using working units
             self.position += adjustment
             return True
         else:

@@ -4,17 +4,21 @@ import lcls_beamline_toolbox.xraywavetrace.beam1d as beam
 import lcls_beamline_toolbox.xraywavetrace.optics1d as optics
 import lcls_beamline_toolbox.xraywavetrace.beamline1d as beamline
 import lcls_beamline_toolbox.xraywavetrace.motion as motion
+import xrt.backends.raycing.materials as materials
 import scipy.optimize as optimize
 import copy
 import scipy.spatial.transform as transform
 
 class SND:
-    def __init__(self, E0, delay=0, ax=0, ay=0, cx=0, cy=0):
+    def __init__(self, energy=10000, two_theta=None, delay=0, ax=0, ay=0, cx=0, cy=0):
 
-        self.cc_branch = Util.define_cc(E0)
-        self.delay_branch = Util.define_delay(E0,delay=delay)
-        self.bypass_branch = Util.define_bypass(E0)
-        self.E0 = E0
+        if two_theta is not None:
+            self.E0 = self.calc_energy(two_theta)
+        else:
+            self.E0 = energy
+        self.cc_branch = Util.define_cc(self.E0)
+        self.delay_branch = Util.define_delay(self.E0,delay=delay)
+        self.bypass_branch = Util.define_bypass(self.E0)
         self.delay = delay
 
         self.b2 = None
@@ -22,7 +26,7 @@ class SND:
 
         # parameter dictionary. z_source is in LCLS coordinates (20 meters upstream of undulator exit)
         self.beam_params = {
-            'photonEnergy': E0,
+            'photonEnergy': self.E0,
             'N': 2048,
             'sigma_x': 30e-6,
             'sigma_y': 30e-6,
@@ -40,51 +44,63 @@ class SND:
                                           [self.delay_branch.c1, self.delay_branch.c2,
                                            self.delay_branch.t1_dh],
                                           rotation_center=self.delay_branch.c1.get_pos(),
-                                          initial_position=2*self.delay_branch.c1.bragg)
+                                          initial_position=2*self.delay_branch.c1.bragg,
+                                          name='t1_tth')
         self.t1_th1 = motion.RotationAxis(-self.delay_branch.c1.sagittal,
                                           [self.delay_branch.c1],
                                           rotation_center=self.delay_branch.c1.get_pos()+self.delay_branch.c1.normal*1e-3,
-                                          initial_position=self.delay_branch.c1.bragg)
+                                          initial_position=self.delay_branch.c1.bragg,
+                                          name='t1_th1')
         self.t1_th2 = motion.RotationAxis(self.delay_branch.c2.sagittal,
                                           [self.delay_branch.c2],
-                                          initial_position=self.delay_branch.c2.bragg)
+                                          initial_position=self.delay_branch.c2.bragg,
+                                          name='t1_th2')
         self.t1_L = motion.TranslationAxis(self.delay_branch.t1_dh.zhat,
-                                           [self.delay_branch.t1_dh,self.delay_branch.c2])
+                                           [self.delay_branch.t1_dh,self.delay_branch.c2],
+                                           initial_position=self.get_t1_L(), name='t1_L')
         self.t4_tth = motion.RotationAxis(-self.delay_branch.c4.sagittal,
                                           [self.delay_branch.c4,self.delay_branch.c3,
                                            self.delay_branch.t4_dh],
                                           rotation_center=self.delay_branch.c4.get_pos(),
-                                          initial_position=2*self.delay_branch.c4.bragg)
+                                          initial_position=2*self.delay_branch.c4.bragg,
+                                          name='t4_tth')
         self.t4_th1 = motion.RotationAxis(self.delay_branch.c4.sagittal,
                                           [self.delay_branch.c4],
-                                          initial_position=self.delay_branch.c4.bragg)
+                                          initial_position=self.delay_branch.c4.bragg,
+                                          name='t4_th1')
         self.t4_th2 = motion.RotationAxis(-self.delay_branch.c3.sagittal,
                                           [self.delay_branch.c3],
-                                          initial_position=self.delay_branch.c3.bragg)
+                                          initial_position=self.delay_branch.c3.bragg,
+                                          name='t4_th2')
         self.t4_L = motion.TranslationAxis(-self.delay_branch.t4_dh.zhat,
-                                           [self.delay_branch.t4_dh,self.delay_branch.c3])
+                                           [self.delay_branch.t4_dh,self.delay_branch.c3],
+                                           initial_position=self.get_t4_L(),name='t4_L')
         self.t1_chi1 = motion.RotationAxis(self.delay_branch.c1.tangential,
-                                           [self.delay_branch.c1])
+                                           [self.delay_branch.c1],
+                                           name='t1_chi1')
         self.t1_chi2 = motion.RotationAxis(self.delay_branch.c2.tangential,
-                                           [self.delay_branch.c2])
+                                           [self.delay_branch.c2],
+                                           name='t1_chi2')
         self.t4_chi1 = motion.RotationAxis(self.delay_branch.c4.tangential,
-                                           [self.delay_branch.c4])
+                                           [self.delay_branch.c4],
+                                           name='t4_chi1')
         self.t4_chi2 = motion.RotationAxis(self.delay_branch.c3.tangential,
-                                           [self.delay_branch.c3])
+                                           [self.delay_branch.c3],
+                                           name='t4_chi2')
         self.t1_x = motion.TranslationAxis(np.array([1,0,0]),
                                            [self.delay_branch.c1,self.delay_branch.t1_dh,
-                                            self.delay_branch.c2])
+                                            self.delay_branch.c2],name='t1_x')
         self.t4_x = motion.TranslationAxis(np.array([1,0,0]),
                                            [self.delay_branch.c4,self.delay_branch.t4_dh,
-                                            self.delay_branch.c3])
+                                            self.delay_branch.c3],name='t4_x')
         self.t1_y1 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c1])
+                                            [self.delay_branch.c1],name='t1_y1')
         self.t1_y2 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c2])
+                                            [self.delay_branch.c2],name='t1_y2')
         self.t4_y1 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c4])
+                                            [self.delay_branch.c4],name='t4_y1')
         self.t4_y2 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c3])
+                                            [self.delay_branch.c3],name='t4_y2')
 
         self.t1_x.coupled_axes = [self.t1_th1,self.t1_tth,self.t1_th2,self.t1_L,
                                   self.t1_y1,self.t1_y2,self.t1_chi1,self.t1_chi2]
@@ -99,18 +115,41 @@ class SND:
 
         self.t2_th = motion.RotationAxis(self.cc_branch.cc1_1.sagittal,
                                          [self.cc_branch.cc1_1,self.cc_branch.cc1_2],
-                                         rotation_center=self.cc_branch.cc1_1.get_pos())
+                                         rotation_center=self.cc_branch.cc1_1.get_pos(),
+                                         name='t2_th')
         self.t2_x = motion.TranslationAxis(np.array([1,0,0]),
-                                           [self.cc_branch.cc1_1,self.cc_branch.cc1_2])
+                                           [self.cc_branch.cc1_1,self.cc_branch.cc1_2],
+                                           name='t2_x')
         self.t3_th = motion.RotationAxis(-self.cc_branch.cc2_2.sagittal,
                                          [self.cc_branch.cc2_1,self.cc_branch.cc2_2],
-                                         rotation_center=self.cc_branch.cc2_2.get_pos())
+                                         rotation_center=self.cc_branch.cc2_2.get_pos(),
+                                         name='t3_th')
         self.t3_x = motion.TranslationAxis(np.array([1,0,0]),
-                                           [self.cc_branch.cc2_1,self.cc_branch.cc2_2])
+                                           [self.cc_branch.cc2_1,self.cc_branch.cc2_2],
+                                           name='t3_x')
         self.t2_x.coupled_axes = [self.t2_th]
         self.t3_x.coupled_axes = [self.t3_th]
 
+        self.motor_list = [self.t1_tth,self.t1_th1,self.t1_th2,self.t4_th2,self.t4_th1,
+                           self.t4_tth,self.t1_L,self.t4_L,self.t1_chi1,self.t1_chi2,
+                           self.t4_chi1,self.t4_chi2,self.t1_x,self.t2_x,self.t3_x,
+                           self.t4_x,self.t2_th,self.t3_th,self.t1_y1,self.t1_y2,self.t4_y1,
+                           self.t4_y2]
 
+        self.motor_dict = {}
+        for motor in self.motor_list:
+            self.motor_dict[motor.name] = motor
+
+    def calc_energy(self, two_theta):
+        test_crystal = materials.CrystalSi(hkl=[2,2,0])
+        theta = two_theta/2
+        l0 = 2 * test_crystal.d * 1e-10 * np.sin(theta)
+        E0 = 1239.84 / (l0 * 1e9)
+        dtheta = test_crystal.get_dtheta(E0, alpha=0)
+        l0 = 2 * test_crystal.d * 1e-10 * np.sin(theta+dtheta)
+        E0 = 1239.84 / (l0 * 1e9)
+
+        return E0
 
     def propagate_delay(self):
         self.b2 = self.delay_branch.propagate_beamline(self.b1)
@@ -141,7 +180,7 @@ class SND:
 
     # calculate t1_th1 from c1 orientation
     def get_t1_th1(self):
-        vec1 = self.delay_branch.c1.transverse
+        vec1 = self.delay_branch.c1.tangential
         angle1 = np.arccos(vec1[2])
         angle2 = self.get_t1_tth()
 
@@ -165,7 +204,7 @@ class SND:
 
     def mvr_t1_chi1(self, delta):
         pivot = Util.get_pos(self.delay_branch.c1)
-        rot_vec = self.delay_branch.c1.transverse * delta
+        rot_vec = self.delay_branch.c1.tangential * delta
         Util.rotate_about_point(self.delay_branch.c1, pivot, rot_vec)
 
     def mv_t1_chi1(self, pos):
@@ -213,7 +252,7 @@ class SND:
         self.mvr_t1_L(pos-self.get_t1_L())
 
     def get_t1_th2(self):
-        vec1 = self.delay_branch.c2.transverse
+        vec1 = self.delay_branch.c2.tangential
         angle1 = np.arccos(vec1[2])
         angle2 = self.get_t1_tth()
         return angle2 - angle1
@@ -234,14 +273,14 @@ class SND:
 
     def mvr_t1_chi2(self, delta):
         pivot = Util.get_pos(self.delay_branch.c2)
-        rot_vec = -self.delay_branch.c2.transverse * delta
+        rot_vec = -self.delay_branch.c2.tangential * delta
         Util.rotate_about_point(self.delay_branch.c2, pivot, rot_vec)
 
     def mv_t1_chi2(self, pos):
         self.mvr_t1_chi2(pos-self.get_t1_chi2())
 
     def get_t4_th1(self):
-        vec1 = self.delay_branch.c4.transverse
+        vec1 = self.delay_branch.c4.tangential
         angle1 = np.arccos(vec1[2])
         angle2 = self.get_t4_tth()
 
@@ -263,7 +302,7 @@ class SND:
 
     def mvr_t4_chi1(self, delta):
         pivot = Util.get_pos(self.delay_branch.c4)
-        rot_vec = self.delay_branch.c4.transverse * delta
+        rot_vec = self.delay_branch.c4.tangential * delta
         Util.rotate_about_point(self.delay_branch.c4, pivot, rot_vec)
 
     def mv_t4_chi1(self, pos):
@@ -311,7 +350,7 @@ class SND:
         self.mvr_t4_L(pos-self.get_t4_L())
 
     def get_t4_th2(self):
-        vec1 = self.delay_branch.c3.transverse
+        vec1 = self.delay_branch.c3.tangential
         angle1 = np.arccos(vec1[2])
         angle2 = self.get_t4_tth()
         return angle2 - angle1
@@ -332,14 +371,14 @@ class SND:
 
     def mvr_t4_chi2(self, delta):
         pivot = Util.get_pos(self.delay_branch.c3)
-        rot_vec = -self.delay_branch.c3.transverse * delta
+        rot_vec = -self.delay_branch.c3.tangential * delta
         Util.rotate_about_point(self.delay_branch.c3, pivot, rot_vec)
 
     def mv_t4_chi2(self, pos):
         self.mvr_t4_chi2(pos - self.get_t4_chi2())
 
     def get_t2_th(self):
-        vec = self.cc_branch.cc1_1.transverse
+        vec = self.cc_branch.cc1_1.tangential
         return np.arccos(vec[2])
 
     def mvr_t2_th(self, delta):
@@ -355,7 +394,7 @@ class SND:
         self.mvr_t2_th(pos - self.get_t2_th())
 
     def get_t3_th(self):
-        vec = self.cc_branch.cc2_2.transverse
+        vec = self.cc_branch.cc2_2.tangential
         return np.arccos(vec[2])
 
     def mvr_t3_th(self, delta):
@@ -480,6 +519,15 @@ class Util:
     # for each channel cut crystal which are used to select the photon energy.
     @staticmethod
     def define_cc(E0):
+        """
+        Parameters
+        ----------
+        E0: photon energy (eV)
+
+        Returns
+        -------
+        Beamline object
+        """
         # channel cut branch
 
         lens00 = optics.CRL('lens00', diameter=5e-3, E0=E0, f=356, z=980, orientation=0)
@@ -576,20 +624,32 @@ class Util:
     # In terms of defining the optics it's not necessarily more complicated than the channel-cut branch, but the
     # complexity comes when defining the degrees of freedom (in the next cell).
     @staticmethod
-    def define_delay(E0, delay=0):
+    def define_delay(E0, delay=0, bypass=False):
+        """
+        Parameters
+        ----------
+        E0: photon energy (eV)
+        delay: delay branch delay (ps)
+
+        Returns
+        -------
+        Beamline object
+        """
         s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=1e-3)
         di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
         c1slit = optics.Slit('c1slit', y_width=4e-3, dy=-2e-3, z=di.z + 0.15 - 1e-6)
         c1 = optics.Crystal('c1', hkl=[2, 2, 0], E0=E0, z=di.z + 0.15, orientation=0, width=5e-3, dy=-2.5e-3, length=.02)
 
-        dummy = optics.Crystal('dummy', hkl=[2, 2, 0], E0=6500)
+        # dummy = optics.Crystal('dummy', hkl=[2, 2, 0], E0=6500)
+        dummy = optics.Crystal('dummy', hkl=[2, 2, 0], E0=E0)
         gap = 55e-3
         dz = gap * np.sin(np.pi / 2 - 2 * dummy.alpha) / np.sin(dummy.alpha)
         L0 = dz / np.cos(2 * dummy.alpha)
         # print("L0: {}".format(L0))
         #     dz += delay*np.cos(2*c1.alpha)
-        dz = (L0 + delay) * np.cos(2 * c1.alpha)
-        dz2 = (L0 + delay - 30e-3) * np.cos(2 * c1.alpha)
+        delay_L = delay*1e-12*299792458/2/(1-np.cos(2*c1.alpha))
+        dz = (L0 + delay_L) * np.cos(2 * c1.alpha)
+        dz2 = (L0 + delay_L - 30e-3) * np.cos(2 * c1.alpha)
         # print('dz: {}'.format(dz))
         c2 = optics.Crystal('c2', hkl=[2, 2, 0], E0=E0, z=c1.z + dz, orientation=2, length=.02, width=.02,
                             show_figures=False)
@@ -645,7 +705,7 @@ class Util:
         if issubclass(type(device), optics.Mirror):
             device.normal = np.matmul(Re, device.normal)
             device.sagittal = np.matmul(Re, device.sagittal)
-            device.transverse = np.matmul(Re, device.transverse)
+            device.tangential = np.matmul(Re, device.tangential)
         else:
             device.xhat = np.matmul(Re, device.xhat)
             device.yhat = np.matmul(Re, device.yhat)

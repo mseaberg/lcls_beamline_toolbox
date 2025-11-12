@@ -15,6 +15,7 @@ from . import optics
 import copy
 import numpy as np
 import pandas as pd
+import time
 from lcls_beamline_toolbox.utility.util import Util
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -332,8 +333,8 @@ class Beamline:
 
                 if 'KB' in fungible:
                     print('found mirror {}'.format(name))
-                    p = row['p']
-                    q = row['q']
+                    p = row['p nominal']
+                    q = row['q nominal']
                     device = optics.CurvedMirror(name, p=p, q=q, length=z_size, orientation=orientation,
                                             alpha=inc_angle, z=z)
                 elif 'HOMS' in fungible:
@@ -687,12 +688,13 @@ class Beamline:
 
         # loop through all devices including drifts
         for device in self.full_list[1:]:
-            # print name
-            if not self.suppress:
-                print('\033[1m' +device.name+'\033[0m')
+
             # propagate through device. beam is modified directly.
+            start = time.time()
             beam_list = device.propagate(beam_list)
+            end = time.time()
             if not self.suppress:
+                print('\033[1m' + device.name + '\033[0m' + ' in {} seconds'.format(end-start))
                 print('zx: %.6f' % beam.zx)
                 print('zy: %.6f' % beam.zy)
                 print('azimuth %.2f mrad' % (beam.global_azimuth * 1e3))

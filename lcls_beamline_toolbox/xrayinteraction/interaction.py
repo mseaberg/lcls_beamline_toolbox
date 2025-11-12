@@ -40,13 +40,17 @@ class Device:
         # units are J/(mol*K)
         cap_dict = {
             'Au': 25.6,
+            'Air': 1,
             'Si': 19.8,
             'C': 6.1,
             'CVD': 6.1,
+            'Fe': 25.09,
+            'Pt': 25.86,
             'B4C': 54,
             'Ni': 25.97,
             'Rh': 24.98,
             'SiC': 26.74,
+            'Graphite': 8.53,
             'W': 24.31,
             'YAG': 350,
             'SiO2': 60
@@ -57,8 +61,12 @@ class Device:
         temp_dict  = {
             'Au': 1337,
             'Si': 1687,
+            'Air': 1,
             'C': 3800,
             'CVD': 3800,
+            'Graphite': 3900,
+            'Fe': 1811,
+            'Pt': 2041,
             'B4C': 3036,
             'Ni': 1728,
             'Rh': 2237,
@@ -74,9 +82,13 @@ class Device:
         mass_dict = {
             'Au': 197,
             'Si': 28,
+            'Air': 1,
             'C': 12,
             'CVD': 12,
+            'Graphite': 12,
             'B4C': (10.8*4+12)/5.,
+            'Fe': 55.85,
+            'Pt': 195.084,
             'Ni': 58,
             'Rh': 102.9,
             'SiC': 40.1/2.,
@@ -91,9 +103,13 @@ class Device:
             'Au': 1,
             'Si': 1,
             'C': 1,
+            'Air': 1,
+            'Graphite': 1,
             'CVD': 1,
             'B4C': 5,
             'Ni': 1,
+            'Fe': 1,
+            'Pt': 1,
             'Rh': 1,
             'SiC': 2,
             'W': 1,
@@ -107,8 +123,12 @@ class Device:
             'Au': 79,
             'Si': 14,
             'C': 6,
+            'Graphite': 6,
+            'Air': 1,
             'CVD': 6,
             'B4C': (5*4+6)/5,
+            'Fe': 26,
+            'Pt': 78,
             'Ni': 28,
             'Rh': 45,
             'SiC': (14+6)/2,
@@ -123,7 +143,11 @@ class Device:
             'Au': [2206,2743,11919,13734,14353],
             'Si': [149.7,1839],
             'C': [284],
+            'Air': [1],
+            'Graphite': [284],
             'CVD': [284],
+            'Pt': [519.4,609.1,725.4,2122,2202,2645,3027,3296,11564,13273,13880,78395],
+            'Fe': [52.7,91.3,706.8,719.9,844.6,7112],
             'B4C': [188,284],
             'Ni': [110.8,853,8333],
             'Rh': [81.4,307,3004,3146,3412,23220],
@@ -468,7 +492,7 @@ class Device:
         kB = 8.617e-5
         #d = np.sqrt(self.attenuation_length() ** 2 + (30e-9) ** 2)
         d = np.sqrt(self.attenuation_length() ** 2 + self.penetration**2)
-        # d = self.attenuation_length()
+        d = self.attenuation_length()
         R = self.reflectivity()
 
         dose = pulse_energy/1.6e-19/np.pi/(FWHM/1.18)**2/d/self.rho/1000*2*(1-R)*np.sin(self.angle)
