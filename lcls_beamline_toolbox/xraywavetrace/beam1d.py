@@ -1416,7 +1416,7 @@ class Pulse:
 
         return time_stack
 
-    def add_pulse(self, another_pulse, time_shift):
+    def add_pulse(self, another_pulse, time_shift, screens=None):
         """
         Method to combine two pulses. For the moment it is assumed that the two pulses have the same time/energy
         sampling, and have been evaluated at the same screens.
@@ -1446,7 +1446,10 @@ class Pulse:
         energy_stacks = {}
         x = {}
         y = {}
-        new_pulse.screens = self.screens.copy()
+        if screens is None:
+            new_pulse.screens = self.screens.copy()
+        else:
+            new_pulse.screens = screens
         new_pulse.xx = self.xx.copy()
         new_pulse.yy = self.yy.copy()
 
@@ -1457,7 +1460,7 @@ class Pulse:
         energy_phase = np.exp(1j*2*np.pi*time_shift*self.f)
 
         # convert to time domain
-        for screen in self.screens:
+        for screen in new_pulse.screens:
             # deal with quadratic phase
             # subtract mean
             qx_mean1 = np.mean(self.qx[screen])

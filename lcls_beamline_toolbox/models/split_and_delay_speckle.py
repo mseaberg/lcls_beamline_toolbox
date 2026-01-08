@@ -510,6 +510,12 @@ class SND:
     def get_do_cy(self):
         return self.delay_branch.do.cy
 
+    def get_cc_do_cx(self):
+        return self.cc_branch.do.cx
+
+    def get_cc_do_cy(self):
+        return self.cc_branch.do.cy
+
     def get_do_r(self):
         r = np.sqrt(self.get_do_cx()**2+self.get_do_cy()**2)
         return r
@@ -536,25 +542,68 @@ class SND:
         # cc = crosscor.crosscor((100, 100), normalization='symavg')
         # correlation_shape = (30, 30)
 
-        n = 15
+        n = 30
         x = np.arange(2 * n) - n
 
         X, Y = np.meshgrid(x, x)
-        mask1 = np.abs(X) ** 2 + np.abs(Y) ** 2 > 1 ** 2
+        mask1 = np.abs(X) ** 2 + np.abs(Y) ** 2 > 2 ** 2
+        # mask1 = np.ones((60,60)).astype(bool)
 
-        autocorr = util.Util.get_center_portion(self.cross_cor(subImage), 30, 30)
-        fy, covy = fit_correlation.fit_gaussian(X, Y, autocorr, mask1)
+        # autocorr = util.Util.get_center_portion(self.cross_cor(subImage), 30, 30)
+        mask = np.ones_like(subImage)
+        mm1 = util.Util.nfft(mask)
+        im1 = util.Util.nfft(subImage)
+        im1 = np.pad(im1, ((50, 50), (50, 50)))
+        mm1 = np.pad(mm1, ((50, 50), (50, 50)))
+        maskCorr = util.Util.infft(mm1 * mm1.conj())
+        Icorr = util.Util.infft(mm1 * im1.conj())
+        Icorr2 = util.Util.infft(im1 * mm1.conj())
+        ccorr = util.Util.infft(im1 * im1.conj()) * maskCorr / Icorr / Icorr2
+        autocorr = util.Util.get_center_portion(np.abs(ccorr), 60, 60)
+        thresh = np.median(autocorr)
+        mask1[autocorr<(thresh-1)/2+1] = 0
+        # p0 = (1,0,0,1,1,
+        #         1,0,-10,2,2,
+        #         1,0,10,2,2,
+        #         thresh)
+        # #        amp, cx, cy, wx, wy
+        # bounds = ([0, -.1, -.1, 0,0,
+        #            0, -15, -15, 0,0,
+        #            0, -15, -15, 0,0,
+        #            0],
+        #           [10, .1, .1, 10,10,
+        #            1, 15, 15, 10,10,
+        #            1, 15, 15, 10,10,
+        #            2])
+        p0 = (1, 2,2,
+              1,0,10,2,2,
+              thresh)
+          #        amp, cx, cy, wx, wy
+        bounds = ([0, 0,0,
+                     0, -15,-15, 0,0,
+                     0],
+                    [10,5,5,
+                     1, 15, 15, 5,5,
+                     2])
+        # fy, covy = fit_correlation.fit_gaussian(X, Y, autocorr, mask1,p0=p0,bounds=bounds)
+        fy,covy = fit_correlation.fit_gaussian_new(X,Y,autocorr,mask1,p0=p0,bounds=bounds)
 
         # fitPlot = fit_correlation.three_gaussian_2d(X, Y, *fy)
 
         fitUncertainty = np.sum(np.diag(covy))
 
-        intensity = (fy[4] + fy[8]) / 2
-        cx = (np.abs(fy[5]) + np.abs(fy[9])) / 2
-        cy = (np.abs(fy[6]) + np.abs(fy[10])) / 2
+        # intensity = (fy[5] + fy[10]) / 2
+        # # cx = (np.abs(fy[6]) + np.abs(fy[11])) / 2
+        # # cy = (np.abs(fy[7]) + np.abs(fy[12])) / 2
+        # cx = fy[6]*np.sign(fy[7])
+        # cy = (np.abs(fy[7])+np.abs(fy[12])) / 2
+        intensity = fy[3]
+        cx = fy[4]
+        cy = fy[5]
 
         output = {}
         # images = {}
+        output['fy'] = fy
         output['intensity'] = intensity
         output['cx'] = cx
         output['cy'] = cy
@@ -590,7 +639,7 @@ class Util:
         lens01 = optics.CRL('lens01', diameter=5e-3, E0=E0, f=356, z=980 + 1e-6, orientation=1)
 
         s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=0.5e-3)
-        di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
+        di = optics.PPM('di', z=1000, FOV=2e-3, N=512)
         t1_slit = optics.Slit('t1', y_width=4e-3, dy=2e-3, z=di.z + 0.15)
 
         cc1_1 = optics.Crystal('cc1_1', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2. / 3., orientation=2, length=.02, width=.02,
@@ -692,7 +741,7 @@ class Util:
         Beamline object
         """
         s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=0.5e-3)
-        di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
+        di = optics.PPM('di', z=1000, FOV=2e-3, N=512)
         c1slit = optics.Slit('c1slit', y_width=4e-3, dy=-2e-3, z=di.z + 0.15 - 1e-6)
         c1 = optics.Crystal('c1', hkl=[2, 2, 0], E0=E0, z=di.z + 0.15, orientation=0, width=5e-3, dy=-2.5e-3, length=.02)
 
@@ -713,14 +762,14 @@ class Util:
         t1_dh = optics.PPM('t1_dh', z=c1.z + dz2, FOV=4e-3, N=256)
 
         #     c2 = optics.Crystal('c2',hkl=[2,2,0],E0=E0,z=c1.z+dz,orientation=2,length=.02,width=.02)
-        dd = optics.PPM('dd', z=c1.z + 1, FOV=4e-3, N=256)
+        dd = optics.PPM('dd', z=c1.z + 1, FOV=2e-3, N=512)
         c4 = optics.Crystal('c4', hkl=[2, 2, 0], E0=E0, z=c1.z + 2, orientation=0, length=.02, width=.02)
         c3 = optics.Crystal('c3', hkl=[2, 2, 0], E0=E0, z=c4.z - dz, orientation=2, length=.02, width=.02)
         t4_dh = optics.PPM('t4_dh', z=c4.z - dz2, FOV=4e-3, N=256)
 
         c4slit = optics.Slit('c4slit', y_width=4e-3, dy=-2e-3, z=c4.z + 1e-6)
 
-        do = optics.PPM('do', z=c4.z + 0.15, FOV=4e-3, N=256)
+        do = optics.PPM('do', z=c4.z + 0.15, FOV=2e-3, N=512)
         lens0 = optics.CRL('lens0', E0=E0, f=3, z=do.z + 5, orientation=0, diameter=2e-3)
         lens1 = optics.CRL('lens1', E0=E0, f=3, z=do.z + 5 + 1e-6, orientation=1, diameter=2e-3)
 

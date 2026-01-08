@@ -41,7 +41,7 @@ class SND:
         self.b1 = beam.Beam(beam_params=self.beam_params,suppress=True)
 
         self.pulse_delay = beam.Pulse(beam_params=self.beam_params, tau=0.3, time_window=30)
-        self.pulse_cc = beam.Pulse(beam_params=self.beam_params, tau=0.1, time_window=10)
+        self.pulse_cc = beam.Pulse(beam_params=self.beam_params, tau=0.3, time_window=30)
 
         self.t1_tth = motion.RotationAxis(self.delay_branch.c1.sagittal,
                                           [self.delay_branch.c1, self.delay_branch.c2,
@@ -143,8 +143,8 @@ class SND:
         for motor in self.motor_list:
             self.motor_dict[motor.name] = motor
 
-        self.delay_diagnostic_list = ['di','t1_dh','dd','t4_dh','do','IP']
-        self.cc_diagnostic_list = ['di','dcc','do','IP']
+        self.delay_diagnostic_list = ['di','t1_dh','dd','t4_dh','do','yag5','IP']
+        self.cc_diagnostic_list = ['di','dcc','do','yag5','IP']
         self.delay_beam_stats = {}
         for diagnostic in self.delay_diagnostic_list:
             self.delay_beam_stats[diagnostic] = {
@@ -152,6 +152,18 @@ class SND:
                 'cx': 0,
                 'cy': 0
             }
+
+    def disable_lens(self):
+        self.delay_branch.lens0.enabled = False
+        self.delay_branch.lens1.enabled = False
+        self.cc_branch.lens0.enabled = False
+        self.cc_branch.lens1.enabled = False
+
+    def enable_lens(self):
+        self.delay_branch.lens0.enabled = True
+        self.delay_branch.lens1.enabled = True
+        self.cc_branch.lens0.enabled = True
+        self.cc_branch.lens1.enabled = True
 
 
     def calc_energy(self, two_theta):
@@ -565,8 +577,8 @@ class Util:
         lens00 = optics.CRL('lens00', diameter=5e-3, E0=E0, f=356, z=980, orientation=0)
         lens01 = optics.CRL('lens01', diameter=5e-3, E0=E0, f=356, z=980 + 1e-6, orientation=1)
 
-        s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=1e-3)
-        di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
+        s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=0.5e-3)
+        di = optics.PPM('di', z=1000, FOV=2e-3, N=256)
         t1_slit = optics.Slit('t1', y_width=4e-3, dy=2e-3, z=di.z + 0.15)
 
         cc1_1 = optics.Crystal('cc1_1', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2. / 3., orientation=2, length=.02, width=.02,
@@ -586,16 +598,17 @@ class Util:
                                show_figures=False)
         dco = optics.PPM('dco', z=cc2_2.z + 75e-3, FOV=4e-3, N=256)
         t4_slit = optics.Slit('t4', y_width=4e-3, dy=2e-3, z=t1_slit.z + 2)
-        do = optics.PPM('do', z=t4_slit.z + 0.15, FOV=4e-3, N=256)
+        do = optics.PPM('do', z=t4_slit.z + 0.15, FOV=2e-3, N=256)
         lens0 = optics.CRL('lens0', E0=E0, f=3, z=do.z + 5, orientation=0, diameter=2e-3)
         lens1 = optics.CRL('lens1', E0=E0, f=3, z=do.z + 5 + 1e-6, orientation=1, diameter=2e-3)
 
         image = 1 / (1 / 3. - 1 / (lens0.z - 624))
         # print(image)
 
-        IP = optics.PPM('IP', FOV=10e-6, z=lens1.z + image, N=256)
+        IP = optics.PPM('IP', FOV=20e-6, z=lens1.z + image, N=256)
+        yag5 = optics.PPM('yag5', FOV=2e-3, z=IP.z - 1, N=256)
 
-        device_list = [s3, di, t1_slit, dci, cc1_1, cc1_2, dcc, cc2_1, cc2_2, dco, t4_slit, do, lens0, lens1, IP]
+        device_list = [s3, di, t1_slit, dci, cc1_1, cc1_2, dcc, cc2_1, cc2_2, dco, t4_slit, do, lens0, lens1, yag5, IP]
 
         cc_branch = beamline.Beamline(device_list, ordered=True)
 
@@ -667,8 +680,8 @@ class Util:
         -------
         Beamline object
         """
-        s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=1e-3)
-        di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
+        s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=0.5e-3)
+        di = optics.PPM('di', z=1000, FOV=2e-3, N=256)
         c1slit = optics.Slit('c1slit', y_width=4e-3, dy=-2e-3, z=di.z + 0.15 - 1e-6)
         c1 = optics.Crystal('c1', hkl=[2, 2, 0], E0=E0, z=di.z + 0.15, orientation=0, width=5e-3, dy=-2.5e-3, length=.02)
 
@@ -689,24 +702,26 @@ class Util:
         t1_dh = optics.PPM('t1_dh', z=c1.z + dz2, FOV=4e-3, N=256)
 
         #     c2 = optics.Crystal('c2',hkl=[2,2,0],E0=E0,z=c1.z+dz,orientation=2,length=.02,width=.02)
-        dd = optics.PPM('dd', z=c1.z + 1, FOV=4e-3, N=256)
+        dd = optics.PPM('dd', z=c1.z + 1, FOV=2e-3, N=256)
         c4 = optics.Crystal('c4', hkl=[2, 2, 0], E0=E0, z=c1.z + 2, orientation=0, length=.02, width=.02)
         c3 = optics.Crystal('c3', hkl=[2, 2, 0], E0=E0, z=c4.z - dz, orientation=2, length=.02, width=.02)
         t4_dh = optics.PPM('t4_dh', z=c4.z - dz2, FOV=4e-3, N=256)
 
         c4slit = optics.Slit('c4slit', y_width=4e-3, dy=-2e-3, z=c4.z + 1e-6)
 
-        do = optics.PPM('do', z=c4.z + 0.15, FOV=4e-3, N=256)
+        do = optics.PPM('do', z=c4.z + 0.15, FOV=2e-3, N=256)
         lens0 = optics.CRL('lens0', E0=E0, f=3, z=do.z + 5, orientation=0, diameter=2e-3)
         lens1 = optics.CRL('lens1', E0=E0, f=3, z=do.z + 5 + 1e-6, orientation=1, diameter=2e-3)
 
         d_lens = optics.PPM('d_lens',z=lens1.z+.1, FOV=4e-3, N=256)
         image = 1 / (1 / 3.0 - 1 / (lens0.z - 624))
+
         # print(image)
 
-        IP = optics.PPM('IP', FOV=200e-6, z=lens1.z + image,suppress=True, N=1024)
+        IP = optics.PPM('IP', FOV=20e-6, z=lens1.z + image,suppress=True, N=256)
+        yag5 = optics.PPM('yag5', FOV=2e-3, z=IP.z-1,N=256)
 
-        device_list = [s3, di, c1slit, c1, t1_dh, c2, dd, c3, t4_dh, c4, c4slit, do, lens0, lens1, d_lens, IP]
+        device_list = [s3, di, c1slit, c1, t1_dh, c2, dd, c3, t4_dh, c4, c4slit, do, lens0, lens1, d_lens, yag5, IP]
 
         delay_branch = beamline.Beamline(device_list, ordered=True)
 
