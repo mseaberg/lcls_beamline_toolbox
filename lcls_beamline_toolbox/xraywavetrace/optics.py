@@ -7307,6 +7307,10 @@ class PPM:
             self.phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.xx - beam.cx)
             self.phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.yy - beam.cy)
 
+            # remove constant phase
+            constant_phase = f_phase(beam.cx, beam.cy)
+            self.phase -= constant_phase
+
         self.group_delay = beam.group_delay
 
         # calculate horizontal lineout
