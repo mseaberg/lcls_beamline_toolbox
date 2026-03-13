@@ -2920,9 +2920,10 @@ class PPM_Device(PPM):
 
         self.imager_prefix = name
         self.threshold = 0.0001
+        self.roi = None 
 
         # set allowed kwargs
-        allowed_arguments = ['average','threshold','fit_object']
+        allowed_arguments = ['average','threshold','fit_object','roi']
 
         # update attributes based on kwargs
         for key, value in kwargs.items():
@@ -3110,9 +3111,11 @@ class PPM_Device(PPM):
         self.image_pv = PV(self.epics_name + 'ArrayData')
 
         # get ROI info
-        xmin = PV(self.epics_name + 'ROI:MinX_RBV').get()
+        #xmin = PV(self.epics_name + 'ROI:MinX_RBV').get()
+        xmin = 0
         xmax = xmin + PV(self.epics_name + 'ROI:SizeX_RBV').get() - 1
-        ymin = PV(self.epics_name + 'ROI:MinY_RBV').get()
+        #ymin = PV(self.epics_name + 'ROI:MinY_RBV').get()
+        ymin = 0
         ymax = ymin + PV(self.epics_name + 'ROI:SizeY_RBV').get() - 1
         # get binning
         self.xbin = PV(self.epics_name + 'ROI:BinX_RBV').get()
@@ -3589,14 +3592,32 @@ class PPM_Device(PPM):
         self.projection_x = np.mean(temp_profile, axis=0)
         self.projection_y = np.mean(temp_profile, axis=1)
 
+        if self.roi is not None:
+            xs = np.array([self.roi[0],self.roi[2]])
+            ys = np.array([self.roi[1],self.roi[3]])
+            x1 = np.min(xs)
+            x2 = np.max(xs)
+            y1 = np.min(ys)
+            y2 = np.max(ys)
+
+            roi_mask_x = np.logical_and(self.xx>x1,self.xx<x2)
+            roi_mask_y = np.logical_and(self.yy>y1,self.yy<y2)
+            roi_mask = np.logical_and(roi_mask_x,roi_mask_y)
+            masked_profile = temp_profile*roi_mask
+            masked_profile -= np.min(masked_profile[roi_mask])
+            self.projection_x = np.mean(masked_profile,axis=0)
+            self.projection_y = np.mean(masked_profile,axis=1)
+
         # get beam statistics
         self.cx, self.cy, self.wx, self.wy, wx2, wy2 = self.beam_analysis(self.projection_x, self.projection_y)
 
         # add imager state to validity
         if 'MONO' in self.imager_prefix or 'SL' in self.imager_prefix:
             imager_state = 'YAG'
-        else:
+        elif 'IM' in self.imager_prefix:
             imager_state = self.states_list[self.state.value]
+        else:
+            imager_state = 'NONE'
         imager_in = 'YAG' in imager_state or 'DIAMOND' in imager_state
 
         self.centroid_is_valid = self.centroid_is_valid and imager_in

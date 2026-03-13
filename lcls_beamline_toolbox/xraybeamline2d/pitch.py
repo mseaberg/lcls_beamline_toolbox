@@ -821,8 +821,8 @@ class TalbotImage:
         zeroMask = zero_order > (threshold * np.max(zero_order))
 
         # unwrap phase in 2D, multiply by shear factor
-        h_grad2 = unwrap_phase(np.angle(h_grad), seed=0) * dg / lambda0 / zT
-        v_grad2 = unwrap_phase(np.angle(v_grad), seed=0) * dg / lambda0 / zT
+        h_grad2 = unwrap_phase(np.angle(h_grad)) * dg / lambda0 / zT
+        v_grad2 = unwrap_phase(np.angle(v_grad)) * dg / lambda0 / zT
 
         # store mean of gradient
         h_mean = np.mean(h_grad2[zeroMask])
