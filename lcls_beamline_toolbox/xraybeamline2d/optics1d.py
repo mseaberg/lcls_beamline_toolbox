@@ -27,6 +27,7 @@ from lcls_beamline_toolbox.utility.util import Util, LegendreUtil
 from lcls_beamline_toolbox.utility.pitch import TalbotLineout, TalbotImage
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
+import xrt.backends.raycing.materials_crystals as xcryst
 import xraydb
 from lcls_beamline_toolbox.xrayinteraction import interaction
 
@@ -2274,6 +2275,9 @@ class Crystal(Mirror):
         elif self.material == 'diamond':
             d = 3.5668 / (sum(i ** 2 for i in self.hkl)) ** 0.5
             self.crystal = materials.CrystalDiamond(hkl=self.hkl,d=d,elements='C')
+        elif self.material == 'Ge':
+
+            self.crystal = xcryst.Ge(hkl=self.hkl)
 
         # lattice spacing
         self.d = self.crystal.d * 1e-10

@@ -29,6 +29,7 @@ from lcls_beamline_toolbox.utility.pitch import TalbotLineout, TalbotImage
 from lcls_beamline_toolbox.xraybeamline2d.optics import PPM as PPM_2D
 import scipy.interpolate as interpolate
 import xrt.backends.raycing.materials as materials
+import xrt.backends.raycing.materials_crystals as xcryst
 import xraydb
 from lcls_beamline_toolbox.xrayinteraction import interaction
 
@@ -999,6 +1000,7 @@ class Mirror:
         total_distance = (distance_1 + distance_2)
 
         total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance
+        # total_phase = angle_in + 2 * np.pi / beam.lambda0 * (total_distance - 2*delta_z)
         # total_phase = angle_in
         # beam.focused_x = True
         # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
@@ -5170,6 +5172,11 @@ class Crystal(Mirror):
                 self.crystal = materials.CrystalDiamond(hkl=self.hkl,d=d,elements='C')
             else:
                 self.crystal = materials.CrystalDiamond(hkl=self.hkl, t=self.thickness*1e3,d=d,elements='C')
+        elif self.material == 'Ge':
+            if self.thickness is None:
+                self.crystal = xcryst.Ge(hkl=self.hkl)
+            else:
+                self.crystal = xcryst.Ge(hkl=self.hkl, t=self.thickness*1e3)
 
         # lattice spacing
         self.d = self.crystal.d * 1e-10
@@ -5361,6 +5368,7 @@ class Crystal(Mirror):
         uz = np.reshape(np.array([0,0,1]),(3,1))
 
         delta_z = self.length / 2 * 1.1
+        # delta_z = self.length / 2 * 2
 
         if not self.suppress:
             print('ax: %.6e' % beam.ax)
@@ -5611,6 +5619,7 @@ class Crystal(Mirror):
         # and we will define the plane to be a distance length/2*1.1 from the intersection point of the central ray
         plane_normal = np.reshape(rays_out[:,int(beam.N/2)],(3,1))
         central_point = np.reshape(intersect_coords[:,int(beam.N/2)],(3,1)) + plane_normal*self.length/2*1.1
+        # central_point = np.reshape(intersect_coords[:, int(beam.N / 2)], (3, 1)) + plane_normal * self.length / 2 *
 
         # find z intersection with this plane
         d2 = np.sum((central_point - intersect_coords)*plane_normal,axis=0)/np.sum(rays_out*plane_normal,axis=0)
@@ -5634,7 +5643,7 @@ class Crystal(Mirror):
             plt.figure()
             plt.plot(intersect_coords[2,:],distance_1)
             plt.plot(intersect_coords[2,:],distance_2)
-            plt.plot(intersect_coords[2,:],distance_1+distance_2)
+            plt.plot(intersect_coords[2,:],distance_1+distance_2-2*delta_z)
             plt.title('distances')
 
         # find location of central ray in exit plane
@@ -5865,11 +5874,14 @@ class Crystal(Mirror):
 
         gratingPhase = -2 * np.pi * np.sin(self.alphaAsym) * d_length / self.d
         total_distance = distance_1 + distance_2
+        # total_distance = distance_1 + distance_2 - 2*delta_z
+        # total_phase = angle_in + 2 * np.pi / beam.lambda0 * (total_distance - 2 * delta_z)
 
         total_phase = angle_in + 2 * np.pi / beam.lambda0 * total_distance - gratingPhase
         # total_phase = angle_in
         # beam.focused_x = True
         # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
+        # The threshold in the following line is a sensitive parameter...!!
         mask2 = abs_out>.3*np.max(abs_out)
         if not self.suppress:
             print('mask sum: {}'.format(np.sum(mask2)))
@@ -5880,7 +5892,8 @@ class Crystal(Mirror):
         if not self.suppress:
             print('mask3 sum: {}'.format(np.sum(mask3)))
 
-        p_coeff = np.polyfit(x_eff[mask3], total_phase[mask3], 2)
+        # p_coeff = np.polyfit(x_eff[mask3], total_phase[mask3], 2)
+        p_coeff = np.polyfit(x_eff[mask],total_phase[mask],2,w=abs_out[mask])
         # except:
         #     print('problem with mask')
         #     p_coeff = np.zeros(3)
@@ -6057,13 +6070,15 @@ class Crystal(Mirror):
 
         # below few lines currently causing problems when beam is focused - can't remember if this is important
         # so maybe put it back in later and run only if beam is not focused??
-        # if self.orientation==0 or self.orientation==2:
-        #     # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
-        #     beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
-        # else:
-        #
-        #     # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
-        #     beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
+        if self.orientation==0 or self.orientation==2:
+            # beam.change_z_mirror(new_zx=z_total, new_zy=beam.zy + total_distance[int(beam.M / 2)], old_zx=z_2)
+            if not beam.focused_x:
+                beam.change_z_mirror(new_zx=z_total, old_zx=z_2)
+        else:
+
+            # beam.change_z_mirror(new_zy=z_total, new_zx=beam.zx + total_distance[int(beam.N / 2)], old_zy=z_2)
+            if not beam.focused_y:
+                beam.change_z_mirror(new_zy=z_total, old_zy=z_2)
 
         beam.new_fx()
         if not self.suppress:
