@@ -1568,7 +1568,9 @@ class Pulse:
         beam_stats = {
             'intensity': intensity,
             'cx': cx,
-            'cy': cy
+            'cy': cy,
+            'wx': wx,
+            'wy': wy
         }
         return beam_stats
 

@@ -5882,7 +5882,7 @@ class Crystal(Mirror):
         # beam.focused_x = True
         # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
         # The threshold in the following line is a sensitive parameter...!!
-        mask2 = abs_out>.3*np.max(abs_out)
+        mask2 = abs_out>.1*np.max(abs_out)
         if not self.suppress:
             print('mask sum: {}'.format(np.sum(mask2)))
             print('abs sum: {}'.format(np.sum(abs_out)))
