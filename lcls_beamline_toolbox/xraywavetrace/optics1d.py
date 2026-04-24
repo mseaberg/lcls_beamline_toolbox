@@ -6803,6 +6803,7 @@ class Slit:
         self.x_intersect = 0.0
         self.y_intersect = 0.0
         self.z_intersect = 0.0
+        self.open = True
 
     def multiply(self, beam):
         """
@@ -6825,10 +6826,20 @@ class Slit:
         aperture_y = (np.abs(beam.y + y_shift - self.dy) < self.y_width / 2).astype(float)
 
         # multiply beam by aperture
-        beam.wavex *= aperture_x
-        beam.wavey *= aperture_y
+        if self.open > 0:
+            beam.wavex *= aperture_x
+            beam.wavey *= aperture_y
+        else:
+            beam.wavex *= 0
+            beam.wavey *= 0
 
         return True
+
+    def close(self):
+        self.open = False
+
+    def open(self):
+        self.open = True
 
     def propagate(self, beam):
         """

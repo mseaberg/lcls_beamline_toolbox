@@ -315,6 +315,53 @@ class RotationAxis(MotionAxis):
         """Translate the stored rotation center by a world-space vector."""
         self.rotation_center += translation_vector
 
+class Shutter:
+    """
+    Motion class representing a shutter. Either open or closed
+    """
+    def __init__(self, device_list, name=None, open=True):
+        self.open = open
+        self.device_list = device_list
+
+    def mv(self, position):
+        # position is 0 or 1, where 0 is closed and 1 is open
+        for device in self.device_list:
+            device.open = position
+        self.open = position
+
+class SlitGap:
+    """
+    Motion class representing a slit gap. The position is the gap size.
+    """
+    def __init__(self, device_list, name=None, initial_position=0, orientation=0, low_limit=0, high_limit=np.inf):
+        """
+        Parameters
+        ----------
+        device_list
+        name
+        initial_position
+        orientation: 0 for horizontal, 1 for vertical
+        low_limit
+        high_limit
+        """
+        self.position = initial_position
+        self.low_limit = low_limit
+        self.high_limit = high_limit
+        self.device_list = device_list
+        self.orientation = orientation
+
+    def mv(self, position):
+        if self.low_limit <= position <= self.high_limit:
+            for device in self.device_list:
+                if self.orientation == 0:
+                    device.x_width = position
+                elif self.orientation == 1:
+                    device.y_width = position
+            self.position = position
+            return True
+        else:
+            return False
+
 
 class MotionStack:
     """
