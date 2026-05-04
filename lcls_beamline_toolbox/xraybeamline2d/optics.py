@@ -2940,7 +2940,7 @@ class PPM_Device(PPM):
         else:
             self.states_list = []
 
-        self.cam_name = self.imager_prefix + 'CAM:'
+        #self.cam_name = self.imager_prefix + 'CAM:'
         if 'MONO' in self.imager_prefix:
             self.cam_name = self.imager_prefix
         self.epics_name = self.cam_name + 'IMAGE3:'
