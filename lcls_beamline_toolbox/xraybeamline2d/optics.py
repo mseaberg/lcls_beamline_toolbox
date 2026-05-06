@@ -2940,7 +2940,11 @@ class PPM_Device(PPM):
         else:
             self.states_list = []
 
-        #self.cam_name = self.imager_prefix + 'CAM:'
+        if 'L2' in self.imager_prefix:
+            self.cam_name = self.imager_prefix + 'CAM:01:'
+        else:
+            self.cam_name = self.imager_prefix + 'CAM:'
+        
         if 'MONO' in self.imager_prefix:
             self.cam_name = self.imager_prefix
         self.epics_name = self.cam_name + 'IMAGE3:'
@@ -2949,20 +2953,20 @@ class PPM_Device(PPM):
 
         # check if Image3 is available
         port = PV(self.epics_name + 'PortName_RBV').get()
-        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
+        array_rate = PV(self.epics_name + 'EnableCallbacks').get()
 
         if port is None or array_rate==0:
-            self.epics_name = self.imager_prefix + 'CAM:IMAGE1:'
-            self.acquisition_period = PV(self.imager_prefix + 'CAM:AcquirePeriod_RBV').get()
+            self.epics_name = self.cam_name + 'IMAGE1:'
+            self.acquisition_period = PV(self.cam_name + 'AcquirePeriod_RBV').get()
 
         port = PV(self.epics_name + 'PortName_RBV').get()
 
-        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
+        array_rate = PV(self.epics_name + 'EnableCallbacks').get()
 
 
         if port is None or array_rate==0:
-            self.epics_name = self.imager_prefix + 'CAM:IMAGE2:'
-            self.acquisition_period = PV(self.imager_prefix + 'CAM:AcquirePeriod_RBV').get()
+            self.epics_name = self.cam_name + 'IMAGE2:'
+            self.acquisition_period = PV(self.cam_name + 'AcquirePeriod_RBV').get()
 
         port = PV(self.epics_name + 'PortName_RBV').get()
 
@@ -2971,8 +2975,8 @@ class PPM_Device(PPM):
             self.acquisition_period = PV(self.imager_prefix + 'AcquirePeriod_RBV').get()
        
         
-        self.x_bm_ctr = PV(self.imager_prefix + 'CAM:X_BM_CTR')
-        self.y_bm_ctr = PV(self.imager_prefix + 'CAM:Y_BM_CTR')
+        self.x_bm_ctr = PV(self.cam_name + 'X_BM_CTR')
+        self.y_bm_ctr = PV(self.cam_name + 'Y_BM_CTR')
 
         self.orientation = 'action0'
 
@@ -2998,6 +3002,8 @@ class PPM_Device(PPM):
             'IM2L1': 8.5,
             'IM3L1': 8.5,
             'IM4L1': 8.5,
+            'IM1L2': 2.0,
+            'IM2L2': 5.0,
             'IM1K3': 8.5,
             'IM2K3': 8.5,
             'IM3K3': 8.5,
@@ -3024,6 +3030,8 @@ class PPM_Device(PPM):
             'IM2L1': 759.02,
             'IM3L1': 778.96,
             'IM4L1': 778.96,
+            'IM1L2': 787.73,
+            'IM2L2': 799.642,
             'IM1K3': 740.804,
             'IM2K3': 750,
             'IM3K3': 778.66,
@@ -3049,54 +3057,47 @@ class PPM_Device(PPM):
             print('\nSomething wrong with camera server')
             self.gige = None
 
-        # load in pixel size
-        try:
-            with open('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
-                data = json.load(json_file)
-           
-            key_name = self.epics_name[0:5]
-            if 'MONO' in self.epics_name:
-                if '3' in self.epics_name:
-                    key_name = 'MONO_03'
-                elif '4' in self.epics_name:
-                    key_name = 'MONO_04'
+        ## load in pixel size
+        #try:
+        #    with open('/cds/home/s/seaberg/Commissioning_Tools/PPM_centroid/imagers.db') as json_file:
+        #        data = json.load(json_file)
+        #   
+        #    key_name = self.epics_name[0:5]
+        #    if 'MONO' in self.epics_name:
+        #        if '3' in self.epics_name:
+        #            key_name = 'MONO_03'
+        #        elif '4' in self.epics_name:
+        #            key_name = 'MONO_04'
 
-            imager_data = data[key_name]
-            #imager_data = data[self.epics_name[0:5]]
-            self.dx = float(imager_data['pixel'])
-            self.distance = float(imager_data['FOV']) * 1e3
-            self.z = float(imager_data['z'])
+        #    imager_data = data[key_name]
+        #    #imager_data = data[self.epics_name[0:5]]
+        #    self.dx = float(imager_data['pixel'])
+        #    self.z = float(imager_data['z'])
 
-            try:
-                self.cx_target = float(imager_data['cx'])
-                self.cy_target = float(imager_data['cy'])
-            except KeyError:
-                self.cx_target = 0
-                self.cy_target = 0
+        #    try:
+        #        self.cx_target = float(imager_data['cx'])
+        #        self.cy_target = float(imager_data['cy'])
+        #    except KeyError:
+        #        self.cx_target = 0
+        #        self.cy_target = 0
 
-        except json.decoder.JSONDecodeError:
-            self.dx = 5.5/1.2
-            self.cx_target = 0.0
-            self.cy_target = 0.0
-        except KeyError:
-            print('pixel size not calibrated. units are pixels.')
-            self.dx = 1
-            self.cx_target = 0.0
-            self.cy_target = 0.0
+        self.dx = 1.0
+        self.cx_target = 0.0
+        self.cy_target = 0.0
 
-        dx = PV(self.imager_prefix + 'CAM:RESOLUTION').get()
+        dx = PV(self.cam_name + 'RESOLUTION').get()
         if dx is not None:
             self.dx = dx
-        cx_target = PV(self.imager_prefix + 'CAM:X_RTCL_CTR').get()
+        else:
+            print('pixel size is not calibrated')
+        cx_target = PV(self.cam_name + 'X_RTCL_CTR').get()
         if cx_target is not None:
             self.cx_target = cx_target
-        cy_target = PV(self.imager_prefix + 'CAM:Y_RTCL_CTR').get()
+        cy_target = PV(self.cam_name + 'Y_RTCL_CTR').get()
         if cy_target is not None:
             self.cy_target = cy_target
-        #self.cx_target = 0
-        #self.cy_target = 0
 
-        print(self.dx)
+        print('{} um pixel'.format(self.dx))
 
         # if len(sys.argv)>1:
         #     self.cam_name = sys.argv[1]
@@ -3106,7 +3107,7 @@ class PPM_Device(PPM):
             PV(self.epics_name + 'ROI:Scale').put(1)
             PV(self.epics_name + 'ROI:BinX').put(1)
             PV(self.epics_name + 'ROI:BinY').put(1)
-            PV(self.imager_prefix + 'CAM:DataType').put('UInt16')
+            PV(self.cam_name + 'DataType').put('UInt16')
 
         self.image_pv = PV(self.epics_name + 'ArrayData')
 
@@ -3710,7 +3711,7 @@ class EXS_Device(PPM):
 
         # check if Image3 is available
         port = PV(self.epics_name + 'PortName_RBV').get()
-        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
+        array_rate = PV(self.epics_name + 'EnableCallbacks').get()
 
         if port is None or array_rate == 0:
             self.epics_name = self.imager_prefix + 'IMAGE1:'
@@ -3718,7 +3719,7 @@ class EXS_Device(PPM):
 
         port = PV(self.epics_name + 'PortName_RBV').get()
 
-        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
+        array_rate = PV(self.epics_name + 'EnableCallbacks').get()
 
         if port is None or array_rate == 0:
             self.epics_name = self.imager_prefix + 'CAM:IMAGE2:'
