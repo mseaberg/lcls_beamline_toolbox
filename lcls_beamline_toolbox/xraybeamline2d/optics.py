@@ -2449,15 +2449,26 @@ class PPM:
         # get beam coordinates for interpolation
         x = beam.x[0, :]
         y = beam.y[:, 0]
+
+        x_sign = 1
+        y_sign = 1
+        if x[1]-x[0] < 0:
+            x_sign = -1
+        if y[1]-y[0] < 0:
+            y_sign = -1
+
         # interpolating function from Scipy's interp2d. Extrapolation value is set to zero.
-        f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
+        #f = interpolation.interp2d(x * scaling_x, y * scaling_y, profile, fill_value=0)
+        f = interpolation.RectBivariateSpline(x_sign * x * scaling_x, y_sign * y * scaling_y, profile)
         # do the interpolation to get the profile we'll see on the PPM
-        self.profile = f(self.x, self.y)
+        self.profile = f(x_sign*self.xx, y_sign*self.yy,grid=False)
 
         if self.calc_phase:
             phase = unwrap_phase(np.angle(beam.wave))
-            f_phase = interpolation.interp2d(x * scaling_x, y * scaling_y, phase, fill_value=0)
-            self.phase = f_phase(self.x, self.y)
+            #f_phase = interpolation.interp2d(x * scaling_x, y * scaling_y, phase, fill_value=0)
+            f_phase = interpolation.RectBivariateSpline(x_sign*x * scaling_x, y_sign*y * scaling_y, phase)
+
+            self.phase = f_phase(x_sign*self.xx, y_sign*self.yy,grid=False)
 
             if not beam.focused_x:
                 # self.phase += np.pi / beam.lambda0 / beam.zx * (self.xx - beam.cx)**2
@@ -2953,7 +2964,7 @@ class PPM_Device(PPM):
 
         # check if Image3 is available
         port = PV(self.epics_name + 'PortName_RBV').get()
-        array_rate = PV(self.epics_name + 'EnableCallbacks').get()
+        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
 
         if port is None or array_rate==0:
             self.epics_name = self.cam_name + 'IMAGE1:'
@@ -2961,7 +2972,7 @@ class PPM_Device(PPM):
 
         port = PV(self.epics_name + 'PortName_RBV').get()
 
-        array_rate = PV(self.epics_name + 'EnableCallbacks').get()
+        array_rate = PV(self.epics_name + 'ROI:EnableCallbacks').get()
 
 
         if port is None or array_rate==0:
