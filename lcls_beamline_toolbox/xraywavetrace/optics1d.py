@@ -195,6 +195,9 @@ class Mirror:
 
         return intersect_global
 
+    def reset(self):
+        pass
+
     def get_pos(self):
         pos_vec = np.zeros((3))
         pos_vec[0] = self.global_x
@@ -6726,6 +6729,9 @@ class Collimator:
         print('not implemented in 1D')
         return False
 
+    def reset(self):
+        pass
+
     def get_pos(self):
         pos_vec = np.zeros((3))
         pos_vec[0] = self.global_x
@@ -6837,6 +6843,9 @@ class Slit:
 
     def close(self):
         self.open = False
+
+    def reset(self):
+        pass
 
     def open(self):
         self.open = True
@@ -8252,6 +8261,9 @@ class TransmissionGrating:
         # assume nominal incidence angle is 0 (measured from normal)
         self.alpha = 0.0
 
+    def reset(self):
+        pass
+
     def propagate(self, beam):
         """
         Method to propagate beam through grating. Calls multiply.
@@ -8438,7 +8450,8 @@ class CRL:
             delta = np.interp(self.E0, self.energy, self.delta)
             self.f = self.roc/2/delta
 
-
+    def reset(self):
+        pass
 
     def multiply(self, beam):
         """
@@ -8631,6 +8644,9 @@ class Prism:
         self.delta = cxro_data[:, 1]
         self.beta = cxro_data[:, 2]
 
+    def reset(self):
+        pass
+
     def multiply(self, beam):
 
         # interpolate to find index of refraction at beam's energy
@@ -8761,6 +8777,9 @@ class WFS:
         self.yhat = None
         self.zhat = None
         self.suppress = suppress
+
+    def reset(self):
+        pass
 
     def plan_pitch(self, ppm_object, E0, f0=100, use_pitch=True):
         """
@@ -8992,6 +9011,9 @@ class PhasePlate:
         self.yhat = None
         self.zhat = None
         self.suppress = suppress
+
+    def reset(self):
+        pass
 
     def multiply(self, beam):
         """

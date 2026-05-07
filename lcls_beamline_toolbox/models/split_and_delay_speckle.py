@@ -13,6 +13,7 @@ import lcls_beamline_toolbox.utility.fit_correlation as fit_correlation
 import lcls_beamline_toolbox.utility.util as util
 import pickle
 import lcls_beamline_toolbox.xrayinteraction.interaction as interaction
+import os
 
 class SND:
     def __init__(self, energy=10000, two_theta=None, delay=0, ax=0, ay=0, cx=0, cy=0):
@@ -31,7 +32,8 @@ class SND:
         self.cross_cor = cross_cor.CrossCor((100,100),normalization='symavg')
         self.correlation_shape = (30,30)
 
-        circle_array = np.load('circle_array.npz')['array']
+        filename = os.path.join(os.path.dirname(__file__), 'circle_array.npz')
+        circle_array = np.load(filename)['array']
 
         silica = interaction.Device(name='silica',range='HXR',material='SiO2')
         delta = np.interp(self.E0,silica.energy,silica.delta)

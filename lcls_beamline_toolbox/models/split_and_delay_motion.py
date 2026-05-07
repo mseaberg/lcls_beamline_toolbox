@@ -227,9 +227,13 @@ class SND:
         self.delay_branch.IP.add_profile(self.cc_branch.IP.profile)
 
     def propagate_delay(self):
+        for device in self.delay_branch.device_list:
+            device.reset()
         self.b2 = self.delay_branch.propagate_beamline(self.b1)
 
     def propagate_cc(self):
+        for device in self.cc_branch.device_list:
+            device.reset()
         self.b3 = self.cc_branch.propagate_beamline(self.b1)
 
     def propagate_bypass(self):
