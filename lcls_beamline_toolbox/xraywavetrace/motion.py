@@ -330,6 +330,9 @@ class Shutter:
             device.open = position
         self.open = position
 
+    def wm(self):
+        return self.open
+
 class SlitGap:
     """
     Motion class representing a slit gap. The position is the gap size.
@@ -363,6 +366,9 @@ class SlitGap:
             return True
         else:
             return False
+
+    def wm(self):
+        return self.position
 
 
 class MotionStack:
