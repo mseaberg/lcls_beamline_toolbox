@@ -200,7 +200,12 @@ class SND:
                            self.t4_tth,self.t1_L,self.t4_L,self.t1_chi1,self.t1_chi2,
                            self.t4_chi1,self.t4_chi2,self.t1_x,self.t2_x,self.t3_x,
                            self.t4_x,self.t2_th,self.t3_th,self.t1_y1,self.t1_y2,self.t4_y1,
-                           self.t4_y2]
+                           self.t4_y2, self.di_x, self.di_y, self.dd_x, self.dd_y,
+                           self.do_x, self.do_y, self.dci_x, self.dci_y, self.dcc_x,
+                           self.dcc_y, self.dco_x, self.dco_y, self.IP_x, self.IP_y,
+                           self.delay_shutter, self.cc_shutter, self.s4_xcen,
+                           self.s4_ycen, self.s4_xwid, self.s4_ywid, self.yag5_x,
+                           self.yag5_y]
 
         self.motor_dict = {}
         for motor in self.motor_list:
