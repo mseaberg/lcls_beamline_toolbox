@@ -322,6 +322,7 @@ class Shutter:
     def __init__(self, device_list, name=None, open=True):
         self.open = open
         self.device_list = device_list
+        self.name = name
 
     def mv(self, position):
         # position is 0 or 1, where 0 is closed and 1 is open
@@ -349,6 +350,7 @@ class SlitGap:
         self.high_limit = high_limit
         self.device_list = device_list
         self.orientation = orientation
+        self.name = name
 
     def mv(self, position):
         if self.low_limit <= position <= self.high_limit:
