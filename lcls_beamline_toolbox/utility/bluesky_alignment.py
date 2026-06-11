@@ -5,6 +5,7 @@ from scipy.optimize import curve_fit
 
 import bluesky.plan_stubs as bps
 import bluesky.plans as bp
+from pcdsdevices.signal import AvgSignal
 
 
 DEFAULT_PHASE1_STEPS = (
@@ -12,9 +13,12 @@ DEFAULT_PHASE1_STEPS = (
     ("X2", "t1_th2", "dd_sum"),
     ("X3", "t4_th2", "t4_dh_sum"),
     ("X4", "t4_th1", "do_sum"),
+    ("CC1", "t2_th", "dcc_sum"),
+    ("CC2", "t3_th", "dco_sum"),
 )
 
 DEFAULT_PHASE2_STEPS = (
+    ("X1", "t1_chi1", "IP_cy"),
     ("X2", "t1_chi2", "IP_cy"),
     ("X3", "t4_chi2", "IP_cy"),
     ("X4", "t4_chi1", "IP_cy"),
@@ -34,6 +38,7 @@ def scan_fit_center(
     stop,
     steps,
     shots_per_step=1,
+    averaging_duration=2,
     move=True,
 ):
     """
@@ -41,11 +46,20 @@ def scan_fit_center(
 
     This mirrors the logic already used in the hardware GUI:
     - perform a relative list scan
-    - average repeated shots per position
+    - average shots per position
     - fit a Gaussian
     - optionally move to the fitted center
     """
-    positions = np.repeat(np.linspace(start, stop, steps), shots_per_step)
+    positions = np.linspace(start, stop, steps)
+    if shots_per_step > 1 and hasattr(detector, "get"):
+        detector = AvgSignal(
+            detector,
+            shots_per_step,
+            averaging_duration,
+            name=f"avg_{detector.name}",
+        )
+    else:
+        positions = np.repeat(positions, shots_per_step)
     data_x = []
     data_y = []
 
@@ -97,6 +111,7 @@ def scan_minimize_vertical_error(
     stop,
     steps,
     shots_per_step=1,
+    averaging_duration=2,
     move=True,
     objective="abs",
 ):
@@ -105,7 +120,7 @@ def scan_minimize_vertical_error(
 
     This mirrors the notebook's Phase 2 workflow:
     - perform a relative list scan
-    - average repeated shots per position
+    - average shots per position
     - evaluate an objective on the averaged detector values
     - optionally move to the position that minimizes the objective
 
@@ -119,7 +134,16 @@ def scan_minimize_vertical_error(
     if objective != "abs":
         raise ValueError(f"Unsupported objective {objective!r}")
 
-    positions = np.repeat(np.linspace(start, stop, steps), shots_per_step)
+    positions = np.linspace(start, stop, steps)
+    if shots_per_step > 1 and hasattr(detector, "get"):
+        detector = AvgSignal(
+            detector,
+            shots_per_step,
+            averaging_duration,
+            name=f"avg_{detector.name}",
+        )
+    else:
+        positions = np.repeat(positions, shots_per_step)
     data_x = []
     data_y = []
 
@@ -168,6 +192,7 @@ def align_phase1(
     stop,
     steps,
     shots_per_step=1,
+    averaging_duration=2,
     move=True,
     sequence=DEFAULT_PHASE1_STEPS,
 ):
@@ -185,6 +210,8 @@ def align_phase1(
         Relative scan parameters passed to each rocking-curve alignment.
     shots_per_step :
         Number of repeated shots to average at each position.
+    averaging_duration :
+        AvgSignal averaging duration at each scan point.
     move :
         If True, move each motor to the fitted center.
     sequence :
@@ -203,6 +230,7 @@ def align_phase1(
             stop=stop,
             steps=steps,
             shots_per_step=shots_per_step,
+            averaging_duration=averaging_duration,
             move=move,
         )
         results[label] = {
@@ -222,6 +250,7 @@ def align_phase2(
     stop,
     steps,
     shots_per_step=1,
+    averaging_duration=2,
     move=True,
     sequence=DEFAULT_PHASE2_STEPS,
     objective="abs",
@@ -240,6 +269,8 @@ def align_phase2(
         Relative scan parameters passed to each centroid alignment.
     shots_per_step :
         Number of repeated shots to average at each position.
+    averaging_duration :
+        AvgSignal averaging duration at each scan point.
     move :
         If True, move each motor to the position that minimizes the objective.
     sequence :
@@ -260,6 +291,7 @@ def align_phase2(
             stop=stop,
             steps=steps,
             shots_per_step=shots_per_step,
+            averaging_duration=averaging_duration,
             move=move,
             objective=objective,
         )
