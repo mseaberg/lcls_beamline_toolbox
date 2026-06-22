@@ -1497,8 +1497,23 @@ class Crystal(Mirror):
         # get initial k-vector for central ray in global coordinates
         k_i = np.copy(beam.zhat)
 
+        # get transformation from global coordinates into local beam coordinates (at exit plane)
+        beam_transform_matrix = np.tensordot(np.reshape([beam.xhat, beam.yhat, beam.zhat], (3, 3)),
+                                             np.reshape([ux, uy, uz], (3, 3)), axes=(1, 1))
+
         # find the change in the k-vector in global coordinates
-        delta_k = k_f_global - k_i
+        # delta_k = k_f_global - k_i
+
+        # print(k_f_global)
+        # calculate beam unit vectors in local beam coordinate system
+        k_f_beam = np.tensordot(beam_transform_matrix, k_f_global, axes=(1, 0))
+        # print(k_f_beam)
+        # print(uz)
+        # perturbation to local beam axis
+        delta_k = k_f_beam - np.reshape(uz, 3)
+
+        # find the change in the k-vector in global coordinates
+        # delta_k = k_f_global - k_i
 
         if not self.suppress:
             print('xhat: {}'.format(beam.xhat))
@@ -1509,17 +1524,41 @@ class Crystal(Mirror):
         # now make minor adjustment to k-vector based on central ray at exit plane
         # might want to do one axis at a time or change the order. Or could change the rotation
         # to rotate about the "unrotated" axes.
-        delta_ax = np.arcsin(delta_k[0])
-        x_sign = np.sign(np.dot(np.cross(k_i,k_f_global),beam.yhat))
-        delta_ay = -np.arcsin(delta_k[1])
-        y_sign = np.sign(-np.dot(np.cross(k_i,k_f_global),beam.xhat))
-        beam.rotate_beam(delta_ax=x_sign*np.abs(delta_ax), delta_ay=y_sign*np.abs(delta_ay))
+        # delta_ax = np.arcsin(delta_k[0])
+        # x_sign = np.sign(np.dot(np.cross(k_i,k_f_global),beam.yhat))
+        # delta_ay = -np.arcsin(delta_k[1])
+        # y_sign = np.sign(-np.dot(np.cross(k_i,k_f_global),beam.xhat))
+        # beam.rotate_beam(delta_ax=x_sign*np.abs(delta_ax), delta_ay=y_sign*np.abs(delta_ay))
+
+        try:
+            cos_ax = (k_f_beam[2] /
+                      np.sqrt(k_f_beam[0]**2+k_f_beam[2]**2))
+            delta_ax = np.arccos(cos_ax)
+        except:
+            # print('exception')
+            delta_ax = 0
+
+        try:
+            cos_ay = (k_f_beam[2] /
+                      np.sqrt(k_f_beam[1]**2+k_f_beam[2]**2))
+            delta_ay = np.arccos(cos_ay)
+        except:
+            delta_ay = 0
+
+        x_sign = np.sign(np.dot(np.cross(k_i, k_f_global), beam.yhat))
+        # delta_ay = -np.arcsin(np.sqrt(delta_k[1]**2+delta_k[2]**2))
+        # delta_ay = -np.arcsin(delta_k[1])
+        y_sign = np.sign(-np.dot(np.cross(k_i, k_f_global), beam.xhat))
+        beam.rotate_beam(delta_ax=x_sign * np.abs(delta_ax), delta_ay=y_sign * np.abs(delta_ay))
 
         # check for consistency
+        # if not self.suppress:
+        #     print('is beam in the correct direction?')
+        #     # print(np.arccos(np.dot(beam.zhat, k_f)))
+        #     print(np.arccos(np.dot(beam.zhat, k_f_global)))
         if not self.suppress:
-            print('is beam in the correct direction?')
-            # print(np.arccos(np.dot(beam.zhat, k_f)))
-            print(np.arccos(np.dot(beam.zhat, k_f_global)))
+            print('additional rotation: {}'.format(x_sign * np.abs(delta_ax)))
+
 
         # mask defining mirror acceptance
         # if self.q>=0:
@@ -1611,25 +1650,22 @@ class Crystal(Mirror):
         # calculate desired pixel size due to expected change in beam size (based on b factor), and
         # define new coordinate grids to interpolate onto at beam exit plane.
         if self.orientation == 0 or self.orientation == 2:
-            dx = beam.dx * (beam.zx + self.length / 2 * 1.1) / beam.zx / self.b
+            dx = beam.dx * np.abs(np.sin(self.beta0) / np.sin(self.alpha))
             x_out = np.linspace(-beam.M / 2 * dx, (beam.M / 2 - 1) * dx, beam.M)
             dy = beam.dy * (beam.zy + self.length * 1.1) / beam.zy
             y_out = np.linspace(-beam.N / 2 * dy, (beam.N / 2 - 1) * dy, beam.N)
         else:
             dx = beam.dx * (beam.zx + self.length / 2 * 1.1) / beam.zx
             x_out = np.linspace(-beam.M / 2 * dx, (beam.M / 2 - 1) * dx, beam.M)
-            dy = beam.dy * (beam.zy + self.length * 1.1) / beam.zy / self.b
+            dy = beam.dy * np.abs(np.sin(self.beta0) / np.sin(self.alpha))
             y_out = np.linspace(-beam.N / 2 * dy, (beam.N / 2 - 1) * dy, beam.N)
 
         # 1D masks based on mirror acceptance, going through beam center.
-        max_intensity = np.max(np.abs(beam.wave)**2)
+
         # mask2 = np.logical_and(mask,np.abs(beam.wave)**2>0.1*max_intensity)
         mask_x = mask[int(beam.N/2),:]>0
         mask_y = mask[:,int(beam.M/2)]>0
-        # introducing weights for the polynomial fits based on beam intensity
 
-        weight_x = (np.abs(beam.wave[int(beam.N/2),:])**2>0.1*max_intensity).astype(float)
-        weight_y = (np.abs(beam.wave[:,int(beam.M/2)])**2>0.1*max_intensity).astype(float)
 
         # plt.figure()
         # plt.imshow((total_distance-np.mean(total_distance[mask]))*mask)
@@ -1655,9 +1691,9 @@ class Crystal(Mirror):
             C = C2
 
         reflectivity = np.abs(C)
-
-        plt.figure()
-        plt.imshow(reflectivity)
+        if figon:
+            plt.figure()
+            plt.imshow(reflectivity)
 
         # reflectivity = xraydb.mirror_reflectivity(self.material, glancing, beam.photonEnergy, self.density)
 
@@ -1692,7 +1728,7 @@ class Crystal(Mirror):
         mask2 = mask2 > 0.5
 
         # interpolate intensity onto new exit plane grid
-        abs_out = interpolation.griddata(points, np.abs(beam.wave[mask]), (xi_0, xi_1), fill_value=0)
+        abs_out = interpolation.griddata(points, np.abs(beam.wave[mask]*C[mask]), (xi_0, xi_1), fill_value=0)
 
         # unwrap phase of beam at input
         angle_in = unwrap_phase(np.angle(beam.wave*C))
@@ -1716,20 +1752,51 @@ class Crystal(Mirror):
         diff -= np.mean(diff)
 
         p1 = np.polyfit(d_length[int(beam.N/2),:],total_distance[int(beam.N/2),:],1)
-        plt.figure()
-        plt.imshow(total_distance-np.polyval(p1,d_length))
+        if figon:
+            plt.figure()
+            plt.imshow(total_distance-np.polyval(p1,d_length))
 
         p1 = np.polyfit(d_length[int(beam.N/2),:],gratingPhase[int(beam.N/2),:],1)
 
-        plt.figure()
-        plt.imshow(gratingPhase-np.polyval(p1,d_length))
+        if figon:
+            plt.figure()
+            plt.imshow(gratingPhase-np.polyval(p1,d_length))
 
         # get polynomial fits based on new coordinates
-        p_coeff_x = np.polyfit(x_eff[int(beam.N/2),:][mask_x], total_phase[int(beam.N/2),:][mask_x], 2,
+        ### NOT CONVERGING!
+
+
+        # introducing weights for the polynomial fits based on beam intensity
+        max_intensity = np.max(np.abs(beam.wave*reflectivity) ** 2)
+        lineout_x = np.sum(np.abs(beam.wave*reflectivity)**2,axis=0)
+        lineout_y = np.sum(np.abs(beam.wave*reflectivity)**2,axis=1)
+
+        peak_x = np.argmax(lineout_x)
+        peak_y = np.argmax(lineout_y)
+
+        weight_x = (lineout_x > 0.1 * np.max(lineout_x)).astype(float)
+        weight_y = (lineout_y > 0.1 * np.max(lineout_y)).astype(float)
+
+        if figon:
+            plt.figure()
+            plt.imshow(np.abs(beam.wave*reflectivity)**2)
+
+            plt.figure()
+            # plt.plot(mask_x)
+            plt.plot(weight_x)
+
+        # plt.plot(total_phase[int(beam.N/2),:])
+        # p_coeff_x = np.polyfit(x_eff[int(beam.N/2),:][mask_x], total_phase[int(beam.N/2),:][mask_x], 2,
+        #                        w=weight_x[mask_x])
+        #
+        # p_coeff_y = np.polyfit(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y], 2,
+        #                        w=weight_y[mask_y])
+        p_coeff_x = np.polyfit(x_eff[peak_y,:][mask_x], total_phase[peak_y,:][mask_x], 2,
                                w=weight_x[mask_x])
 
-        p_coeff_y = np.polyfit(y_eff[:,int(beam.M/2)][mask_y], total_phase[:,int(beam.M/2)][mask_y], 2,
+        p_coeff_y = np.polyfit(y_eff[:,peak_x][mask_y], total_phase[:,peak_x][mask_y], 2,
                                w=weight_y[mask_y])
+
 
         # calculate effective distance to focus based on total phase
         z_2 = np.pi / beam.lambda0 / p_coeff_x[-3]
