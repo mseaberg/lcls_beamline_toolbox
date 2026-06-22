@@ -40,7 +40,7 @@ class SND:
         }
         self.b1 = beam.Beam(beam_params=self.beam_params,suppress=True)
 
-        self.pulse_delay = beam.Pulse(beam_params=self.beam_params, tau=0.3, time_window=30)
+        self.pulse_delay = beam.Pulse(beam_params=self.beam_params, tau=0.3, time_window=10)
         self.pulse_cc = beam.Pulse(beam_params=self.beam_params, tau=0.1, time_window=10)
 
         self.t1_tth = motion.RotationAxis(self.delay_branch.c1.sagittal,
@@ -143,7 +143,7 @@ class SND:
         for motor in self.motor_list:
             self.motor_dict[motor.name] = motor
 
-        self.delay_diagnostic_list = ['di','t1_dh','dd','t4_dh','do','IP']
+        self.delay_diagnostic_list = ['di','t1_dh','dd','t4_dh','do']
         self.cc_diagnostic_list = ['di','dcc','do','IP']
         self.delay_beam_stats = {}
         for diagnostic in self.delay_diagnostic_list:
@@ -168,8 +168,9 @@ class SND:
     def propagate_delay(self):
         #self.b2 = self.delay_branch.propagate_beamline(self.b1)
         self.pulse_delay.propagate(beamline=self.delay_branch,
-                                   screen_names=self.delay_diagnostic_list,cores=0)
+                                   screen_names=self.delay_diagnostic_list,cores=2)
         for diagnostic in self.delay_diagnostic_list:
+            print(diagnostic)
             self.delay_beam_stats[diagnostic] = self.pulse_delay.get_beam_stats(diagnostic)
 
     def propagate_cc(self):
@@ -704,7 +705,7 @@ class Util:
         image = 1 / (1 / 3.0 - 1 / (lens0.z - 624))
         # print(image)
 
-        IP = optics.PPM('IP', FOV=200e-6, z=lens1.z + image,suppress=True, N=1024)
+        IP = optics.PPM('IP', FOV=200e-6, z=lens1.z + image,suppress=True, N=256)
 
         device_list = [s3, di, c1slit, c1, t1_dh, c2, dd, c3, t4_dh, c4, c4slit, do, lens0, lens1, d_lens, IP]
 

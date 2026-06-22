@@ -18,6 +18,7 @@ from skimage.restoration import unwrap_phase
 import scipy.spatial.transform as transform
 import scipy.optimize as optimization
 from multiprocessing import Pool
+import time
 
 
 class Beam:
@@ -1346,7 +1347,7 @@ class Pulse:
             def apply_result(result):
                 min_i = result['min_index']
                 max_i = result['max_index']
-                print(max_i)
+                print('max index: {}'.format(max_i))
                 for screen in screen_names:
                     self.energy_stacks[screen][:,:,min_i:max_i] = result['energy_stacks'][screen]
                     self.qx[screen][min_i:max_i] = result['qx'][screen]
@@ -1357,10 +1358,11 @@ class Pulse:
                     self.ay[screen][min_i:max_i] = result['ay'][screen]
                     self.delay[screen][min_i:max_i] = result['delay'][screen]
 
-
+            start = time.time()
             p = Pool(cores)
 
             core_size = np.ceil(self.N/cores)
+            print(core_size)
             # energy_chunks = []
             # envelope_chunks = []
             # min_index = [0]
@@ -1373,11 +1375,14 @@ class Pulse:
             min_index = np.arange(0,self.N,core_size)
             max_index = np.arange(core_size,self.N+core_size,core_size)
 
-            results = [p.apply_async(propagate_energy,(min_i,max_i,energy_chunk, self.beam_params, beamline, screen_names,envelope_chunk),
+            results = [p.apply_async(propagate_energy,args=(min_i,max_i,energy_chunk, self.beam_params, beamline, screen_names,envelope_chunk),
                                      callback=apply_result)
                       for (min_i, max_i, energy_chunk, envelope_chunk) in zip(min_index, max_index, energy_chunks, envelope_chunks)]
             p.close()
             p.join()
+            end = time.time()
+
+            print('{} seconds to propagate'.format(end-start))
 
             # for num, energy in enumerate(self.energy):
             #
@@ -1390,7 +1395,7 @@ class Pulse:
             #         self.cy[screen][num] = output['cy'][screen]
             #         self.delay[screen][num] = output['delay'][screen]
         else:
-
+            start = time.time()
             # loop through beams in the pulse
             for num, energy in enumerate(self.energy):
                 # define beam for current energy
@@ -1412,28 +1417,51 @@ class Pulse:
                     self.ax[screen][num] = ax
                     self.ay[screen][num] = ay
                     self.delay[screen][num] = delay
+            end = time.time()
+            print('{} seconds to propagate'.format(end-start))
+
 
         # convert to time domain
         for screen in screen_names:
+
             # deal with quadratic phase
             # subtract mean
             qx_mean = np.mean(self.qx[screen])
             qy_mean = np.mean(self.qy[screen])
 
-            for num in range(self.N):
-                qx = self.qx[screen][num]
-                qy = self.qy[screen][num]
-                cx = self.cx[screen][num]
-                cy = self.cy[screen][num]
-                # subtract off mean quadratic phase
-                # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
-                # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
-                x_phase = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
-                x_phase -= np.pi / self.wavelength[num] * qx_mean * self.xx[screen]**2
-                y_phase = np.pi/self.wavelength[num]*(qy)*(self.yy[screen]-cy)**2
-                y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
-                self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
+            qx = self.qx[screen]
+            qy = self.qy[screen]
+            cx = self.cx[screen]
+            cy = self.cy[screen]
 
+            print(np.shape(self.xx[screen]))
+            xx = np.reshape(self.xx[screen],(*self.xx[screen].shape,1))
+            print(np.shape(xx))
+            yy = np.reshape(self.yy[screen],(*self.yy[screen].shape,1))
+            # subtract off mean quadratic phase
+            # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
+            # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
+            x_phase = np.pi / self.wavelength * (qx) * (xx - cx) ** 2
+            x_phase -= np.pi / self.wavelength * qx_mean * xx ** 2
+            y_phase = np.pi / self.wavelength * (qy) * (yy - cy) ** 2
+            y_phase -= np.pi / self.wavelength * qy_mean * yy ** 2
+            start = time.time()
+            self.energy_stacks[screen] *= np.exp(1j * (x_phase + y_phase))
+
+            # for num in range(self.N):
+            #     qx = self.qx[screen][num]
+            #     qy = self.qy[screen][num]
+            #     cx = self.cx[screen][num]
+            #     cy = self.cy[screen][num]
+            #     # subtract off mean quadratic phase
+            #     # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
+            #     # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
+            #     x_phase = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
+            #     x_phase -= np.pi / self.wavelength[num] * qx_mean * self.xx[screen]**2
+            #     y_phase = np.pi/self.wavelength[num]*(qy)*(self.yy[screen]-cy)**2
+            #     y_phase -= np.pi / self.wavelength[num] * qy_mean * self.yy[screen] ** 2
+            #     self.energy_stacks[screen][:, :, num] *= np.exp(1j*(x_phase+y_phase))
+            end = time.time()
             omega = 2*np.pi*self.f*1e15
             omega0 = 2*np.pi*self.f0*1e15
             delay = self.delay[screen]-np.mean(self.delay[screen])
@@ -1443,8 +1471,11 @@ class Pulse:
 
             self.energy_stacks[screen] *= np.exp(1j*phase)
 
+            print('{} seconds to calculate screen'.format(end - start))
+
 
             self.time_stacks[screen] = Pulse.energy_to_time(self.energy_stacks[screen])
+
 
     @staticmethod
     def energy_to_time(energy_stack):
