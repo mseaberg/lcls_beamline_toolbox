@@ -266,7 +266,7 @@ class SND:
         self.delay_beam_stats['do'] = self.combined_pulse.get_beam_stats('do')
         self.delay_beam_stats['yag5'] = self.combined_pulse.get_beam_stats('yag5')
         self.delay_beam_stats['IP'] = self.combined_pulse.get_beam_stats('IP')
-        self.combined_stats = self.delay_beam_stats | self.cc_beam_stats
+        self.combined_stats = self.cc_beam_stats | self.delay_beam_stats
         # self.delay_branch.do.add_profile(self.cc_branch.do.profile)
         # self.delay_branch.yag5.add_profile(self.cc_branch.yag5.profile)
         # self.delay_branch.IP.add_profile(self.cc_branch.IP.profile)
