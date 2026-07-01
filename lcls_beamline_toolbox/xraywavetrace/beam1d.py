@@ -1672,9 +1672,11 @@ class Pulse:
 
     def get_beam_stats(self, image_name):
         profile = np.sum(np.abs(self.time_stacks[image_name]) ** 2, axis=2)
+        spectrum = np.sum(np.abs(self.energy_stacks[image_name]) ** 2, axis=(0, 1))
         intensity = np.sum(profile)/self.N
         x_lineout = np.sum(profile, axis=0)
         y_lineout = np.sum(profile, axis=1)
+
 
 
         cx, cy, wx, wy, fwx_guess, fwy_guess = Pulse.beam_analysis(self.x[image_name], self.y[image_name],
@@ -1682,6 +1684,8 @@ class Pulse:
                                                                    threshold=0.01)
 
         beam_stats = {
+            'profile': profile,
+            'spectrum': spectrum,
             'intensity': intensity,
             'cx': cx,
             'cy': cy,
