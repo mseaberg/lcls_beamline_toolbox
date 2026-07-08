@@ -662,21 +662,21 @@ class Util:
         di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
         t1_slit = optics.Slit('t1_slit', y_width=4e-3, dy=2e-3, z=di.z + 0.15)
 
-        cc1_1 = optics.Crystal('cc1_1', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2. / 3., orientation=2, length=.02, width=.02,
+        cc1_1 = optics.Crystal('cc1_1', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2. / 3., orientation=0, length=.02, width=.02,
                                show_figures=False)
         dci = optics.PPM('dci', z=cc1_1.z - 75e-3, N=256)
         gap = 55e-3
         dz = gap * np.sin(np.pi / 2 - 2 * cc1_1.alpha) / np.sin(cc1_1.alpha)
         # print('dz: {}'.format(dz))
-        cc1_2 = optics.Crystal('cc1_2', hkl=[2, 2, 0], E0=E0, z=cc1_1.z + dz, orientation=0, length=.06, width=.02,
+        cc1_2 = optics.Crystal('cc1_2', hkl=[2, 2, 0], E0=E0, z=cc1_1.z + dz, orientation=2, length=.06, width=.02,
                                show_figures=False)
         dcc = optics.PPM('dcc', z=t1_slit.z + 1, FOV=4e-3, N=256)
         cc_shutter = optics.Slit('cc_shutter', z=dcc.z+.01, x_width=5e-3, y_width=5e-3)
 
-        cc2_2 = optics.Crystal('cc2_2', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2 - 2. / 3., orientation=2, length=.02,
+        cc2_2 = optics.Crystal('cc2_2', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2 - 2. / 3., orientation=0, length=.02,
                                width=.02)
         dz = gap * np.sin(np.pi / 2 - 2 * cc2_2.alpha) / np.sin(cc2_2.alpha)
-        cc2_1 = optics.Crystal('cc2_1', hkl=[2, 2, 0], E0=E0, z=cc2_2.z - dz, orientation=0, length=.06, width=.02,
+        cc2_1 = optics.Crystal('cc2_1', hkl=[2, 2, 0], E0=E0, z=cc2_2.z - dz, orientation=2, length=.06, width=.02,
                                show_figures=False)
         dco = optics.PPM('dco', z=cc2_2.z + 75e-3, FOV=4e-3, N=256)
         t4_slit = optics.Slit('t4_slit', y_width=4e-3, dy=2e-3, z=t1_slit.z + 2)
@@ -766,7 +766,7 @@ class Util:
         s4 = optics.Slit('s4', z=990, x_width=0.5e-3, y_width=0.5e-3)
         di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
         t1_slit = optics.Slit('t1_slit', y_width=4e-3, dy=-2e-3, z=di.z + 0.15 - 1e-6)
-        c1 = optics.Crystal('c1', hkl=[2, 2, 0], E0=E0, z=di.z + 0.15, orientation=0, width=5e-3, dy=-2.5e-3,
+        c1 = optics.Crystal('c1', hkl=[2, 2, 0], E0=E0, z=di.z + 0.15, orientation=2, width=5e-3, dy=-2.5e-3,
                             length=.02)
 
         # dummy = optics.Crystal('dummy', hkl=[2, 2, 0], E0=6500)
@@ -780,7 +780,7 @@ class Util:
         dz = (L0 + delay_L) * np.cos(2 * c1.alpha)
         dz2 = (L0 + delay_L - 30e-3) * np.cos(2 * c1.alpha)
         # print('dz: {}'.format(dz))
-        c2 = optics.Crystal('c2', hkl=[2, 2, 0], E0=E0, z=c1.z + dz, orientation=2, length=.02, width=.02,
+        c2 = optics.Crystal('c2', hkl=[2, 2, 0], E0=E0, z=c1.z + dz, orientation=0, length=.02, width=.02,
                             show_figures=False)
 
         t1_dh = optics.PPM('t1_dh', z=c1.z + dz2, FOV=4e-3, N=256)
@@ -788,8 +788,8 @@ class Util:
         #     c2 = optics.Crystal('c2',hkl=[2,2,0],E0=E0,z=c1.z+dz,orientation=2,length=.02,width=.02)
         dd = optics.PPM('dd', z=c1.z + 1, FOV=4e-3, N=256)
         delay_shutter = optics.Slit('delay_shutter', z=dd.z + .01, x_width=5e-3, y_width=5e-3)
-        c4 = optics.Crystal('c4', hkl=[2, 2, 0], E0=E0, z=c1.z + 2, orientation=0, length=.02, width=.02)
-        c3 = optics.Crystal('c3', hkl=[2, 2, 0], E0=E0, z=c4.z - dz, orientation=2, length=.02, width=.02)
+        c4 = optics.Crystal('c4', hkl=[2, 2, 0], E0=E0, z=c1.z + 2, orientation=2, length=.02, width=.02)
+        c3 = optics.Crystal('c3', hkl=[2, 2, 0], E0=E0, z=c4.z - dz, orientation=0, length=.02, width=.02)
         t4_dh = optics.PPM('t4_dh', z=c4.z - dz2, FOV=4e-3, N=256)
 
         t4_slit = optics.Slit('t4_slit', y_width=4e-3, dy=-2e-3, z=c4.z + 1e-6)
