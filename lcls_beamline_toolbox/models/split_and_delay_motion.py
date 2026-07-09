@@ -115,17 +115,18 @@ class SND:
                                     self.t1_chi1,self.t1_chi2,self.t4_L]
         self.t1_L.coupled_axes = [self.t1_th2,self.t1_chi2,self.t1_y2]
         self.t4_L.coupled_axes = [self.t4_th2,self.t4_chi2,self.t4_y2]
-
         self.t2_th = motion.RotationAxis(self.cc_branch.cc1_1.sagittal,
-                                         [self.cc_branch.cc1_1,self.cc_branch.cc1_2],
+                                         [self.cc_branch.cc1_1, self.cc_branch.cc1_2],
                                          rotation_center=self.cc_branch.cc1_1.get_pos(),
+                                         initial_position=self.cc_branch.cc1_1.bragg,
                                          name='t2_th')
-        self.t2_x = motion.TranslationAxis(np.array([1,0,0]),
-                                           [self.cc_branch.cc1_1,self.cc_branch.cc1_2],
+        self.t2_x = motion.TranslationAxis(np.array([1, 0, 0]),
+                                           [self.cc_branch.cc1_1, self.cc_branch.cc1_2],
                                            name='t2_x')
         self.t3_th = motion.RotationAxis(-self.cc_branch.cc2_2.sagittal,
-                                         [self.cc_branch.cc2_1,self.cc_branch.cc2_2],
+                                         [self.cc_branch.cc2_1, self.cc_branch.cc2_2],
                                          rotation_center=self.cc_branch.cc2_2.get_pos(),
+                                         initial_position=self.cc_branch.cc2_2.bragg,
                                          name='t3_th')
         self.t3_x = motion.TranslationAxis(np.array([1,0,0]),
                                            [self.cc_branch.cc2_1,self.cc_branch.cc2_2],

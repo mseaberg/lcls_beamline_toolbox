@@ -129,6 +129,7 @@ class SND:
         self.t2_th = motion.RotationAxis(self.cc_branch.cc1_1.sagittal,
                                          [self.cc_branch.cc1_1, self.cc_branch.cc1_2],
                                          rotation_center=self.cc_branch.cc1_1.get_pos(),
+                                         initial_position=self.cc_branch.cc1_1.bragg,
                                          name='t2_th')
         self.t2_x = motion.TranslationAxis(np.array([1, 0, 0]),
                                            [self.cc_branch.cc1_1, self.cc_branch.cc1_2],
@@ -136,6 +137,7 @@ class SND:
         self.t3_th = motion.RotationAxis(-self.cc_branch.cc2_2.sagittal,
                                          [self.cc_branch.cc2_1, self.cc_branch.cc2_2],
                                          rotation_center=self.cc_branch.cc2_2.get_pos(),
+                                         initial_position=self.cc_branch.cc2_2.bragg,
                                          name='t3_th')
         self.t3_x = motion.TranslationAxis(np.array([1, 0, 0]),
                                            [self.cc_branch.cc2_1, self.cc_branch.cc2_2],
