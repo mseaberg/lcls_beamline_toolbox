@@ -576,11 +576,11 @@ class SND:
         # profile from cc branch may be added
         return self.delay_branch.do.profile.sum()
 
-    def get_dcc_sum(self):
-        return self.cc_branch.dcc.profile.sum()
-
     def get_dci_sum(self):
         return self.cc_branch.dci.profile.sum()
+
+    def get_dcc_sum(self):
+        return self.cc_branch.dcc.profile.sum()
 
     def get_dco_sum(self):
         return self.cc_branch.dco.profile.sum()
