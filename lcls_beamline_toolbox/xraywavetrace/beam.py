@@ -1012,8 +1012,8 @@ class Pulse:
     Class to represent a collection of beams within a pulse structure.
     """
 
-    def __init__(self, beam_params=None, tau=None, time_window=None, unit_spectrum=False, spectral_width=0, N=0,
-                 GDD=0, genesis_output=None, suppress=True):
+    def __init__(self, beam_params=None, tau=None, time_window=None, SASE=False, num_spikes=3, unit_spectrum=False,
+                 spectral_width=0, N=0, GDD=0, genesis_output=None, suppress=True):
         """
         Create a Pulse object
         :param beam_params: same parameters as given for Beam
@@ -1023,7 +1023,10 @@ class Pulse:
             full width of time window in fs (related to energy sampling)
         """
         # set some attributes
+        self.beam_params = copy.deepcopy(beam_params)
+        self.num_spikes = num_spikes
         self.suppress = suppress
+        self.spectral_width = spectral_width
         self.beam_params = beam_params
         self.tau = tau
         self.time_window = time_window
@@ -1049,6 +1052,10 @@ class Pulse:
             self.energy = np.linspace(-E_range/2, E_range/2, self.N) + self.E0
             self.envelope = np.ones(self.N)
             self.pulse = np.fft.fftshift(np.fft.fft(np.fft.fftshift(self.envelope)))
+
+            # frequencies
+            self.f = self.energy / 4.136
+            self.f0 = self.E0 / 4.136
 
         # allow for genesis output as a Pulse input
         elif genesis_output is not None:
@@ -1203,7 +1210,7 @@ class Pulse:
         return dat
 
     @staticmethod
-    def beam_analysis(x, y, line_x, line_y, threshold=0.1):
+    def beam_analysis(x, y, line_x, line_y, threshold=0.1, suppress=True):
         """
         Method for analyzing image of the beam.
         :param line_x: (N,) ndarray
@@ -1293,11 +1300,11 @@ class Pulse:
             sx = px[1]
         except ValueError:
             fit_validity = 0
-            if not self.suppress:
+            if not suppress:
                 print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
             fit_validity = 0
-            if not self.suppress:
+            if not suppress:
                 print('Least squares minimization failed. Using second moment for width.')
 
         try:
@@ -1309,11 +1316,11 @@ class Pulse:
             sy = py[1]
         except ValueError:
             fit_validity = 0
-            if not self.suppress:
+            if not suppress:
                 print('Some of the data contained NaNs or options were incompatible. Using second moment for width.')
         except RuntimeError:
             fit_validity = 0
-            if not self.suppress:
+            if not suppress:
                 print('Least squares minimization failed. Using second moment for width.')
 
         # conversion factor from sigma to FWHM. Also convert back to meters.
@@ -1453,7 +1460,7 @@ class Pulse:
             omega = 2 * np.pi * self.f * 1e15
             omega0 = 2 * np.pi * self.f0 * 1e15
             delay = self.delay[screen] - np.mean(self.delay[screen])
-            p_delay = np.polyfit(omega - omega0, delay, 4)
+            p_delay = np.polyfit(omega - omega0, delay, min(self.N-1,4))
             p_phase = np.polyint(p_delay)
             phase = np.polyval(p_phase, omega - omega0)
 
@@ -1498,7 +1505,8 @@ class Pulse:
         beam_params = self.beam_params
         tau = self.tau
         time_window = self.time_window
-        new_pulse = Pulse(beam_params=beam_params, tau=tau, time_window=time_window)
+        # new_pulse = Pulse(beam_params=beam_params, tau=tau, time_window=time_window)
+        new_pulse = copy.deepcopy(self)
 
         time_stacks = {}
         energy_stacks = {}
@@ -1518,54 +1526,66 @@ class Pulse:
         for screen in self.screens:
             # deal with quadratic phase
             # subtract mean
-            qx_mean1 = np.mean(self.qx[screen])
-            qx_mean2 = np.mean(another_pulse.qx[screen])
-            qy_mean1 = np.mean(self.qy[screen])
-            qy_mean2 = np.mean(another_pulse.qy[screen])
 
-            qx_mean = (np.mean(self.qx[screen]) + np.mean(another_pulse.qx[screen]))/2
-            qy_mean = (np.mean(self.qy[screen]) + np.mean(another_pulse.qy[screen]))/2
+            if screen in another_pulse.screens:
+                qx_mean1 = np.mean(self.qx[screen])
+                qx_mean2 = np.mean(another_pulse.qx[screen])
+                qy_mean1 = np.mean(self.qy[screen])
+                qy_mean2 = np.mean(another_pulse.qy[screen])
 
-            energy_stacks[screen] = np.zeros_like(self.energy_stacks[screen],dtype=complex)
-            x[screen] = self.x[screen]
-            y[screen] = self.y[screen]
+                qx_mean = (np.mean(self.qx[screen]) + np.mean(another_pulse.qx[screen]))/2
+                qy_mean = (np.mean(self.qy[screen]) + np.mean(another_pulse.qy[screen]))/2
 
-            new_pulse.qx[screen] = np.zeros(self.N)
-            new_pulse.qy[screen] = np.zeros(self.N)
+                energy_stacks[screen] = np.zeros_like(self.energy_stacks[screen],dtype=complex)
+                x[screen] = self.x[screen]
+                y[screen] = self.y[screen]
 
-            for num in range(self.N):
-                qx = self.qx[screen][num]
-                qy = self.qy[screen][num]
-                # cx = self.cx[screen][num]
-                # cy = self.cy[screen][num]
-                # subtract off mean quadratic phase
-                # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
-                # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
-                # x_phase1 = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
-                x_phase1 = np.pi / self.wavelength[num] * (qx_mean - qx_mean1) * self.xx[screen] ** 2
-                # y_phase1 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
-                y_phase1 = np.pi / self.wavelength[num] * (qy_mean - qy_mean1) * self.yy[screen] ** 2
+                new_pulse.qx[screen] = np.zeros(self.N)
+                new_pulse.qy[screen] = np.zeros(self.N)
 
-                qx = another_pulse.qx[screen][num]
-                qy = another_pulse.qy[screen][num]
-                # cx = another_pulse.cx[screen][num]
-                # cy = another_pulse.cy[screen][num]
-                # subtract off mean quadratic phase
-                # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
-                # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
-                # x_phase2 = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
-                x_phase2 = np.pi / self.wavelength[num] * (qx_mean - qx_mean2) * self.xx[screen] ** 2
-                # y_phase2 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
-                y_phase2 = np.pi / self.wavelength[num] * (qy_mean - qy_mean2) * self.yy[screen] ** 2
-                energy_stacks[screen][:, :, num] = (self.energy_stacks[screen][:,:,num] *
-                                                    np.exp(1j * (x_phase1 + y_phase1))*energy_phase[num] +
-                                                    another_pulse.energy_stacks[screen][:,:,num] *
-                                                    np.exp(1j*(x_phase2 + y_phase2)))
+                for num in range(self.N):
+                    qx = self.qx[screen][num]
+                    qy = self.qy[screen][num]
+                    # cx = self.cx[screen][num]
+                    # cy = self.cy[screen][num]
+                    # subtract off mean quadratic phase
+                    # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
+                    # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
+                    # x_phase1 = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
+                    x_phase1 = np.pi / self.wavelength[num] * (qx_mean - qx_mean1) * self.xx[screen] ** 2
+                    # y_phase1 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
+                    y_phase1 = np.pi / self.wavelength[num] * (qy_mean - qy_mean1) * self.yy[screen] ** 2
 
-                new_pulse.qx[screen][num] = (self.qx[screen][num] + another_pulse.qx[screen][num])/2
-                new_pulse.qy[screen][num] = (self.qy[screen][num] + another_pulse.qy[screen][num])/2
+                    qx = another_pulse.qx[screen][num]
+                    qy = another_pulse.qy[screen][num]
+                    # cx = another_pulse.cx[screen][num]
+                    # cy = another_pulse.cy[screen][num]
+                    # subtract off mean quadratic phase
+                    # x_phase = np.pi/self.wavelength[num]*(qx - qx_mean)*(self.xx[screen]-cx)**2
+                    # y_phase = np.pi/self.wavelength[num]*(qy - qy_mean)*(self.yy[screen]-cy)**2
+                    # x_phase2 = np.pi / self.wavelength[num] * (qx) * (self.xx[screen] - cx) ** 2
+                    x_phase2 = np.pi / self.wavelength[num] * (qx_mean - qx_mean2) * self.xx[screen] ** 2
+                    # y_phase2 = np.pi / self.wavelength[num] * (qy) * (self.yy[screen] - cy) ** 2
+                    y_phase2 = np.pi / self.wavelength[num] * (qy_mean - qy_mean2) * self.yy[screen] ** 2
+                    energy_stacks[screen][:, :, num] = (self.energy_stacks[screen][:,:,num] *
+                                                        np.exp(1j * (x_phase1 + y_phase1))*energy_phase[num] +
+                                                        another_pulse.energy_stacks[screen][:,:,num] *
+                                                        np.exp(1j*(x_phase2 + y_phase2)))
 
-            time_stacks[screen] = Pulse.energy_to_time(energy_stacks[screen])
+                    new_pulse.qx[screen][num] = (self.qx[screen][num] + another_pulse.qx[screen][num])/2
+                    new_pulse.qy[screen][num] = (self.qy[screen][num] + another_pulse.qy[screen][num])/2
+
+                time_stacks[screen] = Pulse.energy_to_time(energy_stacks[screen])
+            else:
+                x[screen] = self.x[screen]
+                y[screen] = self.y[screen]
+
+                new_pulse.qx[screen] = np.copy(self.qx[screen])
+                new_pulse.qy[screen] = np.copy(self.qy[screen])
+
+                energy_stacks[screen] = np.copy(self.energy_stacks[screen])
+
+                time_stacks[screen] = np.copy(self.time_stacks[screen])
 
         new_pulse.time_stacks = time_stacks
         new_pulse.energy_stacks = energy_stacks
@@ -1573,6 +1593,25 @@ class Pulse:
         new_pulse.y = y
 
         return new_pulse
+
+    def get_beam_stats(self, image_name):
+        profile = np.sum(np.abs(self.time_stacks[image_name]) ** 2, axis=2)
+        intensity = np.sum(profile)/self.N
+        x_lineout = np.sum(profile, axis=0)
+        y_lineout = np.sum(profile, axis=1)
+
+        cx, cy, wx, wy, fwx_guess, fwy_guess = Pulse.beam_analysis(self.x[image_name], self.y[image_name],
+                                                                   x_lineout, y_lineout, suppress=self.suppress,
+                                                                   threshold=0.01)
+
+        beam_stats = {
+            'intensity': intensity,
+            'cx': cx,
+            'cy': cy,
+            'wx': wx,
+            'wy': wy
+        }
+        return beam_stats
 
     def imshow_projection(self, image_name):
         """

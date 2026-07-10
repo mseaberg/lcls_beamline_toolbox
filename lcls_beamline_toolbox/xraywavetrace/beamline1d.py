@@ -609,8 +609,8 @@ class Beamline:
             # print('ay: %.2f microrad' % (beam.ay*1e6))
             # print('cy: %.2f microns' % (beam.cy*1e6))
 
-            if not success:
-                break
+            # if not success:
+            #     break
 
         # return the output of the beamline
         return beam

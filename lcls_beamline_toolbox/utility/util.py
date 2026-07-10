@@ -284,7 +284,7 @@ class Util:
         """
         # xp = cp.get_array_module(a)
 
-        return xp.fft.fftshift(xp.fft.fft2(xp.fft.ifftshift(a)))
+        return sp.fft.fftshift(sp.fft.fft2(sp.fft.ifftshift(a),workers=-1))
 
     @staticmethod
     def nfft1(a):
@@ -310,7 +310,7 @@ class Util:
         """
         # xp = cp.get_array_module(a)
 
-        return xp.fft.fftshift(xp.fft.ifft2(xp.fft.ifftshift(a)))
+        return sp.fft.fftshift(sp.fft.ifft2(sp.fft.ifftshift(a),workers=-1))
 
     @staticmethod
     def infft1(a):

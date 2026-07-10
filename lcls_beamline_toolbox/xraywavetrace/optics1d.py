@@ -195,6 +195,9 @@ class Mirror:
 
         return intersect_global
 
+    def reset(self):
+        pass
+
     def get_pos(self):
         pos_vec = np.zeros((3))
         pos_vec[0] = self.global_x
@@ -5882,7 +5885,7 @@ class Crystal(Mirror):
         # beam.focused_x = True
         # p_coeff = np.polyfit(x_out[mask2], angle_out[mask2], 2)
         # The threshold in the following line is a sensitive parameter...!!
-        mask2 = abs_out>.3*np.max(abs_out)
+        mask2 = abs_out>.1*np.max(abs_out)
         if not self.suppress:
             print('mask sum: {}'.format(np.sum(mask2)))
             print('abs sum: {}'.format(np.sum(abs_out)))
@@ -6726,6 +6729,9 @@ class Collimator:
         print('not implemented in 1D')
         return False
 
+    def reset(self):
+        pass
+
     def get_pos(self):
         pos_vec = np.zeros((3))
         pos_vec[0] = self.global_x
@@ -6803,6 +6809,7 @@ class Slit:
         self.x_intersect = 0.0
         self.y_intersect = 0.0
         self.z_intersect = 0.0
+        self.open = True
 
     def multiply(self, beam):
         """
@@ -6825,10 +6832,23 @@ class Slit:
         aperture_y = (np.abs(beam.y + y_shift - self.dy) < self.y_width / 2).astype(float)
 
         # multiply beam by aperture
-        beam.wavex *= aperture_x
-        beam.wavey *= aperture_y
+        if self.open > 0:
+            beam.wavex *= aperture_x
+            beam.wavey *= aperture_y
+        else:
+            beam.wavex *= 0
+            beam.wavey *= 0
 
         return True
+
+    def close(self):
+        self.open = False
+
+    def reset(self):
+        pass
+
+    def open(self):
+        self.open = True
 
     def propagate(self, beam):
         """
@@ -8241,6 +8261,9 @@ class TransmissionGrating:
         # assume nominal incidence angle is 0 (measured from normal)
         self.alpha = 0.0
 
+    def reset(self):
+        pass
+
     def propagate(self, beam):
         """
         Method to propagate beam through grating. Calls multiply.
@@ -8427,7 +8450,8 @@ class CRL:
             delta = np.interp(self.E0, self.energy, self.delta)
             self.f = self.roc/2/delta
 
-
+    def reset(self):
+        pass
 
     def multiply(self, beam):
         """
@@ -8620,6 +8644,9 @@ class Prism:
         self.delta = cxro_data[:, 1]
         self.beta = cxro_data[:, 2]
 
+    def reset(self):
+        pass
+
     def multiply(self, beam):
 
         # interpolate to find index of refraction at beam's energy
@@ -8750,6 +8777,9 @@ class WFS:
         self.yhat = None
         self.zhat = None
         self.suppress = suppress
+
+    def reset(self):
+        pass
 
     def plan_pitch(self, ppm_object, E0, f0=100, use_pitch=True):
         """
@@ -8981,6 +9011,9 @@ class PhasePlate:
         self.yhat = None
         self.zhat = None
         self.suppress = suppress
+
+    def reset(self):
+        pass
 
     def multiply(self, beam):
         """
