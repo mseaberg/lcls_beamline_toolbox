@@ -620,6 +620,12 @@ class SND:
     def get_dcc_sum(self):
         return self.cc_beam_stats['dcc']['intensity']
 
+    def get_dci_sum(self):
+        return self.cc_beam_stats['dci']['intensity']
+
+    def get_dco_sum(self):
+        return self.cc_beam_stats['dco']['intensity']
+
     def get_t4_dh_sum(self):
         #return self.delay_branch.t4_dh.profile.sum()
         return self.delay_beam_stats['t4_dh']['intensity']
