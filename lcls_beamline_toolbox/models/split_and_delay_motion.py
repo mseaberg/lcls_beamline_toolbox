@@ -481,6 +481,15 @@ class SND:
     def get_do_sum(self):
         return self.delay_branch.do.profile.sum()
 
+    def get_dci_sum(self):
+        return self.cc_branch.dci.profile.sum()
+
+    def get_dcc_sum(self):
+        return self.cc_branch.dcc.profile.sum()
+
+    def get_dco_sum(self):
+        return self.cc_branch.dco.profile.sum()
+
     def get_IP_sum(self):
         return self.delay_branch.IP.profile.sum()
 
