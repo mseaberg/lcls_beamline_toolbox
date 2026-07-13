@@ -141,7 +141,7 @@ def capture_positions(snd, motor_attrs):
     return {motor_attr: getattr(snd, motor_attr).wm() for motor_attr in motor_attrs}
 
 
-def make_run_engine(with_bec=True):
+def make_run_engine(with_bec=False):
     RE = RunEngine({})
     if with_bec:
         RE.subscribe(BestEffortCallback())
