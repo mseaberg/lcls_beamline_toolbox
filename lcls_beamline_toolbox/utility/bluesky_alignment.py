@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.optimize import curve_fit
+import time
 
 import bluesky.plan_stubs as bps
 import bluesky.plans as bp
@@ -9,11 +10,11 @@ from pcdsdevices.signal import AvgSignal
 
 
 DEFAULT_PHASE1_STEPS = (
-    ("X1", "t1_th1", "t1_dh_sum", "di_sum"),
+    ("X1", "t1_th1", "t1_dh_sum", "ipm4_sum"),
     ("X2", "t1_th2", "dd_sum", "t1_dh_sum"),
     ("X3", "t4_th2", "t4_dh_sum", "dd_sum"),
     ("X4", "t4_th1", "do_sum", "t4_dh_sum"),
-    ("CC1", "t2_th", "dcc_sum", "di_sum"),
+    ("CC1", "t2_th", "dcc_sum", "ipm4_sum"),
     ("CC2", "t3_th", "do_sum", "dcc_sum"),
 )
 
@@ -87,6 +88,11 @@ def scan_fit_center(
     data_x = np.array(data_x)
     data_y = np.array(data_y)
     data_norm = np.array(data_norm)
+    # filter out shots that are below 10% of the maximum based on normalization diode.
+    mask = data_norm>np.max(data_norm)*.1
+    data_x = data_x[mask]
+    data_y = data_y[mask]
+    data_norm = data_norm[mask]
     y_avg = data_y/data_norm
     centroid = np.sum(y_avg*data_x)/np.sum(y_avg)
     sigma = np.sqrt(np.sum(y_avg * (data_x - centroid)**2) / np.sum(y_avg))
@@ -106,7 +112,7 @@ def scan_fit_center(
             ]
 
 
-    popt, _ = curve_fit(gaussian, x_unique, y_avg, p0=initial_guess)
+    popt, _ = curve_fit(gaussian, x_unique, y_avg,sigma=np.abs(1/data_norm), p0=initial_guess)
 
     center, sigma, amplitude, yoffset = popt
 
@@ -267,6 +273,8 @@ def align_phase1(
             "detector": detector_attr,
             **result,
         }
+        backend.cc_shutter.set(5)
+        backend.delay_shutter.set(5)
 
     return results
 

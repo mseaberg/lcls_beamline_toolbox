@@ -26,10 +26,10 @@ import numpy as np
 import pandas as pd
 
 PHASE1_OFFSETS = {
-    "t1_th1": 40e-6*0,
-    "t1_th2": -45e-6*0,
-    "t4_th2": 35e-6*0,
-    "t4_th1": -55e-6*0,
+    "t1_th1": 40e-6,
+    "t1_th2": -45e-6,
+    "t4_th2": 35e-6,
+    "t4_th1": -55e-6,
 }
 
 PHASE2_OFFSETS = {
@@ -56,6 +56,7 @@ d14 = EpicsSignalRO("XCS:SND:DIO:AMPL_14", name="diode 14")
 d14_lume = EpicsSignalRO("XCS:USER:SND:DO_SUM_LUME", name='do')
 d13 = EpicsSignalRO("XCS:SND:DIO:AMPL_13", name="diode 13")
 d13_lume = EpicsSignalRO("XCS:USER:SND:DCI_SUM_LUME",name='dci')
+ipm4 = EpicsSignalRO("XCS:SB1:BMMON:SUM",name='ipm4')
 
 snd_system = SplitAndDelay('XCS:SND', name='snd')
 time.sleep(1)
@@ -102,6 +103,8 @@ MODEL_BACKEND = SimpleNamespace(
     delay_shutter=delay_shutter
 )
 
+shots = 60
+duration = .5
 
 HARDWARE_BACKEND = SimpleNamespace(
     t1_th1=t1th1,
@@ -123,7 +126,8 @@ HARDWARE_BACKEND = SimpleNamespace(
     t4_chi2=t4chi2,
     t4_chi1=t4chi1,
     cc_shutter=cc_shutter,
-    delay_shutter=delay_shutter
+    delay_shutter=delay_shutter,
+    ipm4_sum=ipm4
 )
 
 
@@ -170,7 +174,7 @@ def phase1_summary_df(sequence, initial_positions, final_snd, truth_snd, results
 
 #snd_truth = SND(9500)
 #snd = SND(9500)
-snd = MODEL_BACKEND 
+snd = HARDWARE_BACKEND 
 #apply_offsets(snd, ALL_OFFSETS)
 #
 #snd_ophyd = SndOphyd(snd)
@@ -194,9 +198,9 @@ for _, detector_attr, getter_name in [
 phase1_results = align_phase1(
     RE,
     snd,
-    start=-50e-6*180/np.pi,
-    stop=50e-6*180/np.pi,
-    steps=21,
+    start=-100e-6*180/np.pi,
+    stop=100e-6*180/np.pi,
+    steps=81,
     shots_per_step=1,
 )
 #
