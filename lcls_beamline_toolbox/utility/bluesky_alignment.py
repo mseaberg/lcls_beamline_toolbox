@@ -9,19 +9,19 @@ from pcdsdevices.signal import AvgSignal
 
 
 DEFAULT_PHASE1_STEPS = (
-    ("X1", "t1_th1", "t1_dh_sum"),
-    ("X2", "t1_th2", "dd_sum"),
-    ("X3", "t4_th2", "t4_dh_sum"),
-    ("X4", "t4_th1", "do_sum"),
-    ("CC1", "t2_th", "dcc_sum"),
-    ("CC2", "t3_th", "dco_sum"),
+    ("X1", "t1_th1", "t1_dh_sum", "di_sum"),
+    ("X2", "t1_th2", "dd_sum", "t1_dh_sum"),
+    ("X3", "t4_th2", "t4_dh_sum", "dd_sum"),
+    ("X4", "t4_th1", "do_sum", "t4_dh_sum"),
+    ("CC1", "t2_th", "dcc_sum", "di_sum"),
+    ("CC2", "t3_th", "do_sum", "dcc_sum"),
 )
 
 DEFAULT_PHASE2_STEPS = (
-    ("X1", "t1_chi1", "IP_cy"),
-    ("X2", "t1_chi2", "IP_cy"),
-    ("X3", "t4_chi2", "IP_cy"),
+    #("X1", "t1_chi1", "dd_cy"),
+    #("X2", "t1_chi2", "do_cy"),
     ("X4", "t4_chi1", "IP_cy"),
+    ("X1", "t4_th1", "IP_cx"),
 )
 
 
@@ -33,6 +33,7 @@ def scan_fit_center(
     RE,
     motor,
     detector,
+    norm_detector,
     *,
     start,
     stop,
@@ -62,29 +63,49 @@ def scan_fit_center(
         positions = np.repeat(positions, shots_per_step)
     data_x = []
     data_y = []
+    data_norm = []
 
     def collect(name, doc):
         if name == "event":
             data_x.append(doc["data"][motor.name])
             data_y.append(doc["data"][detector.name])
+            data_norm.append(doc["data"][norm_detector.name])
+            
 
     token = RE.subscribe(collect)
-    RE(bp.rel_list_scan([detector], motor, positions))
+    time.sleep(0.1)
+    RE(bp.rel_list_scan([detector,norm_detector], motor, positions))
     RE.unsubscribe(token)
 
-    xy = {}
-    for x, y in zip(data_x, data_y):
-        xy.setdefault(x, []).append(y)
+    #xy = {}
+    #for x, y in zip(data_x, data_y):
+    #    xy.setdefault(x, []).append(y)
 
-    x_unique = np.array(sorted(xy.keys()))
-    y_avg = np.array([np.mean(xy[x]) for x in x_unique])
-
+    #x_unique = np.array(sorted(xy.keys()))
+    #y_avg = np.array([np.mean(xy[x]) for x in x_unique])
+    
+    data_x = np.array(data_x)
+    data_y = np.array(data_y)
+    data_norm = np.array(data_norm)
+    y_avg = data_y/data_norm
+    centroid = np.sum(y_avg*data_x)/np.sum(y_avg)
+    sigma = np.sqrt(np.sum(y_avg * (data_x - centroid)**2) / np.sum(y_avg))
+    
+    x_unique = data_x
+    #initial_guess = [
+    #    np.mean(x_unique),
+    #    np.std(x_unique),
+    #    np.max(y_avg),
+    #    np.min(y_avg),
+    #]
     initial_guess = [
-        np.mean(x_unique),
-        np.std(x_unique),
-        np.max(y_avg),
-        np.min(y_avg),
-    ]
+            centroid,
+            sigma,
+            np.max(y_avg),
+            np.min(y_avg),
+            ]
+
+
     popt, _ = curve_fit(gaussian, x_unique, y_avg, p0=initial_guess)
 
     center, sigma, amplitude, yoffset = popt
@@ -219,13 +240,21 @@ def align_phase1(
     """
     results = {}
 
-    for label, motor_attr, detector_attr in sequence:
+    for label, motor_attr, detector_attr, norm_attr in sequence:
+        if 'CC' in label:
+            backend.cc_shutter.set(5)
+            backend.delay_shutter.set(0)
+        else:
+            backend.cc_shutter.set(0)
+            backend.delay_shutter.set(5)
         motor = getattr(backend, motor_attr)
         detector = getattr(backend, detector_attr)
+        norm_detector = getattr(backend, norm_attr)
         result = scan_fit_center(
             RE,
             motor,
             detector,
+            norm_detector,
             start=start,
             stop=stop,
             steps=steps,
