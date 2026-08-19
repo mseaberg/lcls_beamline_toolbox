@@ -7456,6 +7456,14 @@ class PPM:
         self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x-x_shift)
         self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y-y_shift)
 
+        if self.blur:
+            # calculate blur widths in pixels, based on beam's pixel size
+            x_width = self.resolution / beam.dx
+            y_width = self.resolution / beam.dy
+            # apply blurring using ndimage gaussian_filter
+            self.x_phase = ndimage.filters.gaussian_filter1d(self.x_phase, x_width)
+            self.y_phase = ndimage.filters.gaussian_filter1d(self.y_phase, y_width)
+
         # self.x_phase += 2 * np.pi / beam.lambda0 * beam.ax * (self.x)
         # self.y_phase += 2 * np.pi / beam.lambda0 * beam.ay * (self.y)
 

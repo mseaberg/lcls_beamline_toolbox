@@ -249,14 +249,14 @@ class SND:
         # propagate both branches
         self.propagate_delay()
         self.propagate_cc()
-        # combine imager and diode information
-        self.delay_branch.do.add_profile(self.cc_branch.do.profile)
-        self.delay_branch.yag5.add_profile(self.cc_branch.yag5.profile)
-        self.delay_branch.IP.add_profile(self.cc_branch.IP.profile)
         output = self.get_autocorr()
         self.autocorr_cx = output['cx']
         self.autocorr_cy = output['cy']
         self.set_autocorr_amp(output['intensity'], output['uncertainty'])
+        # combine imager and diode information
+        self.delay_branch.do.add_profile(self.cc_branch.do.profile)
+        self.delay_branch.yag5.add_profile(self.cc_branch.yag5.profile)
+        self.delay_branch.IP.add_profile(self.cc_branch.IP.profile)
 
     @property
     def autocorr_cx(self):
@@ -706,8 +706,35 @@ class SND:
         return r
 
     def get_autocorr(self):
-        c1 = self.cc_branch.IP.complex_beam()[0]
-        c2 = self.delay_branch.IP.complex_beam()[0]
+        c1, delay, ax1, ay1, zx1, zy1, cx1, cy1 = self.cc_branch.IP.complex_beam()
+        c2, delay, ax2, ay2, zx2, zy2, cx2, cy2 = self.delay_branch.IP.complex_beam()
+        qx1 = 0
+        qy1 = 0
+        qx2 = 0
+        qy2 = 0
+        if zx1 != 0:
+            qx1 = 1/zx1
+        if zy1 != 0:
+            qy1 = 1/zy1
+        if zx2 != 0:
+            qx2 = 1/zx2
+        if zy2 != 0:
+            qy2 = 1/zy2
+
+        x_phase1 = np.pi / self.b1.lambda0 * (qx1) * (self.cc_branch.IP.xx - cx1) ** 2
+        y_phase1 = np.pi / self.b1.lambda0 * (qy1) * (self.cc_branch.IP.yy - cy1) ** 2
+        x_phase2 = np.pi / self.b1.lambda0 * (qx2) * (self.delay_branch.IP.xx - cx2) ** 2
+        y_phase2 = np.pi / self.b1.lambda0 * (qy2) * (self.delay_branch.IP.yy - cy2) ** 2
+
+        c1 *= np.exp(1j * (x_phase1 + y_phase1))
+        c2 *= np.exp(1j * (x_phase2 + y_phase2))
+
+        # plt.figure()
+        # plt.imshow(np.angle(c1))
+        # plt.figure()
+        # plt.imshow(np.angle(c2))
+
+
         f0 = util.Util.nfft(c1 * np.exp(1j * self.static_sample))
         f1 = util.Util.nfft(c2 * np.exp(1j * self.static_sample))
 
@@ -750,6 +777,8 @@ class SND:
         #            1, 15, 15, 10,10,
         #            1, 15, 15, 10,10,
         #            2])
+        if thresh>2:
+            thresh = 2
         p0 = (1, 2,2,
               1,0,10,2,2,
               thresh)
@@ -761,20 +790,27 @@ class SND:
                      1, 15, 15, 5,5,
                      2])
         # fy, covy = fit_correlation.fit_gaussian(X, Y, autocorr, mask1,p0=p0,bounds=bounds)
-        fy,covy = fit_correlation.fit_gaussian_new(X,Y,autocorr,mask1,p0=p0,bounds=bounds)
+        try:
+            fy,covy = fit_correlation.fit_gaussian_new(X,Y,autocorr,mask1,p0=p0,bounds=bounds)
 
-        # fitPlot = fit_correlation.three_gaussian_2d(X, Y, *fy)
+            # fitPlot = fit_correlation.three_gaussian_2d(X, Y, *fy)
 
-        fitUncertainty = np.sum(np.diag(covy))
+            fitUncertainty = np.sum(np.diag(covy))
 
-        # intensity = (fy[5] + fy[10]) / 2
-        # # cx = (np.abs(fy[6]) + np.abs(fy[11])) / 2
-        # # cy = (np.abs(fy[7]) + np.abs(fy[12])) / 2
-        # cx = fy[6]*np.sign(fy[7])
-        # cy = (np.abs(fy[7])+np.abs(fy[12])) / 2
-        intensity = fy[3]
-        cx = fy[4]
-        cy = fy[5]
+            # intensity = (fy[5] + fy[10]) / 2
+            # # cx = (np.abs(fy[6]) + np.abs(fy[11])) / 2
+            # # cy = (np.abs(fy[7]) + np.abs(fy[12])) / 2
+            # cx = fy[6]*np.sign(fy[7])
+            # cy = (np.abs(fy[7])+np.abs(fy[12])) / 2
+            intensity = fy[3]
+            cx = fy[4]
+            cy = fy[5]
+        except ValueError:
+            intensity = np.nan
+            cx = np.nan
+            cy = np.nan
+            fy = np.empty(len(p0))
+            fy[:] = np.nan
 
         output = {}
         # images = {}
@@ -783,7 +819,7 @@ class SND:
         output['cx'] = cx
         output['cy'] = cy
         output['uncertainty'] = fitUncertainty
-        # images['speckle'] = subImage
+        output['speckle'] = detImage
         output['autocorr'] = autocorr
         # images['beam'] = self.delay_branch.IP.profile
 
@@ -844,7 +880,7 @@ class Util:
         image = 1 / (1 / 3. - 1 / (lens0.z - 624))
         # print(image)
 
-        IP = optics.PPM('IP', FOV=7.68e-6, z=lens1.z + image+.02,N=1024)
+        IP = optics.PPM('IP', FOV=7.68e-6, z=lens1.z + image+.02,N=1024,blur=True,resolution=50e-9)
 
         device_list = [s4, di, t1_slit, dci, cc1_1, cc1_2, dcc, cc_shutter, cc2_1, cc2_2, dco, t4_slit, do, lens0, lens1, yag5, IP]
 
@@ -959,7 +995,7 @@ class Util:
         image = 1 / (1 / 3.0 - 1 / (lens0.z - 624))
         # print(image)
 
-        IP = optics.PPM('IP', FOV=7.68e-6, z=lens1.z + image+.02,suppress=True,N=1024)
+        IP = optics.PPM('IP', FOV=7.68e-6, z=lens1.z + image+.02,suppress=True,N=1024,blur=True,resolution=50e-9)
 
         device_list = [s4, di, t1_slit, c1, t1_dh, c2, dd, delay_shutter, c3, t4_dh, c4, t4_slit, do, lens0, lens1, d_lens, yag5, IP]
 
