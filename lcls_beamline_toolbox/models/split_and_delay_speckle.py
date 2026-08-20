@@ -40,6 +40,11 @@ class SND:
         beta = np.interp(self.E0,silica.energy,silica.beta)
         self.static_sample = -2 * np.pi / (1239.8 / 9500 * 1e-9) * (delta - 1j * beta) * circle_array * 30e-9 / 4
 
+        # autocorr output
+        self._autocorr_cx = np.nan
+        self._autocorr_cy = np.nan
+        self._autocorr_amp = np.nan
+
         # parameter dictionary. z_source is in LCLS coordinates (20 meters upstream of undulator exit)
         self.beam_params = {
             'photonEnergy': self.E0,
@@ -64,7 +69,7 @@ class SND:
                                           name='t1_tth')
         self.t1_th1 = motion.RotationAxis(-self.delay_branch.c1.sagittal,
                                           [self.delay_branch.c1],
-                                          rotation_center=self.delay_branch.c1.get_pos()+self.delay_branch.c1.normal*1e-3,
+                                          rotation_center=self.delay_branch.c1.get_pos(),
                                           initial_position=self.delay_branch.c1.bragg,
                                           name='t1_th1')
         self.t1_th2 = motion.RotationAxis(self.delay_branch.c2.sagittal,
@@ -110,14 +115,17 @@ class SND:
                                            [self.delay_branch.c4,self.delay_branch.t4_dh,
                                             self.delay_branch.c3],name='t4_x')
         self.t1_y1 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c1],name='t1_y1')
+                                            [self.delay_branch.c1,self.delay_branch.t1_slit,
+                                             self.cc_branch.t1_slit],name='t1_y1')
         self.t1_y2 = motion.TranslationAxis(np.array([0,1,0]),
                                             [self.delay_branch.c2],name='t1_y2')
         self.t4_y1 = motion.TranslationAxis(np.array([0,1,0]),
-                                            [self.delay_branch.c4],name='t4_y1')
+                                            [self.delay_branch.c4,self.delay_branch.t4_slit,
+                                             self.cc_branch.t4_slit],name='t4_y1')
         self.t4_y2 = motion.TranslationAxis(np.array([0,1,0]),
                                             [self.delay_branch.c3],name='t4_y2')
 
+        # the listed axes are translated or rotated when the given axis is moved.
         self.t1_x.coupled_axes = [self.t1_th1,self.t1_tth,self.t1_th2,self.t1_L,
                                   self.t1_y1,self.t1_y2,self.t1_chi1,self.t1_chi2]
         self.t1_tth.coupled_axes = [self.t1_th1,self.t1_th2,self.t1_y1,self.t1_y2,
@@ -130,15 +138,17 @@ class SND:
         self.t4_L.coupled_axes = [self.t4_th2,self.t4_chi2,self.t4_y2]
 
         self.t2_th = motion.RotationAxis(self.cc_branch.cc1_1.sagittal,
-                                         [self.cc_branch.cc1_1,self.cc_branch.cc1_2],
+                                         [self.cc_branch.cc1_1, self.cc_branch.cc1_2],
                                          rotation_center=self.cc_branch.cc1_1.get_pos(),
+                                         initial_position=self.cc_branch.cc1_1.bragg,
                                          name='t2_th')
-        self.t2_x = motion.TranslationAxis(np.array([1,0,0]),
-                                           [self.cc_branch.cc1_1,self.cc_branch.cc1_2],
+        self.t2_x = motion.TranslationAxis(np.array([1, 0, 0]),
+                                           [self.cc_branch.cc1_1, self.cc_branch.cc1_2],
                                            name='t2_x')
         self.t3_th = motion.RotationAxis(-self.cc_branch.cc2_2.sagittal,
-                                         [self.cc_branch.cc2_1,self.cc_branch.cc2_2],
+                                         [self.cc_branch.cc2_1, self.cc_branch.cc2_2],
                                          rotation_center=self.cc_branch.cc2_2.get_pos(),
+                                         initial_position=self.cc_branch.cc2_2.bragg,
                                          name='t3_th')
         self.t3_x = motion.TranslationAxis(np.array([1,0,0]),
                                            [self.cc_branch.cc2_1,self.cc_branch.cc2_2],
@@ -146,11 +156,79 @@ class SND:
         self.t2_x.coupled_axes = [self.t2_th]
         self.t3_x.coupled_axes = [self.t3_th]
 
+        self.di_x = motion.TranslationAxis(np.array([1,0,0]),
+                                           [self.cc_branch.di, self.delay_branch.di],
+                                           name='di_x')
+        self.di_y = motion.TranslationAxis(np.array([0,1,0]),
+                                           [self.cc_branch.di, self.delay_branch.di],
+                                           name='di_y')
+        self.dd_x = motion.TranslationAxis(np.array([1,0,0]),
+                                           [self.delay_branch.dd, self.delay_branch.delay_shutter],
+                                           name='dd_x', initial_position=self.get_dd_x())
+        self.dd_y = motion.TranslationAxis(np.array([0,1,0]),
+                                           [self.delay_branch.dd, self.delay_branch.delay_shutter],
+                                            name='dd_y')
+        self.do_x = motion.TranslationAxis(np.array([1,0,0]),
+                                           [self.delay_branch.do],
+                                           name='do_x')
+        self.do_y = motion.TranslationAxis(np.array([0,1,0]),
+                                           [self.delay_branch.do],
+                                           name='do_y')
+        self.dci_x = motion.TranslationAxis(np.array([1,0,0]),
+                                            [self.cc_branch.dci],
+                                            name='dci_x')
+        self.dci_y = motion.TranslationAxis(np.array([0,1,0]),
+                                            [self.cc_branch.dci],
+                                            name='dci_y')
+        self.dcc_x = motion.TranslationAxis(np.array([1,0,0]),
+                                            [self.cc_branch.dcc],
+                                            name='dcc_x')
+        self.dcc_y = motion.TranslationAxis(np.array([0,1,0]),
+                                            [self.cc_branch.dcc],
+                                            name='dcc_y')
+        self.dco_x = motion.TranslationAxis(np.array([1,0,0]),
+                                            [self.cc_branch.dco],
+                                            name='dco_x')
+        self.dco_y = motion.TranslationAxis(np.array([0,1,0]),
+                                            [self.cc_branch.dco],
+                                            name='dco_y')
+        self.IP_x = motion.TranslationAxis(np.array([1,0,0]),
+                                           [self.cc_branch.IP,self.delay_branch.IP],
+                                           name='IP_x')
+        self.IP_y = motion.TranslationAxis(np.array([0,1,0]),
+                                           [self.cc_branch.IP,self.delay_branch.IP],
+                                           name='IP_y')
+
+        self.delay_shutter = motion.Shutter([self.delay_branch.delay_shutter], name='delay_shutter')
+        self.cc_shutter = motion.Shutter([self.cc_branch.cc_shutter], name='cc_shutter')
+
+        self.s4_xcen = motion.TranslationAxis(np.array([1,0,0]),
+                                              [self.delay_branch.s4,self.cc_branch.s4],
+                                              name='s4_xcen')
+        self.s4_ycen = motion.TranslationAxis(np.array([0,1,0]),
+                                              [self.delay_branch.s4,self.cc_branch.s4],
+                                              name='s4_ycen')
+        self.s4_xwid = motion.SlitGap([self.delay_branch.s4,self.cc_branch.s4],
+                                      name='s4_xwid', initial_position=self.get_s4_xwid())
+        self.s4_ywid = motion.SlitGap([self.delay_branch.s4,self.cc_branch.s4],
+                                      name='s4_ywid', initial_position=self.get_s4_ywid(),orientation=1)
+        self.yag5_x = motion.TranslationAxis(np.array([1,0,0]),
+                                             [self.delay_branch.yag5,self.cc_branch.yag5],
+                                             name='yag5_x')
+        self.yag5_y = motion.TranslationAxis(np.array([0,1,0]),
+                                             [self.delay_branch.yag5,self.cc_branch.yag5],
+                                             name='yag5_y')
+
         self.motor_list = [self.t1_tth,self.t1_th1,self.t1_th2,self.t4_th2,self.t4_th1,
                            self.t4_tth,self.t1_L,self.t4_L,self.t1_chi1,self.t1_chi2,
                            self.t4_chi1,self.t4_chi2,self.t1_x,self.t2_x,self.t3_x,
                            self.t4_x,self.t2_th,self.t3_th,self.t1_y1,self.t1_y2,self.t4_y1,
-                           self.t4_y2]
+                           self.t4_y2, self.di_x, self.di_y, self.dd_x, self.dd_y,
+                           self.do_x, self.do_y, self.dci_x, self.dci_y, self.dcc_x,
+                           self.dcc_y, self.dco_x, self.dco_y, self.IP_x, self.IP_y,
+                           self.delay_shutter, self.cc_shutter, self.s4_xcen,
+                           self.s4_ycen, self.s4_xwid, self.s4_ywid, self.yag5_x,
+                           self.yag5_y]
 
         self.motor_dict = {}
         for motor in self.motor_list:
@@ -167,10 +245,55 @@ class SND:
 
         return E0
 
+    def propagate_all(self):
+        # propagate both branches
+        self.propagate_delay()
+        self.propagate_cc()
+        output = self.get_autocorr()
+        self.autocorr_cx = output['cx']
+        self.autocorr_cy = output['cy']
+        self.set_autocorr_amp(output['intensity'], output['uncertainty'])
+        # combine imager and diode information
+        self.delay_branch.do.add_profile(self.cc_branch.do.profile)
+        self.delay_branch.yag5.add_profile(self.cc_branch.yag5.profile)
+        self.delay_branch.IP.add_profile(self.cc_branch.IP.profile)
+
+    @property
+    def autocorr_cx(self):
+        return self._autocorr_cx
+
+    @autocorr_cx.setter
+    def autocorr_cx(self, value):
+        self._autocorr_cx = value
+
+    @property
+    def autocorr_cy(self):
+        return self._autocorr_cy
+
+    @autocorr_cy.setter
+    def autocorr_cy(self, value):
+        self._autocorr_cy = value
+
+    @property
+    def autocorr_amp(self):
+        return self._autocorr_amp
+
+    def set_autocorr_amp(self, value, uncertainty):
+        if uncertainty<0.05:
+            self._autocorr_amp = value
+        else:
+            self._autocorr_amp = np.nan
+
+
+
     def propagate_delay(self):
+        for device in self.delay_branch.device_list:
+            device.reset()
         self.b2 = self.delay_branch.propagate_beamline(self.b1)
 
     def propagate_cc(self):
+        for device in self.cc_branch.device_list:
+            device.reset()
         self.b3 = self.cc_branch.propagate_beamline(self.b1)
 
     def propagate_bypass(self):
@@ -193,6 +316,12 @@ class SND:
         rot_vec2 = -cc22.sagittal * delta
         Util.rotate_about_point(cc21, pivot2, rot_vec2)
         Util.rotate_about_point(cc22, pivot2, rot_vec2)
+
+    def get_s4_xwid(self):
+        return self.delay_branch.s4.x_width
+
+    def get_s4_ywid(self):
+        return self.delay_branch.s4.y_width
 
     # calculate t1_th1 from c1 orientation
     def get_t1_th1(self):
@@ -494,10 +623,24 @@ class SND:
     def get_t4_dh_sum(self):
         return self.delay_branch.t4_dh.profile.sum()
 
+    def get_di_sum(self):
+        return self.delay_branch.di.profile.sum()
+
     def get_do_sum(self):
+        # profile from cc branch may be added
         return self.delay_branch.do.profile.sum()
 
+    def get_dcc_sum(self):
+        return self.cc_branch.dcc.profile.sum()
+
+    def get_dci_sum(self):
+        return self.cc_branch.dci.profile.sum()
+
+    def get_dco_sum(self):
+        return self.cc_branch.dco.profile.sum()
+
     def get_IP_sum(self):
+        # profile from cc branch may be added
         return self.delay_branch.IP.profile.sum()
 
     def get_dd_cx(self):
@@ -506,35 +649,92 @@ class SND:
     def get_dd_cy(self):
         return self.delay_branch.dd.cy
 
+    def get_dd_wx(self):
+        return self.delay_branch.dd.wx
+
+    def get_dd_wy(self):
+        return self.delay_branch.dd.wy
+
     def get_do_cx(self):
+        # profile from cc branch may be added
         return self.delay_branch.do.cx
 
     def get_do_cy(self):
+        # profile from cc branch may be added
         return self.delay_branch.do.cy
 
-    def get_cc_do_cx(self):
-        return self.cc_branch.do.cx
+    def get_do_wx(self):
+        # profile from cc branch may be added
+        return self.delay_branch.do.wx
 
-    def get_cc_do_cy(self):
-        return self.cc_branch.do.cy
+    def get_do_wy(self):
+        # profile from cc branch may be added
+        return self.delay_branch.do.wy
 
     def get_do_r(self):
         r = np.sqrt(self.get_do_cx()**2+self.get_do_cy()**2)
         return r
 
     def get_IP_cx(self):
+        # profile from cc branch may be added
         return self.delay_branch.IP.cx
 
     def get_IP_cy(self):
+        # profile from cc branch may be added
         return self.delay_branch.IP.cy
 
+    def get_IP_wx(self):
+        # profile from cc branch may be added
+        return self.delay_branch.IP.wx
+
+    def get_IP_wy(self):
+        # profile from cc branch may be added
+        return self.delay_branch.IP.wy
+
+    def get_autocorr_cx(self):
+        return self.autocorr_cx
+
+    def get_autocorr_cy(self):
+        return self.autocorr_cy
+
+    def get_autocorr_amp(self):
+        return self.autocorr_amp
+
     def get_IP_r(self):
+        # profile from cc branch may be added
         r = np.sqrt(self.get_IP_cx()**2+self.get_IP_cy()**2)
         return r
 
     def get_autocorr(self):
-        c1 = self.cc_branch.IP.complex_beam()[0]
-        c2 = self.delay_branch.IP.complex_beam()[0]
+        c1, delay, ax1, ay1, zx1, zy1, cx1, cy1 = self.cc_branch.IP.complex_beam()
+        c2, delay, ax2, ay2, zx2, zy2, cx2, cy2 = self.delay_branch.IP.complex_beam()
+        qx1 = 0
+        qy1 = 0
+        qx2 = 0
+        qy2 = 0
+        if zx1 != 0:
+            qx1 = 1/zx1
+        if zy1 != 0:
+            qy1 = 1/zy1
+        if zx2 != 0:
+            qx2 = 1/zx2
+        if zy2 != 0:
+            qy2 = 1/zy2
+
+        x_phase1 = np.pi / self.b1.lambda0 * (qx1) * (self.cc_branch.IP.xx - cx1) ** 2
+        y_phase1 = np.pi / self.b1.lambda0 * (qy1) * (self.cc_branch.IP.yy - cy1) ** 2
+        x_phase2 = np.pi / self.b1.lambda0 * (qx2) * (self.delay_branch.IP.xx - cx2) ** 2
+        y_phase2 = np.pi / self.b1.lambda0 * (qy2) * (self.delay_branch.IP.yy - cy2) ** 2
+
+        c1 *= np.exp(1j * (x_phase1 + y_phase1))
+        c2 *= np.exp(1j * (x_phase2 + y_phase2))
+
+        # plt.figure()
+        # plt.imshow(np.angle(c1))
+        # plt.figure()
+        # plt.imshow(np.angle(c2))
+
+
         f0 = util.Util.nfft(c1 * np.exp(1j * self.static_sample))
         f1 = util.Util.nfft(c2 * np.exp(1j * self.static_sample))
 
@@ -577,6 +777,8 @@ class SND:
         #            1, 15, 15, 10,10,
         #            1, 15, 15, 10,10,
         #            2])
+        if thresh>2:
+            thresh = 2
         p0 = (1, 2,2,
               1,0,10,2,2,
               thresh)
@@ -588,20 +790,27 @@ class SND:
                      1, 15, 15, 5,5,
                      2])
         # fy, covy = fit_correlation.fit_gaussian(X, Y, autocorr, mask1,p0=p0,bounds=bounds)
-        fy,covy = fit_correlation.fit_gaussian_new(X,Y,autocorr,mask1,p0=p0,bounds=bounds)
+        try:
+            fy,covy = fit_correlation.fit_gaussian_new(X,Y,autocorr,mask1,p0=p0,bounds=bounds)
 
-        # fitPlot = fit_correlation.three_gaussian_2d(X, Y, *fy)
+            # fitPlot = fit_correlation.three_gaussian_2d(X, Y, *fy)
 
-        fitUncertainty = np.sum(np.diag(covy))
+            fitUncertainty = np.sum(np.diag(covy))
 
-        # intensity = (fy[5] + fy[10]) / 2
-        # # cx = (np.abs(fy[6]) + np.abs(fy[11])) / 2
-        # # cy = (np.abs(fy[7]) + np.abs(fy[12])) / 2
-        # cx = fy[6]*np.sign(fy[7])
-        # cy = (np.abs(fy[7])+np.abs(fy[12])) / 2
-        intensity = fy[3]
-        cx = fy[4]
-        cy = fy[5]
+            # intensity = (fy[5] + fy[10]) / 2
+            # # cx = (np.abs(fy[6]) + np.abs(fy[11])) / 2
+            # # cy = (np.abs(fy[7]) + np.abs(fy[12])) / 2
+            # cx = fy[6]*np.sign(fy[7])
+            # cy = (np.abs(fy[7])+np.abs(fy[12])) / 2
+            intensity = fy[3]
+            cx = fy[4]
+            cy = fy[5]
+        except ValueError:
+            intensity = np.nan
+            cx = np.nan
+            cy = np.nan
+            fy = np.empty(len(p0))
+            fy[:] = np.nan
 
         output = {}
         # images = {}
@@ -610,7 +819,7 @@ class SND:
         output['cx'] = cx
         output['cy'] = cy
         output['uncertainty'] = fitUncertainty
-        # images['speckle'] = subImage
+        output['speckle'] = detImage
         output['autocorr'] = autocorr
         # images['beam'] = self.delay_branch.IP.profile
 
@@ -640,37 +849,40 @@ class Util:
         lens00 = optics.CRL('lens00', diameter=5e-3, E0=E0, f=356, z=980, orientation=0)
         lens01 = optics.CRL('lens01', diameter=5e-3, E0=E0, f=356, z=980 + 1e-6, orientation=1)
 
-        s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=0.5e-3)
-        di = optics.PPM('di', z=1000, FOV=2e-3, N=512)
-        t1_slit = optics.Slit('t1', y_width=4e-3, dy=2e-3, z=di.z + 0.15)
+        s4 = optics.Slit('s4', z=990, x_width=0.5e-3, y_width=0.5e-3)
+        di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
+        t1_slit = optics.Slit('t1_slit', y_width=4e-3, dy=2e-3, z=di.z + 0.15)
 
-        cc1_1 = optics.Crystal('cc1_1', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2. / 3., orientation=2, length=.02, width=.02,
+        cc1_1 = optics.Crystal('cc1_1', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2. / 3., orientation=0, length=.02, width=.02,
                                show_figures=False)
         dci = optics.PPM('dci', z=cc1_1.z - 75e-3, N=256)
         gap = 55e-3
         dz = gap * np.sin(np.pi / 2 - 2 * cc1_1.alpha) / np.sin(cc1_1.alpha)
         # print('dz: {}'.format(dz))
-        cc1_2 = optics.Crystal('cc1_2', hkl=[2, 2, 0], E0=E0, z=cc1_1.z + dz, orientation=0, length=.06, width=.02,
+        cc1_2 = optics.Crystal('cc1_2', hkl=[2, 2, 0], E0=E0, z=cc1_1.z + dz, orientation=2, length=.06, width=.02,
                                show_figures=False)
         dcc = optics.PPM('dcc', z=t1_slit.z + 1, FOV=4e-3, N=256)
+        cc_shutter = optics.Slit('cc_shutter', z=dcc.z+.01, x_width=5e-3, y_width=5e-3)
 
-        cc2_2 = optics.Crystal('cc2_2', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2 - 2. / 3., orientation=2, length=.02,
+        cc2_2 = optics.Crystal('cc2_2', hkl=[2, 2, 0], E0=E0, z=t1_slit.z + 2 - 2. / 3., orientation=0, length=.02,
                                width=.02)
         dz = gap * np.sin(np.pi / 2 - 2 * cc2_2.alpha) / np.sin(cc2_2.alpha)
-        cc2_1 = optics.Crystal('cc2_1', hkl=[2, 2, 0], E0=E0, z=cc2_2.z - dz, orientation=0, length=.06, width=.02,
+        cc2_1 = optics.Crystal('cc2_1', hkl=[2, 2, 0], E0=E0, z=cc2_2.z - dz, orientation=2, length=.06, width=.02,
                                show_figures=False)
         dco = optics.PPM('dco', z=cc2_2.z + 75e-3, FOV=4e-3, N=256)
-        t4_slit = optics.Slit('t4', y_width=4e-3, dy=2e-3, z=t1_slit.z + 2)
+        t4_slit = optics.Slit('t4_slit', y_width=4e-3, dy=2e-3, z=t1_slit.z + 2)
         do = optics.PPM('do', z=t4_slit.z + 0.15, FOV=4e-3, N=256)
         lens0 = optics.CRL('lens0', E0=E0, f=3, z=do.z + 5, orientation=0, diameter=2e-3)
         lens1 = optics.CRL('lens1', E0=E0, f=3, z=do.z + 5 + 1e-6, orientation=1, diameter=2e-3)
 
+        yag5 = optics.PPM('yag5', z=lens0.z+2, FOV=4e-3, N=256)
+
         image = 1 / (1 / 3. - 1 / (lens0.z - 624))
         # print(image)
 
-        IP = optics.PPM('IP', FOV=7.68e-6, z=lens1.z + image+.02,N=1024)
+        IP = optics.PPM('IP', FOV=7.68e-6, z=lens1.z + image+.02,N=1024,blur=True,resolution=50e-9)
 
-        device_list = [s3, di, t1_slit, dci, cc1_1, cc1_2, dcc, cc2_1, cc2_2, dco, t4_slit, do, lens0, lens1, IP]
+        device_list = [s4, di, t1_slit, dci, cc1_1, cc1_2, dcc, cc_shutter, cc2_1, cc2_2, dco, t4_slit, do, lens0, lens1, yag5, IP]
 
         cc_branch = beamline.Beamline(device_list, ordered=True)
 
@@ -686,7 +898,7 @@ class Util:
         lens00 = optics.CRL('lens00', diameter=5e-3, E0=E0, f=356, z=980, orientation=0)
         lens01 = optics.CRL('lens01', diameter=5e-3, E0=E0, f=356, z=980 + 1e-6, orientation=1)
 
-        s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=1e-3)
+        s4 = optics.Slit('s4', z=990, x_width=0.5e-3, y_width=1e-3)
         di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
         t1_slit = optics.Slit('t1', y_width=4e-3, dy=2e-3, z=di.z + 0.15)
 
@@ -716,7 +928,7 @@ class Util:
 
         IP = optics.PPM('IP', FOV=10e-6, z=lens1.z + image)
 
-        device_list = [s3, di, t1_slit, dci, dcc, dco, t4_slit, do, lens0, lens1, IP]
+        device_list = [s4, di, t1_slit, dci, dcc, dco, t4_slit, do, lens0, lens1, IP]
 
         cc_branch = beamline.Beamline(device_list, ordered=True)
 
@@ -742,10 +954,11 @@ class Util:
         -------
         Beamline object
         """
-        s3 = optics.Slit('s3', z=990, x_width=0.5e-3, y_width=0.5e-3)
-        di = optics.PPM('di', z=1000, FOV=2e-3, N=512)
-        c1slit = optics.Slit('c1slit', y_width=4e-3, dy=-2e-3, z=di.z + 0.15 - 1e-6)
-        c1 = optics.Crystal('c1', hkl=[2, 2, 0], E0=E0, z=di.z + 0.15, orientation=0, width=5e-3, dy=-2.5e-3, length=.02)
+        s4 = optics.Slit('s4', z=990, x_width=0.5e-3, y_width=0.5e-3)
+        di = optics.PPM('di', z=1000, FOV=4e-3, N=256)
+        t1_slit = optics.Slit('t1_slit', y_width=4e-3, dy=-2e-3, z=di.z + 0.15 - 1e-6)
+        c1 = optics.Crystal('c1', hkl=[2, 2, 0], E0=E0, z=di.z + 0.15, orientation=2, width=5e-3, dy=-2.5e-3,
+                            length=.02)
 
         # dummy = optics.Crystal('dummy', hkl=[2, 2, 0], E0=6500)
         dummy = optics.Crystal('dummy', hkl=[2, 2, 0], E0=E0)
@@ -758,30 +971,33 @@ class Util:
         dz = (L0 + delay_L) * np.cos(2 * c1.alpha)
         dz2 = (L0 + delay_L - 30e-3) * np.cos(2 * c1.alpha)
         # print('dz: {}'.format(dz))
-        c2 = optics.Crystal('c2', hkl=[2, 2, 0], E0=E0, z=c1.z + dz, orientation=2, length=.02, width=.02,
+        c2 = optics.Crystal('c2', hkl=[2, 2, 0], E0=E0, z=c1.z + dz, orientation=0, length=.02, width=.02,
                             show_figures=False)
 
         t1_dh = optics.PPM('t1_dh', z=c1.z + dz2, FOV=4e-3, N=256)
 
         #     c2 = optics.Crystal('c2',hkl=[2,2,0],E0=E0,z=c1.z+dz,orientation=2,length=.02,width=.02)
-        dd = optics.PPM('dd', z=c1.z + 1, FOV=2e-3, N=512)
-        c4 = optics.Crystal('c4', hkl=[2, 2, 0], E0=E0, z=c1.z + 2, orientation=0, length=.02, width=.02)
-        c3 = optics.Crystal('c3', hkl=[2, 2, 0], E0=E0, z=c4.z - dz, orientation=2, length=.02, width=.02)
+        dd = optics.PPM('dd', z=c1.z + 1, FOV=4e-3, N=256)
+        delay_shutter = optics.Slit('delay_shutter', z=dd.z + .01, x_width=5e-3, y_width=5e-3)
+        c4 = optics.Crystal('c4', hkl=[2, 2, 0], E0=E0, z=c1.z + 2, orientation=2, length=.02, width=.02)
+        c3 = optics.Crystal('c3', hkl=[2, 2, 0], E0=E0, z=c4.z - dz, orientation=0, length=.02, width=.02)
         t4_dh = optics.PPM('t4_dh', z=c4.z - dz2, FOV=4e-3, N=256)
 
-        c4slit = optics.Slit('c4slit', y_width=4e-3, dy=-2e-3, z=c4.z + 1e-6)
+        t4_slit = optics.Slit('t4_slit', y_width=4e-3, dy=-2e-3, z=c4.z + 1e-6)
 
-        do = optics.PPM('do', z=c4.z + 0.15, FOV=2e-3, N=512)
+        do = optics.PPM('do', z=c4.z + 0.15, FOV=4e-3, N=256)
+
         lens0 = optics.CRL('lens0', E0=E0, f=3, z=do.z + 5, orientation=0, diameter=2e-3)
         lens1 = optics.CRL('lens1', E0=E0, f=3, z=do.z + 5 + 1e-6, orientation=1, diameter=2e-3)
 
         d_lens = optics.PPM('d_lens',z=lens1.z+.1, FOV=4e-3, N=256)
+        yag5 = optics.PPM('yag5', z=lens0.z + 2, FOV=4e-3, N=256)
         image = 1 / (1 / 3.0 - 1 / (lens0.z - 624))
         # print(image)
 
-        IP = optics.PPM('IP', FOV=7.68e-6, z=lens1.z + image+.02,suppress=True,N=1024)
+        IP = optics.PPM('IP', FOV=7.68e-6, z=lens1.z + image+.02,suppress=True,N=1024,blur=True,resolution=50e-9)
 
-        device_list = [s3, di, c1slit, c1, t1_dh, c2, dd, c3, t4_dh, c4, c4slit, do, lens0, lens1, d_lens, IP]
+        device_list = [s4, di, t1_slit, c1, t1_dh, c2, dd, delay_shutter, c3, t4_dh, c4, t4_slit, do, lens0, lens1, d_lens, yag5, IP]
 
         delay_branch = beamline.Beamline(device_list, ordered=True)
 
