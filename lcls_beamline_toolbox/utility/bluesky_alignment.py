@@ -23,8 +23,8 @@ DEFAULT_PHASE1_STEPS = (
 DEFAULT_PHASE2_STEPS = (
     #("X1", "t1_chi1", "dd_cy"),
     #("X2", "t1_chi2", "do_cy"),
-    ("X4", "t4_chi1", "IP_cy"),
-    ("X1", "t4_th1", "IP_cx"),
+    ("Y", "t4_chi1", "IP_cy"),
+    ("X", "t4_th1", "IP_cx"),
 )
 
 
@@ -141,6 +141,7 @@ def scan_minimize_vertical_error(
     steps,
     shots_per_step=1,
     averaging_duration=2,
+    target=0,
     move=True,
     objective="abs",
 ):
@@ -191,7 +192,7 @@ def scan_minimize_vertical_error(
 
     x_unique = np.array(sorted(xy.keys()))
     y_avg = np.array([np.mean(xy[x]) for x in x_unique])
-    objective_y = np.abs(y_avg)
+    objective_y = np.abs(y_avg-target)
 
     best_index = int(np.argmin(objective_y))
     best_position = float(x_unique[best_index])
@@ -203,7 +204,7 @@ def scan_minimize_vertical_error(
 
     return {
         "x": x_unique,
-        "y": y_avg,
+        "y": y_avg-target,
         "objective_y": objective_y,
         "best_index": best_index,
         "best_position": best_position,
@@ -250,11 +251,9 @@ def align_phase1(
 
     for label, motor_attr, detector_attr, norm_attr in sequence:
         if 'CC' in label:
-            backend.cc_shutter.set(5)
-            backend.delay_shutter.set(0)
+            RE(bps.mv(backend.cc_shutter, 5, backend.delay_shutter, 0))
         else:
-            backend.cc_shutter.set(0)
-            backend.delay_shutter.set(5)
+            RE(bps.mv(backend.cc_shutter, 0, backend.delay_shutter, 5))
         motor = getattr(backend, motor_attr)
         detector = getattr(backend, detector_attr)
         norm_detector = getattr(backend, norm_attr)
@@ -275,8 +274,6 @@ def align_phase1(
             "detector": detector_attr,
             **result,
         }
-        backend.cc_shutter.set(5)
-        backend.delay_shutter.set(5)
 
     return results
 
@@ -318,6 +315,25 @@ def align_phase2(
         Objective passed to :func:`scan_minimize_vertical_error`.
     """
     results = {}
+    
+    # get target position
+    # open CC shutter, block delay
+    RE(bps.mv(backend.cc_shutter, 5, backend.delay_shutter, 0))
+    time.sleep(0.5)
+    x_status = backend.IP_cx.trigger()
+    y_status = backend.IP_cy.trigger()
+    all_status = [x_status, y_status]
+    done_reading = False
+    while not done_reading:
+        time.sleep(0.1)
+        done_reading = all([status.done for status in all_status])
+
+    target = {}
+    target['X'] = backend.IP_cx.get()
+    target['Y'] = backend.IP_cy.get()
+
+    # close CC shutter, open delay shutter
+    RE(bps.mv(backend.cc_shutter, 0, backend.delay_shutter, 5))
 
     for label, motor_attr, detector_attr in sequence:
         motor = getattr(backend, motor_attr)
@@ -331,6 +347,7 @@ def align_phase2(
             steps=steps,
             shots_per_step=shots_per_step,
             averaging_duration=averaging_duration,
+            target=target[label],
             move=move,
             objective=objective,
         )

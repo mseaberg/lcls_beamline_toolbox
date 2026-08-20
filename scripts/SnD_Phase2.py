@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 shots = 60
-duration = 0.5
+duration = 1
 
 PHASE1_OFFSETS = {
     "t1_th1": 60e-6*0,
@@ -66,8 +66,8 @@ IP_cx_lume = EpicsSignalRO("XCS:USER:SND:IP_X_CENTROID_LUME",name='cx')
 IP_cy_lume = EpicsSignalRO("XCS:USER:SND:IP_Y_CENTROID_LUME",name='cy')
 dd_cy_lume = EpicsSignalRO("XCS:USER:SND:DD_Y_CENTROID_LUME",name='dd_cy')
 do_cy_lume = EpicsSignalRO("XCS:USER:SND:DO_Y_CENTROID_LUME",name='do_cy')
-cx = EpicsSignalRO("XCS:USER:SND:IP_X_CENTROID_SHMEM",name='cx')
-cy = EpicsSignalRO("XCS:USER:SND:IP_Y_CENTROID_SHMEM",name='cy')
+cx = EpicsSignalRO("XCS:USER:SND:X_CENTROID_SHMEM",name='IP_cx')
+cy = EpicsSignalRO("XCS:USER:SND:Y_CENTROID_SHMEM",name='IP_cy')
 
 snd_system = SplitAndDelay('XCS:SND', name='snd')
 time.sleep(1)
@@ -141,8 +141,8 @@ HARDWARE_BACKEND = SimpleNamespace(
     t4_chi1=t4chi1,
     cc_shutter=cc_shutter,
     delay_shutter=delay_shutter,
-    IP_cx=AvgSignal(cx,int(shots/2),duration,name='cx'),
-    IP_cy=AvgSignal(cy,int(shots/2),duration,name='cy')
+    IP_cx=AvgSignal(cx,int(shots),duration,name='IP_cx'),
+    IP_cy=AvgSignal(cy,int(shots),duration,name='IP_cy')
 )
 
 
@@ -222,14 +222,14 @@ def phase2_outcome_df(initial_ip_cy, final_ip_cy, initial_ip_cx, final_ip_cx):
         ]
     )
 
-snd = MODEL_BACKEND
+snd = HARDWARE_BACKEND
 RE = make_run_engine()
 apply_offsets(snd, PHASE2_OFFSETS)
 phase2_initial_positions = capture_positions(
     snd,
     [motor_attr for _, motor_attr, _ in DEFAULT_PHASE2_STEPS],
 )
-
+time.sleep(1)
 
 
 phase2_initial_ip_cx = snd.IP_cx.get()
@@ -243,8 +243,8 @@ time.sleep(1)
 phase2_results = align_phase2(
     RE,
     snd,
-    start=-20e-6*180/np.pi,
-    stop=20e-6*180/np.pi,
+    start=-1e-6*180/np.pi,
+    stop=1e-6*180/np.pi,
     steps=21,
     shots_per_step=1,
 )

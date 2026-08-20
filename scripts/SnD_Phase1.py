@@ -5,6 +5,7 @@ import sys
 from ophyd.signal import EpicsSignalRO, EpicsSignal
 from bluesky import plan_stubs as bps
 from pcdsdevices.signal import AvgSignal
+from pcdsdevices import analog_signals
 import time
 
 from types import SimpleNamespace
@@ -38,6 +39,8 @@ PHASE2_OFFSETS = {
     "t4_chi1": 50e-6*0,
 }
 
+aio = analog_signals.Acromag(name='xcs_aio',prefix='XCS:USR')
+
 ALL_OFFSETS = {**PHASE1_OFFSETS, **PHASE2_OFFSETS}
 
 d12 = EpicsSignalRO("XCS:SND:DIO:AMPL_12", name="diode 12")
@@ -70,8 +73,10 @@ t1chi1 = snd_system.t1.chi1
 t1chi2 = snd_system.t1.chi2
 t4chi1 = snd_system.t4.chi1
 t4chi2 = snd_system.t4.chi2
-cc_shutter = EpicsSignal("XCS:USR:ao1:4", name='cc_shutter')
-delay_shutter = EpicsSignal("XCS:USR:ao1:5", name='delay_shutter')
+cc_shutter = aio.ao1_4
+delay_shutter = aio.ao1_5
+#cc_shutter = EpicsSignal("XCS:USR:ao1:4", name='cc_shutter')
+#delay_shutter = EpicsSignal("XCS:USR:ao1:5", name='delay_shutter')
 #t1th1 = EpicsSignal("XCS:SND:T1:TH1", name="x1 motor")
 #t1th2 = EpicsSignal("XCS:SND:T1:TH2", name="x2 motor")
 #t2th = EpicsSignal("XCS:SND:T2:TH", name="cc1 motor")
@@ -203,6 +208,7 @@ phase1_results = align_phase1(
     steps=81,
     shots_per_step=1,
 )
+RE(bps.mv(snd.cc_shutter,5,snd.delay_shutter,5))
 #
 #snd.propagate_delay()
 #phase1_summary = phase1_summary_df(

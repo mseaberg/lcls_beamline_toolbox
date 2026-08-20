@@ -103,7 +103,7 @@ def learn_phase1_offset(
         RE(bps.mv(sim_motor, sim_center))
         RE(bps.mv(hw_motor, hw_center))
 
-    offset = hw_center - sim_center
+    offset = sim_center - hw_center
 
     if write:
         importlib.import_module("epics").caput(offset_pv, offset)
